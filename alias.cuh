@@ -1,10 +1,11 @@
 #include <cuda.h>
 // #include <thrust/host_vector.h>
 // #include <thrust/device_vector.h>
+#include <curand.h>
+#include <curand_kernel.h>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-
 #define VECTOR_SHMEM_SIZE 32
 #define TID (threadIdx.x + blockIdx.x * blockDim.x)
 #define LID (threadIdx.x % 32)
@@ -23,7 +24,24 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
       exit(code);
   }
 }
-
+__device__ char char_atomicCAS(char *addr, char cmp, char val) {
+  unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr) &
+                                                   (0xFFFFFFFFFFFFFFFCULL));
+  unsigned al_offset = ((unsigned)(((unsigned long long)addr) & 3)) * 8;
+  unsigned mask = 0xFFU;
+  mask <<= al_offset;
+  mask = ~mask;
+  unsigned sval = val;
+  sval <<= al_offset;
+  unsigned old = *al_addr, assumed, setval;
+  do {
+    assumed = old;
+    setval = assumed & mask;
+    setval |= sval;
+    old = atomicCAS(al_addr, assumed, setval);
+  } while (assumed != old);
+  return (char)((assumed >> al_offset) & 0xFFU);
+}
 template <typename T> struct array { T data[32]; };
 
 template <typename T>
@@ -95,7 +113,7 @@ template <typename T> struct Vector {
     cudaMalloc(&data, _capacity * sizeof(T));
     use_self_buffer = true;
   }
-  __host__ __device__ void use_buffer(T *_data, int _cap) {
+  __device__ void use_buffer(T *_data, int _cap) {
     data = _data;
     capacity = _cap;
     size = 0;
@@ -108,14 +126,6 @@ template <typename T> struct Vector {
       printf("vector overflow");
   }
   __device__ void clean() { size = 0; }
-  // T pop()
-  // {
-  //     size_t old = atomicSub(&size, 1);
-  //     if (old > 0)
-  //         return data[old];
-  //     else
-  //         printf("vector overflow");
-  // }
   __device__ bool empty() {
     if (size == 0)
       return true;
@@ -148,7 +158,7 @@ template <typename T> struct alias_table {
 
   // to roll
   Vector<char> selected;
-  // Vector<T> small;
+  Vector<T> result;
 
   alias_table() {}
 
@@ -177,12 +187,15 @@ template <typename T> struct alias_table {
     }
   }
   __device__ void init_buffer(T *buf1, T *buf2, T *buf3, float *buf4,
-                              float *buf5, int size) {
+                              float *buf5, char *buf6, T *buf7, int size,
+                              int size2) {
     large.use_buffer(buf1, size);
     small.use_buffer(buf2, size);
     alias.use_buffer(buf3, size);
     prob.use_buffer(buf4, size);
     weights.use_buffer(buf5, size);
+    selected.use_buffer(buf6, size);
+    result.use_buffer(buf7, size2);
   }
   __device__ T normalize() {
     float scale = size / weight_sum;
@@ -191,8 +204,47 @@ template <typename T> struct alias_table {
       // weights[i] *= scale;
     }
   }
-  __device__ T roll() {}
-  __device__ T clear() {}
+  // another version to check size for better parallelism?
+  __device__ void roll(Vector<T> *v, int count) {
+    curandState state;
+    for (size_t i = LID; i < count; i += 32) {
+      curand_init((unsigned long long)clock() + TID, 0, 0, &state);
+      bool suc = roll_once(v, state);
+      int itr = 1;
+      while (!suc) {
+        curand_init((unsigned long long)clock() + TID, 0, 0, &state);
+        suc = roll_once(v, state);
+        itr++;
+        if (itr > 100)
+          return;
+      }
+      // if (LID==0)
+      // {
+      //   printf("itr: %d till done\n",itr);
+      // }
+      
+    }
+  }
+  __device__ bool roll_once(Vector<T> *v, curandState local_state) {
+
+    int col = (int)floor(curand_uniform(&local_state) * size);
+    float p = curand_uniform(&local_state);
+    // printf("tid %d col %d p %f\n", LID, col, p);
+    int candidate;
+    if (p < prob[col]) {
+      candidate = col;
+    } else {
+      candidate = alias[col];
+    }
+    char updated = char_atomicCAS(&selected[candidate], 0, 1);
+    if (!updated) {
+      v->add(candidate);
+      // printf("tid %d suc sampled %d\n",LID, candidate);
+      return true;
+    } else
+      return false;
+  }
+  __device__ void clear() {}
   __device__ void construct() {
     int lane_id = threadIdx.x % 32;
 
@@ -265,14 +317,14 @@ template <typename T> struct alias_table {
       }
       if (LID == 0) {
         printf("itr: %d\n", itr++);
-        printf("large: ");
-        printD(large.data, large.size);
-        printf("small: ");
-        printD(small.data, small.size);
-        printf("prob: ");
-        printD(prob.data, prob.size);
-        printf("alias: ");
-        printD(alias.data, alias.size);
+        // printf("large: ");
+        // printD(large.data, large.size);
+        // printf("small: ");
+        // printD(small.data, small.size);
+        // printf("prob: ");
+        // printD(prob.data, prob.size);
+        // printf("alias: ");
+        // printD(alias.data, alias.size);
       }
       // if (itr == 5)
       // return;
