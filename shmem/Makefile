@@ -1,6 +1,6 @@
 all: util alias_table alias
 
-CUFLAG= -G -g -rdc=true -gencode=arch=compute_75,code=sm_75
+CUFLAG= -G -g -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11
 
 util: util.cuh util.cu
 	nvcc util.cu  $(CUFLAG) -c 
