@@ -25,6 +25,15 @@ inline __device__ char char_atomicCAS(char *addr, char cmp, char val) {
   return (char)((assumed >> al_offset) & 0xFFU);
 }
 
+template <typename T>
+__device__ void AddTillSize(T *array, uint32_t *size, T t, u64 target_size) {
+  u64 old = atomicAdd(size, 1);
+  if (old < target_size) {
+    array[old] = t;
+  } else
+    printf("vector overflow");
+}
+
 template <typename T> struct alias_table_shmem {
 
   // u64 degree;
@@ -55,12 +64,12 @@ template <typename T> struct alias_table_shmem {
       local_sum += _weights[i];
     }
     tmp = warpReduce<float>(local_sum, LID);
-// #ifdef verbose
-//     if (LID == 0) {
-//       weight_sum = tmp;
-//       printf("sum: %f\n", tmp);
-//     }
-// #endif // verbose
+    // #ifdef verbose
+    //     if (LID == 0) {
+    //       weight_sum = tmp;
+    //       printf("sum: %f\n", tmp);
+    //     }
+    // #endif // verbose
     normalize();
   }
   __device__ void Init() {
@@ -91,7 +100,7 @@ template <typename T> struct alias_table_shmem {
     while (v.Size() < count) {
       for (size_t i = v.Size() + LID; i < count; i += 32) {
         curand_init((unsigned long long)clock() + TID, 0, 0, &state);
-        roll_once(v, state);
+        roll_once(v, state, count);
       }
       // break;
       itr++;
@@ -104,8 +113,28 @@ template <typename T> struct alias_table_shmem {
       printf("itr: %d till done\n", itr);
     }
   }
+  __device__ void roll_atomic(T *array, int count) {
+    curandState state;
+    int itr = 1;
+    __shared__ uint32_t sizes[WARP_PER_SM];
+    uint32_t *local_size = &sizes[WID];
+    if (LID == 0)
+      *local_size = 0;
+    while (*local_size < count) {
+      for (size_t i = *local_size + LID; i < count; i += 32) {
+        curand_init((unsigned long long)clock() + TID, 0, 0, &state);
+        roll_once(array, local_size, state, count);
+      }
+      itr++;
+      if (itr > 10)
+        break;
+    }
+    if (LID == 0) {
+      printf("itr: %d till done\n", itr);
+    }
+  }
 
-  __device__ void roll(Vector<T> v, int count) {
+  __device__ void roll(Vector<T> v, int count, size_t target_size) {
     curandState state;
     for (size_t i = LID; i < count; i += 32) {
       curand_init((unsigned long long)clock() + TID, 0, 0, &state);
@@ -113,7 +142,8 @@ template <typename T> struct alias_table_shmem {
       int itr = 1;
       while (!suc) {
         curand_init((unsigned long long)clock() + TID, 0, 0, &state);
-        suc = roll_once(v, state);
+        // suc = roll_once(v, state);
+        suc = roll_once(v, state, count);
         itr++;
         if (itr > 100)
           return;
@@ -124,7 +154,8 @@ template <typename T> struct alias_table_shmem {
       // }
     }
   }
-  __device__ bool roll_once(Vector<T> v, curandState local_state) {
+  __device__ bool roll_once(T *array, uint32_t *local_size,
+                            curandState local_state, size_t target_size) {
 
     int col = (int)floor(curand_uniform(&local_state) * size);
     float p = curand_uniform(&local_state);
@@ -137,7 +168,29 @@ template <typename T> struct alias_table_shmem {
     }
     char updated = char_atomicCAS(&selected[candidate], 0, 1);
     if (!updated) {
-      v.add(candidate);
+      // v.add(candidate);
+      AddTillSize(array, local_size, candidate, target_size);
+      // printf("tid %d suc sampled %d\n",LID, candidate);
+      return true;
+    } else
+      return false;
+  }
+  __device__ bool roll_once(Vector<T> v, curandState local_state,
+                            size_t target_size) {
+
+    int col = (int)floor(curand_uniform(&local_state) * size);
+    float p = curand_uniform(&local_state);
+    // printf("tid %d col %d p %f\n", LID, col, p);
+    int candidate;
+    if (p < prob[col]) {
+      candidate = col;
+    } else {
+      candidate = alias[col];
+    }
+    char updated = char_atomicCAS(&selected[candidate], 0, 1);
+    if (!updated) {
+      // v.add(candidate);
+      v.AddTillSize(candidate, target_size);
       // printf("tid %d suc sampled %d\n",LID, candidate);
       return true;
     } else
@@ -213,17 +266,17 @@ template <typename T> struct alias_table_shmem {
           small.Add(smallV);
         }
       }
-      if (LID == 0) {
-        printf("itr: %d\n", itr++);
-        printf("large: ");
-        printD(large.data, large.size);
-        printf("small: ");
-        printD(small.data, small.size);
-        printf("prob: ");
-        printD(prob.data, prob.size);
-        printf("alias: ");
-        printD(alias.data, alias.size);
-      }
+      // if (LID == 0) {
+      //   printf("itr: %d\n", itr++);
+      //   printf("large: ");
+      //   printD(large.data, large.size);
+      //   printf("small: ");
+      //   printD(small.data, small.size);
+      //   printf("prob: ");
+      //   printD(prob.data, prob.size);
+      //   printf("alias: ");
+      //   printD(alias.data, alias.size);
+      // }
       // if (itr == 5)
       // return;
     }

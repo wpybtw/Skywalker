@@ -28,6 +28,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
   }
 }
 __device__ void active_size(int n);
+
+
 // __device__ char char_atomicCAS(char *addr, char cmp, char val) {
 //   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr)
 //   &

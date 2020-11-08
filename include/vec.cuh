@@ -26,12 +26,14 @@ public:
 
 template <typename T> struct buf { T data[ELE_PER_WARP]; };
 
+
+
 template <typename T> struct Vector_shmem {
   u64 size = 0;
   u64 capacity = ELE_PER_WARP;
   T data[ELE_PER_WARP];
 
-  __device__ void Init(size_t s=0) {
+  __device__ void Init(size_t s = 0) {
     if (LID == 0) {
       capacity = ELE_PER_WARP;
       size = s;
@@ -99,6 +101,14 @@ public:
     if (old < *capacity)
       data[old] = t;
     else
+      printf("vector overflow");
+  }
+  __device__ void AddTillSize(T t, u64 target_size) {
+    u64 old = atomicAdd(size, 1);
+    if (old < *capacity) {
+      if (old < target_size)
+        data[old] = t;
+    } else
       printf("vector overflow");
   }
   __device__ void clean() { *size = 0; }
