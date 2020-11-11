@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+
+
 #include <stdio.h>
 static void HandleError( cudaError_t err,
                          const char *file,
@@ -14,7 +16,6 @@ static void HandleError( cudaError_t err,
 }
 #define H_ERR( err ) \
   (HandleError( err, __FILE__, __LINE__ ))
-
 
 // #define SML_MID 32	
 // #define MID_LRG 1024	

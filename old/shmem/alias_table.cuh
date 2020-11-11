@@ -204,16 +204,16 @@ template <typename T> struct alias_table_shmem {
         small.Add(i);
     }
     active_size(__LINE__);
-    // if (LID == 0) {
-    //   printf("large: ");
-    //   printD(large.data, large.size);
-    //   printf("small: ");
-    //   printD(small.data, small.size);
-    //   printf("prob: ");
-    //   printD(prob.data, prob.size);
-    //   printf("alias: ");
-    //   printD(alias.data, alias.size);
-    // }
+    if (LID == 0) {
+      printf("large: ");
+      printD(large.data, large.size);
+      printf("small: ");
+      printD(small.data, small.size);
+      printf("prob: ");
+      printD(prob.data, prob.size);
+      printf("alias: ");
+      printD(alias.data, alias.size);
+    }
     int itr = 0;
     if (LID == 0) {
       prob.size = size;

@@ -1,18 +1,22 @@
-#ifndef __TIME_H__
-#define __TIME_H__
+// #ifndef __TIME_H__
+// #define __TIME_H__
 
-#include <stdlib.h>
-#include <sys/time.h>
+// #include <stdlib.h>
+// #include <sys/time.h>
 
-double wtime() {
-  double time[2];
-  struct timeval time1;
-  gettimeofday(&time1, NULL);
+// namespace Sampling
+// {
 
-  time[0] = time1.tv_sec;
-  time[1] = time1.tv_usec;
+//   double wtime()
+//   {
+//     double time[2];
+//     struct timeval time1;
+//     gettimeofday(&time1, NULL);
 
-  return time[0] + time[1] * 1.0e-6;
-}
+//     time[0] = time1.tv_sec;
+//     time[1] = time1.tv_usec;
 
-#endif
+//     return time[0] + time[1] * 1.0e-6;
+//   }
+// } // namespace Sampling
+// #endif

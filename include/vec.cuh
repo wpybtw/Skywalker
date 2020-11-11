@@ -2,7 +2,7 @@
 
 #define SHMEM_SIZE 49152
 
-#define BLOCK_SIZE 1024
+#define BLOCK_SIZE 256
 #define WARP_PER_SM (BLOCK_SIZE / 32)
 
 #define SHMEM_PER_WARP (SHMEM_SIZE / WARP_PER_SM)
@@ -10,7 +10,7 @@
 #define TMP_PER_ELE (4 + 4 + 4 + 4 + 1)
 
 // alignment
-#define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 8)
+#define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 9)  //8
 
 template <typename T> class Vector_itf {
 public:
@@ -95,13 +95,13 @@ public:
     cudaMalloc(&data, _capacity * sizeof(T));
     use_self_buffer = true;
   }
-  __host__ __device__ u64 &Size() { return *size; }
+  __host__ __device__ volatile  u64 &Size() { return *size; }
   __device__ void add(T t) {
     u64 old = atomicAdd(size, 1);
     if (old < *capacity)
       data[old] = t;
     else
-      printf("vector overflow");
+      printf("vector overflow %d\n",old);
   }
   __device__ void AddTillSize(T t, u64 target_size) {
     u64 old = atomicAdd(size, 1);
@@ -109,7 +109,7 @@ public:
       if (old < target_size)
         data[old] = t;
     } else
-      printf("vector overflow");
+      printf("already full %d\n",old);
   }
   __device__ void clean() { *size = 0; }
   __device__ bool empty() {

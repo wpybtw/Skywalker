@@ -6,16 +6,23 @@
 #include <curand_kernel.h>
 #include <cooperative_groups.h>
 using namespace cooperative_groups;
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+
+// #define check
+
 #define u64 unsigned long long int
 #define TID (threadIdx.x + blockIdx.x * blockDim.x)
+#define TBID (blockIdx.x)
 #define LID (threadIdx.x % 32)
 #define WID (threadIdx.x / 32)
+#define GWID (TID / 32)
 #define MIN(x, y) ((x < y) ? x : y)
 #define MAX(x, y) ((x > y) ? x : y)
 #define P printf("%d\n", __LINE__)
+#define paster(n) printf("var: " #n " =  %d\n", n)
 #define HERR(ans)                                                              \
   { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
@@ -29,6 +36,10 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
 }
 __device__ void active_size(int n);
 
+__device__ void __conv();
+#include <stdlib.h>
+#include <sys/time.h>
+double wtime();
 
 // __device__ char char_atomicCAS(char *addr, char cmp, char val) {
 //   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr)
@@ -74,6 +85,7 @@ __inline__ __device__ T warpReduce(T val, int lane_id) {
 template <typename T> void printH(T *ptr, int size);
 __device__ void printD(float *ptr, int size);
 __device__ void printD(int *ptr, int size);
+__device__ void printD(uint *ptr, int size);
 // template <typename T> __global__ void init_range_d(T *ptr, size_t size);
 // template <typename T> void init_range(T *ptr, size_t size);
 // template <typename T> __global__ void init_array_d(T *ptr, size_t size, T v);

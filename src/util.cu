@@ -19,7 +19,6 @@
 //   return (char)((assumed >> al_offset) & 0xFFU);
 // }
 
-
 // template <typename T>
 // __inline__ __device__ T warpPrefixSum(T val, int lane_id) {
 //   T val_shuffled;
@@ -31,33 +30,64 @@
 //   }
 //   return val;
 // }
-__device__ void active_size(int n=0) {
+double wtime()
+{
+  double time[2];
+  struct timeval time1;
+  gettimeofday(&time1, NULL);
+
+  time[0] = time1.tv_sec;
+  time[1] = time1.tv_usec;
+
+  return time[0] + time[1] * 1.0e-6;
+}
+__device__ void __conv(){
+  coalesced_group active = coalesced_threads();
+}
+__device__ void active_size(int n = 0)
+{
   coalesced_group active = coalesced_threads();
   if (active.thread_rank() == 0)
-    printf("coalesced_group %d at line %d\n", active.size(),n);
+    printf("WID: %d coalesced_group %llu at line %d\n", WID, active.size(), n);
 }
-template <typename T> void printH(T *ptr, int size) {
+template <typename T>
+void printH(T *ptr, int size)
+{
   T *ptrh = new T[size];
   HERR(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
   printf("printH: ");
-  for (size_t i = 0; i < size; i++) {
+  for (size_t i = 0; i < size; i++)
+  {
     // printf("%d\t", ptrh[i]);
     std::cout << ptrh[i] << "\t";
   }
   printf("\n");
   delete ptrh;
 }
-__device__ void printD(float *ptr, int size) {
-  printf("printDf: size%d, ", size);
-  for (size_t i = 0; i < size; i++) {
+__device__ void printD(float *ptr, int size)
+{
+  printf("printDf: size %d, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
     printf("%f\t", ptr[i]);
   }
   printf("\n");
 }
-__device__ void printD(int *ptr, int size) {
-  printf("printDi: size%d, ", size);
-  for (size_t i = 0; i < size; i++) {
+__device__ void printD(int *ptr, int size)
+{
+  printf("printDi: size %d, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
     printf("%d\t", ptr[i]);
+  }
+  printf("\n");
+}
+__device__ void printD(uint32_t *ptr, int size)
+{
+  printf("printDi: size %d, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
+    printf("%u\t", ptr[i]);
   }
   printf("\n");
 }

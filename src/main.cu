@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -14,11 +13,14 @@
 
 #include "graph.h"
 #include "gpu_graph.cuh"
+#include "sampler.cuh"
 
 using namespace std;
 
-int main(int argc, char *argv[]) {
-  if (argc != 11) {
+int main(int argc, char *argv[])
+{
+  if (argc != 11)
+  {
     std::cout << "Input: ./exe <dataset name> <beg file> <csr file> "
                  "<ThreadBlocks> <Threads> <# of samples> <FrontierSize> "
                  "<NeighborSize> <Depth/Length> <#GPUs>\n";
@@ -43,20 +45,27 @@ int main(int argc, char *argv[]) {
           beg_file, csr_file, weight_file);
   gpu_graph ggraph(ginst);
 
-//   double global_max_time, global_min_time;
-//   int global_sampled_edges;
-//   struct arguments args;
+  Sampler Sampler(ggraph);
 
-//   int global_sum;
-//   SampleSize = SampleSize / total_GPU;
+  uint32_t hops[3]{1, 2, 2};
 
-//   args = Sampler(argv[2], argv[3], n_blocks, n_threads, SampleSize,
-//                  FrontierSize, NeighborSize, Depth, args, myrank);
+  Sampler.SetSeed(SampleSize, 3, hops);
+  Start(Sampler);
 
-//   float rate = global_sampled_edges / global_max_time / 1000000;
-//   if (myrank == 0) {
-//     printf("%s,%f,%f\n", argv[1], global_min_time, global_max_time);
-//   }
+  //   double global_max_time, global_min_time;
+  //   int global_sampled_edges;
+  //   struct arguments args;
+
+  //   int global_sum;
+  //   SampleSize = SampleSize / total_GPU;
+
+  //   args = Sampler(argv[2], argv[3], n_blocks, n_threads, SampleSize,
+  //                  FrontierSize, NeighborSize, Depth, args, myrank);
+
+  //   float rate = global_sampled_edges / global_max_time / 1000000;
+  //   if (myrank == 0) {
+  //     printf("%s,%f,%f\n", argv[1], global_min_time, global_max_time);
+  //   }
 
   return 0;
 }
