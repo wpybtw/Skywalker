@@ -3,7 +3,7 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-__global__ void sample_kernel_ptr(Sampler *sampler)
+__global__ void sample_kernel(Sampler *sampler)
 {
   __shared__ alias_table_shmem<uint32_t> tables[WARP_PER_SM];
   alias_table_shmem<uint32_t> *table = &tables[WID];
@@ -108,7 +108,7 @@ void Start(Sampler sampler)
                    sizeof(Sampler), cudaMemcpyHostToDevice));
 
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
-  sample_kernel_ptr<<<n_sm, 256, 0, 0>>>(sampler_ptr);
+  sample_kernel<<<n_sm, 256, 0, 0>>>(sampler_ptr);
 #ifdef check
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 #endif
