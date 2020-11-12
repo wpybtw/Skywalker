@@ -234,7 +234,7 @@ template <typename T> struct alias_table_shmem {
         // bool holder = (old_small_id / large.size == 0);
         bool holder = (LID < MIN(large.size, 32)) ? true : false;
 
-        T largeV = large[large.size - res - 1];
+        T largeV = large[large.size - res - 1];  //large.size cloud error
         // printf("lid %d largeV %d  smallV %d holder %d\n", LID, largeV,
         // smallV,
         //        holder);
