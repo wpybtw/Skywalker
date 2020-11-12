@@ -57,7 +57,7 @@ public:
     for (int n = 0; n < num_seed; ++n)
     {
       // seeds[n] = dis(gen);
-       seeds[n] =n;
+      seeds[n] = n+1500;
       // seeds[n] =22;
       // h_sample_id[n] = 0;
       // h_depth_tracker[n] = 0;
@@ -72,10 +72,7 @@ public:
   }
   // void Start();
 };
-void Start(Sampler sampler);
-// template<typename graph>
+// template<typename T> 
+// __device__ void SampleUsingShmem(sample_result &result, gpu_graph &ggraph, alias_table_shmem<uint32_t> *table, sample_job &job);
 
-// __device__ index_t getBias(index_t idx)
-// 	{
-// 		return beg_pos[idx + 1] - beg_pos[idx];
-// 	}
+void Start(Sampler sampler);

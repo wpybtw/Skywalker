@@ -96,7 +96,7 @@ struct alias_table_shmem
     normalize();
   }
   // template<typename Func>
-  __device__ void loadFromGraph(T *_ids, gpu_graph graph, size_t _size, uint32_t _current_itr)
+  __device__ bool loadFromGraph(T *_ids, gpu_graph graph, size_t _size, uint32_t _current_itr)
   {
     if (LID == 0)
     {
@@ -120,7 +120,7 @@ struct alias_table_shmem
       // printf("sum: %f\n", tmp);
       // #endif // verbose
     }
-    normalize_from_graph(graph);
+    bool not_all_zero = normalize_from_graph(graph);
     // if (LID == 0)
     // {
     // printf("size: %llu\n", size);
@@ -128,6 +128,7 @@ struct alias_table_shmem
     // printD(prob.data, prob.Size());
     // }
     __syncwarp(0xffffffff);
+    return not_all_zero;
   }
   __device__ void Init()
   {
@@ -145,18 +146,27 @@ struct alias_table_shmem
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32)
     {
+      if (size > 250)
+        printf("size %d> WARP_PER_SM )\n", size);
       prob[i] = weights[i] * scale;
     }
   }
-  __device__ void normalize_from_graph(gpu_graph graph)
+  __device__ bool normalize_from_graph(gpu_graph graph)
   {
     // active_size(__LINE__);
+    if (weight_sum == 0.0)
+      return false;
+    // if (weight_sum == 0.0 && LID == 0)
+    // {
+    //   printf("zero sum weight\n");
+    // }
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32)
     {
       prob[i] = graph.getBias(ids[i]) * scale;
     }
     // printf("%s\t %s :%d\n",__FILE__,__PRETTY_FUNCTION__,__LINE__);
+    return true;
   }
   __device__ void Clean()
   {
