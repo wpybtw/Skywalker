@@ -30,20 +30,6 @@ public:
 
 public:
   Sampler(gpu_graph graph) { ggraph = graph; }
-  // (gpu_graph graph, int n_subgraph, int FrontierSize,
-  //        int NeighborSize, int Depth)
-  // {
-  //   int *total = (int *)malloc(sizeof(int) * n_subgraph);
-  //   int *host_counter = (int *)malloc(sizeof(int));
-  //   // int T_Group = n_threads / 32;
-  //   int each_subgraph = Depth * NeighborSize;
-  //   int total_length = each_subgraph * n_subgraph;
-  //   // int neighbor_length_max = n_blocks * 6000 * T_Group;
-  //   // int PER_BLOCK_WARP = T_Group;
-  //   int BUCKET_SIZE = 125;
-  //   int BUCKETS = 32;
-  //   // int warps = n_blocks * T_Group;
-  // }
   ~Sampler() {}
   void SetSeed(uint _num_seed, uint _hop_num,
                uint *_hops)
@@ -72,7 +58,6 @@ public:
   }
   // void Start();
 };
-// template<typename T> 
-// __device__ void SampleUsingShmem(sample_result &result, gpu_graph &ggraph, alias_table_shmem<uint> *table, sample_job &job);
+
 
 void Start(Sampler sampler);
