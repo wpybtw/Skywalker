@@ -1,7 +1,7 @@
 all: main
 # util sampler main
 
-CUFLAG= -keep  -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -G -g 
+CUFLAG= -keep  -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage # -G -g 
 # CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage
 
 main: main.cu util.cu sampler.cu

@@ -3,39 +3,37 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-__device__ void SampleUsingShmem(sample_result &result, gpu_graph &ggraph, alias_table_shmem<uint32_t> *table, sample_job &job, curandState state, int current_itr)
+__device__ void SampleUsingShmem(sample_result &result, gpu_graph *ggraph, alias_table_shmem<uint> *table, curandState state, int current_itr, int idx, int node_id)
 {
-  while (job.val)
-  {
+
 #ifdef check
-    if (LID == 0)
-      printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n", GWID, current_itr, job.idx, job.node_id, ggraph.getDegree(job.node_id));
+  if (LID == 0)
+    printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n", GWID, current_itr, idx, node_id, ggraph->getDegree(node_id));
 #endif
-    bool not_all_zero = table->loadFromGraph(ggraph.getNeighborPtr(job.node_id), ggraph, ggraph.getDegree(job.node_id), current_itr, job.node_id);
-    if (not_all_zero)
-    {
-      table->construct();
-      uint32_t target_size = MIN(ggraph.getDegree(job.node_id), result.hops[current_itr + 1]);
-      if (target_size > ELE_PER_WARP && LID == 0)
-        printf("high degree %d potential overflow \n", target_size);
-      table->roll_atomic(result.getNextAddr(current_itr), target_size, &state, result);
-    }
-    table->Clean();
-    if (LID == 0)
-      job = result.requireOneJob(current_itr);
-    job.idx = __shfl_sync(0xffffffff, job.idx, 0);
-    job.val = __shfl_sync(0xffffffff, job.val, 0);
-    job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
+  bool not_all_zero = table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph, ggraph->getDegree(node_id), current_itr, node_id);
+  if (not_all_zero)
+  {
+    table->construct();
+    uint target_size = MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
+    if (target_size > ELE_PER_WARP && LID == 0)
+      printf("high degree %d potential overflow \n", target_size);
+    table->roll_atomic(result.getNextAddr(current_itr), target_size, &state, result);
   }
+  table->Clean();
+  // if (LID == 0)
+  //   job = result.requireOneJob(current_itr);
+  // job.idx = __shfl_sync(0xffffffff, job.idx, 0);
+  // job.val = __shfl_sync(0xffffffff, job.val, 0);
+  // job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
 }
 
 __global__ void sample_kernel(Sampler *sampler)
 {
-  __shared__ alias_table_shmem<uint32_t> tables[WARP_PER_SM];
-  alias_table_shmem<uint32_t> *table = &tables[WID];
+  __shared__ alias_table_shmem<uint> tables[WARP_PER_SM];
+  alias_table_shmem<uint> *table = &tables[WID];
   // int wid = WID;
   sample_result &result = sampler->result;
-  gpu_graph &ggraph = sampler->ggraph;
+  gpu_graph *ggraph = &sampler->ggraph;
 
   curandState state;
   curand_init(TID, 0, 0, &state);
@@ -44,7 +42,7 @@ __global__ void sample_kernel(Sampler *sampler)
   //   printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
 
   // bool finished; //notFinish
-  __shared__ uint32_t current_itr;
+  __shared__ uint current_itr;
   if (threadIdx.x == 0)
     current_itr = 0;
   __syncthreads();
@@ -55,21 +53,27 @@ __global__ void sample_kernel(Sampler *sampler)
     sample_job job;
     if (LID == 0)
       job = result.requireOneJob(current_itr);
+    __syncwarp(0xffffffff);
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
     if (job.val)
     {
-      if (ggraph.getDegree(job.node_id) < ELE_PER_WARP)
+      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP)
       {
-        if (ggraph.getDegree(job.node_id) >= ELE_PER_WARP)
+        if (ggraph->getDegree(job.node_id) >= ELE_PER_WARP)
           printf("go into wrong func\n");
-        SampleUsingShmem(result, ggraph, table, job, state, current_itr);
+        SampleUsingShmem(result, ggraph, table, state, current_itr, job.idx, job.node_id);
+        if (LID == 0)
+          job = result.requireOneJob(current_itr);
+        job.idx = __shfl_sync(0xffffffff, job.idx, 0);
+        job.val = __shfl_sync(0xffffffff, job.val, 0);
+        job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
       }
       else
       {
         if (LID == 0)
-          printf("need larger buf for id %d degree %d \n", job.node_id, ggraph.getDegree(job.node_id));
+          printf("need larger buf for id %d degree %d \n", job.node_id, ggraph->getDegree(job.node_id));
       }
     }
 
@@ -142,8 +146,8 @@ void Start(Sampler sampler)
 
 // __global__ void sample_kernel(Sampler sampler)
 // {
-//   __shared__ alias_table_shmem<uint32_t> tables[WARP_PER_SM];
-//   alias_table_shmem<uint32_t> *table = &tables[WID];
+//   __shared__ alias_table_shmem<uint> tables[WARP_PER_SM];
+//   alias_table_shmem<uint> *table = &tables[WID];
 //   int wid = WID;
 
 //   curandState state;
@@ -158,9 +162,9 @@ void Start(Sampler sampler)
 //     sample_job job;
 //     if (LID == 0)
 //       job = sampler.result.requireOneJob();
-//     uint32_t idx = __shfl_sync(0xffffffff, job.idx, 0);
+//     uint idx = __shfl_sync(0xffffffff, job.idx, 0);
 //     bool val = __shfl_sync(0xffffffff, job.val, 0);
-//     uint32_t node_id = __shfl_sync(0xffffffff, job.node_id, 0);
+//     uint node_id = __shfl_sync(0xffffffff, job.node_id, 0);
 //     while (val)
 //     {
 //       if (LID == 0)
@@ -169,7 +173,7 @@ void Start(Sampler sampler)
 //       // table->Init();
 //       table->loadFromGraph(sampler.ggraph.getNeighborPtr(node_id), sampler.ggraph, sampler.ggraph.getDegree(node_id));
 //       table->construct();
-//       uint32_t target_size = MIN(sampler.ggraph.getDegree(node_id), sampler.result.hops[sampler.result.current_itr + 1]);
+//       uint target_size = MIN(sampler.ggraph.getDegree(node_id), sampler.result.hops[sampler.result.current_itr + 1]);
 //       if (target_size > 0)
 //         table->roll_atomic(sampler.result.getAddr(idx, sampler.result.current_itr), target_size, &state, sampler.result); //(T *array, int count, curandState *state, sample_result job)
 //       if (LID == 0)

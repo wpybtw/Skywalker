@@ -35,8 +35,8 @@ struct buf
 template <typename T>
 struct Vector_shmem
 {
-  uint32_t size = 0;
-  uint32_t capacity = ELE_PER_WARP;
+  uint size = 0;
+  uint capacity = ELE_PER_WARP;
   T data[ELE_PER_WARP];
   char *name;
 
@@ -57,28 +57,33 @@ struct Vector_shmem
     if (LID == 0)
     {
       name = _name;
-      capacity = ELE_PER_WARP;
+      // capacity = ELE_PER_WARP;
       size = s;
     }
+    capacity = ELE_PER_WARP;
     for (size_t i = LID; i < capacity; i += 32)
     {
       data[i] = 0;
     }
   }
-  __device__ uint32_t Size() { return size; }
+  __device__ volatile uint Size() { return size; }
   __device__ void Add(T t)
   {
-    uint32_t old = atomicAdd(&size, 1);
-    if (old < capacity)
+    if (Size() < ELE_PER_WARP)
     {
-      if (old >= ELE_PER_WARP)
-        printf("LINE: %d Add too large %lu, size %lld  capacity %lld \n", __LINE__, (unsigned long)old, (long long)size,(long long)capacity);
-      data[old] = t;
-    }
-    else
-    {
-      if (LID == 0)
-        printf("Vector_shmem %s overflow %u\n", *name, old);
+      uint old = atomicAdd(&size, 1);
+      if (old < capacity)
+      {
+        // if (old >= ELE_PER_WARP)
+        //   printf("LINE: %d Add too large %u, size %u  capacity %u \n", __LINE__, old, size, capacity);
+        data[old] = t;
+      }
+      else
+      {
+        atomicDec(&size, 1);
+        // if (LID == 0)
+        //   printf("Vector_shmem %s overflow %u\n", *name, old);
+      }
     }
   }
   __device__ void Clean() { size = 0; }

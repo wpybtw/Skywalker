@@ -82,7 +82,7 @@ __device__ void printD(int *ptr, int size)
   }
   printf("\n");
 }
-__device__ void printD(uint32_t *ptr, int size)
+__device__ void printD(uint *ptr, int size)
 {
   printf("printDi: size %d, ", size);
   for (size_t i = 0; i < size; i++)

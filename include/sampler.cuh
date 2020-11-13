@@ -26,7 +26,7 @@ class Sampler
 public:
   gpu_graph ggraph;
   sample_result result;
-  uint32_t num_seed;
+  uint num_seed;
 
 public:
   Sampler(gpu_graph graph) { ggraph = graph; }
@@ -45,15 +45,15 @@ public:
   //   // int warps = n_blocks * T_Group;
   // }
   ~Sampler() {}
-  void SetSeed(uint32_t _num_seed, uint32_t _hop_num,
-               uint32_t *_hops)
+  void SetSeed(uint _num_seed, uint _hop_num,
+               uint *_hops)
   {
     printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
     num_seed = _num_seed;
     std::random_device rd;
     std::mt19937 gen(56);
     std::uniform_int_distribution<> dis(1, ggraph.vtx_num);
-    uint32_t *seeds = new uint32_t[num_seed];
+    uint *seeds = new uint[num_seed];
     for (int n = 0; n < num_seed; ++n)
     {
       // seeds[n] = dis(gen);
@@ -73,6 +73,6 @@ public:
   // void Start();
 };
 // template<typename T> 
-// __device__ void SampleUsingShmem(sample_result &result, gpu_graph &ggraph, alias_table_shmem<uint32_t> *table, sample_job &job);
+// __device__ void SampleUsingShmem(sample_result &result, gpu_graph &ggraph, alias_table_shmem<uint> *table, sample_job &job);
 
 void Start(Sampler sampler);

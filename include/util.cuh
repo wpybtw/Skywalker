@@ -64,6 +64,8 @@ __device__ void __conv();
 #include <sys/time.h>
 double wtime();
 
+using uint = unsigned int;
+
 // __device__ char char_atomicCAS(char *addr, char cmp, char val) {
 //   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr)
 //   &

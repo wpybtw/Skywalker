@@ -1,36 +1,36 @@
 #pragma once
 struct sample_job
 {
-  uint32_t idx;
-  uint32_t node_id;
+  uint idx;
+  uint node_id;
   bool val = false;
 };
 
 struct sample_result
 {
-  uint32_t size;
-  uint32_t hop_num;
-  uint32_t *hops;
-  // uint32_t *hops_acc;
-  uint32_t *addr_offset;
-  uint32_t *data;
+  uint size;
+  uint hop_num;
+  uint *hops;
+  // uint *hops_acc;
+  uint *addr_offset;
+  uint *data;
   int *job_sizes;
   int *job_sizes_h;
   int *job_sizes_floor;
-  uint32_t capacity;
-  // uint32_t current_itr = 0;
+  uint capacity;
+  // uint current_itr = 0;
   sample_result() {}
-  void init(uint32_t _size, uint32_t _hop_num,
-            uint32_t *_hops, uint32_t *seeds)
+  void init(uint _size, uint _hop_num,
+            uint *_hops, uint *seeds)
   {
     // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
     size = _size;
     hop_num = _hop_num;
-    cudaMalloc(&hops, hop_num * sizeof(uint32_t));
-    cudaMemcpy(hops, _hops, hop_num * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMalloc(&hops, hop_num * sizeof(uint));
+    cudaMemcpy(hops, _hops, hop_num * sizeof(uint), cudaMemcpyHostToDevice);
 
-    cudaMalloc(&addr_offset, hop_num * sizeof(uint32_t));
-    // cudaMalloc(&hops_acc, hop_num * sizeof(uint32_t));
+    cudaMalloc(&addr_offset, hop_num * sizeof(uint));
+    // cudaMalloc(&hops_acc, hop_num * sizeof(uint));
 
     // capacity = size;
     // for (size_t i = 0; i < _hop_num; i++)
@@ -48,8 +48,8 @@ struct sample_result
     capacity=offset;
 
     paster(capacity);
-    cudaMalloc(&data, capacity * sizeof(uint32_t));
-    cudaMemcpy(data, seeds, size * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMalloc(&data, capacity * sizeof(uint));
+    cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
 
     job_sizes_h = new int[hop_num];
     job_sizes_h[0] = size;
@@ -76,21 +76,21 @@ struct sample_result
       job_sizes_floor[i] = 0;
     }
   }
-  __device__ uint32_t *getNextAddr(uint32_t hop)
+  __device__ uint *getNextAddr(uint hop)
   {
-    // uint32_t offset =  ;// + hops[hop] * idx;
+    // uint offset =  ;// + hops[hop] * idx;
     return &data[addr_offset[hop+1]];
   }
-  __device__ uint32_t getNodeId(uint32_t idx, uint32_t hop)
+  __device__ uint getNodeId(uint idx, uint hop)
   {
     // paster(addr_offset[hop]);
     return data[addr_offset[hop] + idx];
   }
-  __device__ uint32_t getHopSize(uint32_t hop)
+  __device__ uint getHopSize(uint hop)
   {
     return hops[hop];
   }
-  __device__ uint32_t getFrontierSize(uint32_t hop)
+  __device__ uint getFrontierSize(uint hop)
   {
     uint64_t cum = size;
     for (size_t i = 0; i < hop; i++)
@@ -99,7 +99,7 @@ struct sample_result
     }
     return cum;
   }
-  __device__ struct sample_job requireOneJob(uint32_t current_itr) //uint32_t hop
+  __device__ struct sample_job requireOneJob(uint current_itr) //uint hop
   {
     sample_job job;
     // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
@@ -107,7 +107,7 @@ struct sample_result
     if (old < job_sizes[current_itr])
     {
       // printf("poping wl ele idx %d\n", old);
-      job.idx = (uint32_t)old;
+      job.idx = (uint)old;
       job.node_id = getNodeId(old, current_itr);
       job.val = true;
     }
@@ -118,21 +118,21 @@ struct sample_result
     }
     return job;
   }
-  __device__ void AddActive(uint32_t current_itr, uint32_t *array, uint32_t candidate)
+  __device__ void AddActive(uint current_itr, uint *array, uint candidate)
   {
 
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);
     array[old] = candidate;
     // printf("Add new ele %u to %d\n", candidate, old);
   }
-  __device__ void NextItr(uint32_t &current_itr)
+  __device__ void NextItr(uint &current_itr)
   {
     current_itr++;
     // printf("start itr %d at block %d \n", current_itr, blockIdx.x);
   }
 };
 
-// __device__ uint32_t *getAddr(uint32_t idx, uint32_t hop)
+// __device__ uint *getAddr(uint idx, uint hop)
 //   {
 //     // uint64_t offset = 0;
 //     // uint64_t cum = size;
@@ -141,6 +141,6 @@ struct sample_result
 //     //   cum *= hops[i];
 //     //   offset += cum;
 //     // }
-//     uint32_t offset = addr_offset[hop] ;// + hops[hop] * idx;
+//     uint offset = addr_offset[hop] ;// + hops[hop] * idx;
 //     return &data[offset];
 //   }

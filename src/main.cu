@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 
   Sampler Sampler(ggraph);
 
-  uint32_t hops[3]{1, 2, 2};
+  uint hops[3]{1, 2, 2};
 
   Sampler.SetSeed(SampleSize, 3, hops);
   Start(Sampler);
