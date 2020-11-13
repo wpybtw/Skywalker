@@ -57,7 +57,7 @@ public:
     for (int n = 0; n < num_seed; ++n)
     {
       // seeds[n] = dis(gen);
-      seeds[n] = n+1500;
+      seeds[n] = n;
       // seeds[n] =22;
       // h_sample_id[n] = 0;
       // h_depth_tracker[n] = 0;

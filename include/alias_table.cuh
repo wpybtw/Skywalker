@@ -9,31 +9,31 @@ template <typename T>
 struct alias_table;
 
 __global__ void load_id_weight();
-inline __device__ char char_atomicCAS(char *addr, char cmp, char val)
-{
-  unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr) &
-                                                   (0xFFFFFFFFFFFFFFFCULL));
-  unsigned al_offset = ((unsigned)(((unsigned long long)addr) & 3)) * 8;
-  unsigned mask = 0xFFU;
-  mask <<= al_offset;
-  mask = ~mask;
-  unsigned sval = val;
-  sval <<= al_offset;
-  unsigned old = *al_addr, assumed, setval;
-  do
-  {
-    assumed = old;
-    setval = assumed & mask;
-    setval |= sval;
-    old = atomicCAS(al_addr, assumed, setval);
-  } while (assumed != old);
-  return (char)((assumed >> al_offset) & 0xFFU);
-}
+// inline __device__ char char_atomicCAS(char *addr, char cmp, char val)
+// {
+//   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr) &
+//                                                    (0xFFFFFFFFFFFFFFFCULL));
+//   unsigned al_offset = ((unsigned)(((unsigned long long)addr) & 3)) * 8;
+//   unsigned mask = 0xFFU;
+//   mask <<= al_offset;
+//   mask = ~mask;
+//   unsigned sval = val;
+//   sval <<= al_offset;
+//   unsigned old = *al_addr, assumed, setval;
+//   do
+//   {
+//     assumed = old;
+//     setval = assumed & mask;
+//     setval |= sval;
+//     old = atomicCAS(al_addr, assumed, setval);
+//   } while (assumed != old);
+//   return (char)((assumed >> al_offset) & 0xFFU);
+// }
 
 // template <typename T>
 __device__ bool AddTillSize(uint32_t *size, size_t target_size) //T *array,       T t,
 {
-  u64 old = atomicAdd(size, 1);
+  uint32_t old = atomicAdd(size, 1);
   if (old < target_size)
   {
     // array[old] = t;
@@ -49,11 +49,13 @@ struct alias_table_shmem
 {
 
   // u64 degree;
-  u64 size;
+  uint32_t size;
   float weight_sum;
   T *ids;
   float *weights;
   uint32_t current_itr;
+  gpu_graph *ggraph;
+  int src_id;
 
   Vector_shmem<T> large;
   Vector_shmem<T> small;
@@ -61,12 +63,13 @@ struct alias_table_shmem
   Vector_shmem<float> prob;
 
   // to roll
-  Vector_shmem<char> selected;
+  // Vector_shmem<char> selected;
+  Vector_shmem<unsigned short int> selected;
   //   Vector_shmem<T> result;
 
   // __host__ __device__ u64 &Degree() { return degree; }
-  __host__ __device__ u64 &Size() { return size; }
-  __device__ void SetSize(u64 _size)
+  __host__ __device__ uint32_t Size() { return size; }
+  __device__ void SetSize(uint32_t _size)
   {
     if (LID == 0)
       size = _size;
@@ -75,6 +78,7 @@ struct alias_table_shmem
   {
     if (LID == 0)
     {
+
       size = _size;
       ids = _ids;
       weights = _weights;
@@ -96,13 +100,16 @@ struct alias_table_shmem
     normalize();
   }
   // template<typename Func>
-  __device__ bool loadFromGraph(T *_ids, gpu_graph graph, size_t _size, uint32_t _current_itr)
+  __device__ bool loadFromGraph(T *_ids, gpu_graph &graph, int _size, uint32_t _current_itr, int _src_id)
   {
     if (LID == 0)
     {
+      ggraph = &graph;
       current_itr = _current_itr;
-      size = _size;
+      // size = _size;
+      SetSize(_size);
       ids = _ids;
+      src_id = _src_id;
       // weights = _weights;
     }
     Init();
@@ -120,24 +127,33 @@ struct alias_table_shmem
       // printf("sum: %f\n", tmp);
       // #endif // verbose
     }
-    bool not_all_zero = normalize_from_graph(graph);
+    __syncwarp(0xffffffff);
+    if (weight_sum != 0.0)
+    {
+      normalize_from_graph(graph);
+      return true;
+    }
+    else
+    {
+      return false;
+    }
     // if (LID == 0)
     // {
     // printf("size: %llu\n", size);
     // printf("normalized: \n");
     // printD(prob.data, prob.Size());
     // }
-    __syncwarp(0xffffffff);
-    return not_all_zero;
+    // __syncwarp(0xffffffff);
+    // return not_all_zero;
   }
   __device__ void Init()
   {
-    // SetSize()
-    large.Init();
-    small.Init();
-    alias.Init(Size());
-    prob.Init(Size());
-    selected.Init();
+
+    large.Init("large");
+    small.Init("small");
+    alias.Init("alias", Size());
+    prob.Init("prob", Size());
+    selected.Init("selected", Size());
     // paster(Size());
   }
   __device__ void normalize()
@@ -151,11 +167,11 @@ struct alias_table_shmem
       prob[i] = weights[i] * scale;
     }
   }
-  __device__ bool normalize_from_graph(gpu_graph graph)
+  __device__ void normalize_from_graph(gpu_graph graph)
   {
     // active_size(__LINE__);
-    if (weight_sum == 0.0)
-      return false;
+    // if (weight_sum == 0.0)
+    //   return false;
     // if (weight_sum == 0.0 && LID == 0)
     // {
     //   printf("zero sum weight\n");
@@ -163,10 +179,10 @@ struct alias_table_shmem
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32)
     {
-      prob[i] = graph.getBias(ids[i]) * scale;
+      prob[i] = graph.getBias(ids[i]) * scale; //gdb error
     }
     // printf("%s\t %s :%d\n",__FILE__,__PRETTY_FUNCTION__,__LINE__);
-    return true;
+    // return true;
   }
   __device__ void Clean()
   {
@@ -312,6 +328,8 @@ struct alias_table_shmem
   {
 
     int col = (int)floor(curand_uniform(local_state) * size);
+    if (col < 0)
+      printf("col < 0.   %f\n", col);
     float p = curand_uniform(local_state);
 #ifdef check
     if (LID == 0)
@@ -320,20 +338,31 @@ struct alias_table_shmem
     uint32_t candidate;
     if (p < prob[col])
     {
+      if (col >= ELE_PER_WARP)
+        printf("col too large %d\n", col);
       candidate = col;
     }
     else
     {
+      if (alias[col] >= ELE_PER_WARP)
+        printf("alias[col] too large %lu\n", (unsigned long)alias[col]);
       candidate = alias[col];
     }
-    char updated = char_atomicCAS(&selected[candidate], 0, 1);
+#ifdef check
+    // if (LID == 0)
+    printf("tid %d candidate %d\n", LID, candidate);
+#endif
+    // char updated = char_atomicCAS(&selected[candidate], 0, 1);
+    // if (candidate >= ELE_PER_WARP)
+    //   printf("candidate too large %d\n", candidate);
+    unsigned short int updated = atomicCAS(&selected[candidate], (unsigned short int)0, (unsigned short int)1);
     if (!updated)
     {
       // v.add(candidate);
       // local_size is per warp size in local shemem, target_size is
       if (AddTillSize(local_size, target_size))
       {
-        result.AddActive(current_itr, array, candidate);
+        result.AddActive(current_itr, array, ggraph->getOutNode(src_id, candidate));
         // printf("tid %d suc sampled %d\n", LID, candidate);
       }
       return true;
@@ -379,6 +408,14 @@ struct alias_table_shmem
       else
         small.Add(i);
     }
+    if (LID == 0)
+    {
+      if (large.Size() >= ELE_PER_WARP)
+        printf("LINE: %d vlarge too large , capacity %lu \n", __LINE__, (unsigned long)large.Size());
+      if (small.Size() >= ELE_PER_WARP)
+        printf("LINE: %d vsmall too large , capacity %lu \n", __LINE__, (unsigned long)small.Size());
+    }
+
     // active_size(__LINE__);
 #ifdef check
     if (LID == 0)
@@ -422,6 +459,8 @@ struct alias_table_shmem
         // printf("~~~lid %d largeV %d  smallV %d holder %d\n", LID, largeV,
         //        smallV,
         //        holder);
+        if (largeV >= ELE_PER_WARP)
+          printf("LINE: %d largeV too large %lld, capacity %lld \n", __LINE__, (long long)largeV, (long long)Size());
         if (LID == 0)
         {
           large.size -= MIN(large.size, old_small_size);
@@ -437,7 +476,6 @@ struct alias_table_shmem
         // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 + prob[smallV]);
         if (old + prob[smallV] - 1.0 >= 0)
         {
-
           // prob[smallV] = weights[smallV];
           alias[smallV] = largeV;
           if (holder)

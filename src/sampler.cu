@@ -9,9 +9,9 @@ __device__ void SampleUsingShmem(sample_result &result, gpu_graph &ggraph, alias
   {
 #ifdef check
     if (LID == 0)
-      printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n", GWID, current_itr, idx, node_id, ggraph.getDegree(node_id));
+      printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n", GWID, current_itr, job.idx, job.node_id, ggraph.getDegree(job.node_id));
 #endif
-    bool not_all_zero = table->loadFromGraph(ggraph.getNeighborPtr(job.node_id), ggraph, ggraph.getDegree(job.node_id), current_itr);
+    bool not_all_zero = table->loadFromGraph(ggraph.getNeighborPtr(job.node_id), ggraph, ggraph.getDegree(job.node_id), current_itr, job.node_id);
     if (not_all_zero)
     {
       table->construct();
@@ -20,6 +20,7 @@ __device__ void SampleUsingShmem(sample_result &result, gpu_graph &ggraph, alias
         printf("high degree %d potential overflow \n", target_size);
       table->roll_atomic(result.getNextAddr(current_itr), target_size, &state, result);
     }
+    table->Clean();
     if (LID == 0)
       job = result.requireOneJob(current_itr);
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
@@ -60,7 +61,11 @@ __global__ void sample_kernel(Sampler *sampler)
     if (job.val)
     {
       if (ggraph.getDegree(job.node_id) < ELE_PER_WARP)
+      {
+        if (ggraph.getDegree(job.node_id) >= ELE_PER_WARP)
+          printf("go into wrong func\n");
         SampleUsingShmem(result, ggraph, table, job, state, current_itr);
+      }
       else
       {
         if (LID == 0)
@@ -99,7 +104,8 @@ __global__ void print_result(Sampler *sampler)
 }
 void Start(Sampler sampler)
 {
-  printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
+  // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
+  printf("ELE_PER_WARP %d\n ", ELE_PER_WARP);
 
   int device;
   cudaDeviceProp prop;

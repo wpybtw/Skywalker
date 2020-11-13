@@ -23,11 +23,15 @@ using namespace cooperative_groups;
 #define MAX(x, y) ((x > y) ? x : y)
 #define P printf("%d\n", __LINE__)
 #define paster(n) printf("var: " #n " =  %d\n", n)
-#define HERR(ans)                                                              \
-  { gpuAssert((ans), __FILE__, __LINE__); }
+#define HERR(ans)                         \
+  {                                       \
+    gpuAssert((ans), __FILE__, __LINE__); \
+  }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
-                      bool abort = true) {
-  if (code != cudaSuccess) {
+                      bool abort = true)
+{
+  if (code != cudaSuccess)
+  {
     fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
             line);
     if (abort)
@@ -35,7 +39,26 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
   }
 }
 __device__ void active_size(int n);
+#define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
+#define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 
+namespace print
+{
+  template <typename... Args>
+  __host__ __device__ __forceinline__ void myprintf(const char *file, int line, const char *__format, Args... args)
+  {
+#if defined(__CUDA_ARCH__)
+    // if (LID == 0)
+    {
+      printf("%s:%d GPU: ", file, line);
+      printf(__format, args...);
+    }
+#else
+    printf("%s:%d HOST: ", file, line);
+    printf(__format, args...);
+#endif
+  }
+} // namespace print
 __device__ void __conv();
 #include <stdlib.h>
 #include <sys/time.h>
@@ -75,14 +98,16 @@ double wtime();
 #define FULL_MASK 0xffffffff
 
 template <typename T>
-__inline__ __device__ T warpReduce(T val, int lane_id) {
+__inline__ __device__ T warpReduce(T val, int lane_id)
+{
   // T val_shuffled;
   for (int offset = 16; offset > 0; offset /= 2)
     val += __shfl_down_sync(FULL_MASK, val, offset);
   return val;
 }
 
-template <typename T> void printH(T *ptr, int size);
+template <typename T>
+void printH(T *ptr, int size);
 __device__ void printD(float *ptr, int size);
 __device__ void printD(int *ptr, int size);
 __device__ void printD(uint *ptr, int size);

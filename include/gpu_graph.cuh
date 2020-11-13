@@ -30,8 +30,11 @@ public:
 	{
 		return beg_pos[idx + 1] - beg_pos[idx];
 	}
-	
-	__device__ vertex_t* getNeighborPtr(index_t idx)
+	__device__ index_t getOutNode(index_t idx, index_t offset)
+	{
+		return adj_list[beg_pos[idx] + offset];
+	}
+	__device__ vertex_t *getNeighborPtr(index_t idx)
 	{
 		return &adj_list[beg_pos[idx]];
 	}

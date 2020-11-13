@@ -1,7 +1,7 @@
 all: main
 # util sampler main
 
-CUFLAG= -keep  -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage -G -g 
+CUFLAG= -keep  -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -G -g 
 # CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage
 
 main: main.cu util.cu sampler.cu
@@ -34,4 +34,4 @@ lj: main
 
 
 clean:
-	rm *.o alias main
+	rm *.o alias main *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx
