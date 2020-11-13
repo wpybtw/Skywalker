@@ -93,9 +93,6 @@ struct alias_table_shmem
     if (LID == 0)
     {
       weight_sum = tmp;
-      // #ifdef verbose
-      // printf("sum: %f\n", tmp);
-      // #endif // verbose
     }
     normalize();
   }
@@ -112,7 +109,7 @@ struct alias_table_shmem
       src_id = _src_id;
       // weights = _weights;
     }
-    Init(graph->getDegree( (uint)_src_id));
+    Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
     for (size_t i = LID; i < size; i += 32)
     {
@@ -123,9 +120,6 @@ struct alias_table_shmem
     if (LID == 0)
     {
       weight_sum = tmp;
-      // #ifdef verbose
-      // printf("sum: %f\n", tmp);
-      // #endif // verbose
     }
     __syncwarp(0xffffffff);
     if (weight_sum != 0.0)
@@ -137,35 +131,15 @@ struct alias_table_shmem
     {
       return false;
     }
-    // if (LID == 0)
-    // {
-    // printf("size: %llu\n", size);
-    // printf("normalized: \n");
-    // printD(prob.data, prob.Size());
-    // }
-    // __syncwarp(0xffffffff);
-    // return not_all_zero;
-  }
-  __device__ void Init()
-  {
-
-    large.Init("large");
-    small.Init("small");
-    alias.Init("alias", Size());
-    prob.Init("prob", Size());
-    selected.Init("selected", Size());
-    // paster(Size());
   }
   __device__ void Init(uint sz)
   {
-    // if (sz > ELE_PER_WARP && LID == 0)
-    //   printf("init too large %u\n", sz);
 
-    large.Init("large");
-    small.Init("small");
-    alias.Init("alias", sz);
-    prob.Init("prob", sz);
-    selected.Init("selected", sz);
+    large.Init();
+    small.Init();
+    alias.Init(sz);
+    prob.Init(sz);
+    selected.Init(sz);
     // paster(Size());
   }
   __device__ void normalize()
@@ -174,27 +148,16 @@ struct alias_table_shmem
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32)
     {
-      // if (size > ELE_PER_WARP)
-      //   printf("size %d> ELE_PER_WARP )\n", size);
       prob[i] = weights[i] * scale;
     }
   }
   __device__ void normalize_from_graph(gpu_graph *graph)
   {
-    // active_size(__LINE__);
-    // if (weight_sum == 0.0)
-    //   return false;
-    // if (weight_sum == 0.0 && LID == 0)
-    // {
-    //   printf("zero sum weight\n");
-    // }
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32)
     {
       prob[i] = graph->getBias(ids[i]) * scale; //gdb error
     }
-    // printf("%s\t %s :%d\n",__FILE__,__PRETTY_FUNCTION__,__LINE__);
-    // return true;
   }
   __device__ void Clean()
   {
@@ -356,22 +319,15 @@ struct alias_table_shmem
     }
     else
     {
-      // if (alias[col] >= ELE_PER_WARP)
-      //   printf("alias[col] too large %lu\n", (unsigned long)alias[col]);
       candidate = alias[col];
     }
 #ifdef check
     // if (LID == 0)
     printf("tid %d candidate %d\n", LID, candidate);
 #endif
-    // char updated = char_atomicCAS(&selected[candidate], 0, 1);
-    // if (candidate >= ELE_PER_WARP)
-    //   printf("candidate too large %d\n", candidate);
     unsigned short int updated = atomicCAS(&selected[candidate], (unsigned short int)0, (unsigned short int)1);
     if (!updated)
     {
-      // v.add(candidate);
-      // local_size is per warp size in local shemem, target_size is
       if (AddTillSize(local_size, target_size))
       {
         result.AddActive(current_itr, array, ggraph->getOutNode(src_id, candidate));
@@ -412,12 +368,6 @@ struct alias_table_shmem
   // }
   __device__ void construct()
   {
-    // printf("%s\t %s :%d %llu\n", __FILE__, __PRETTY_FUNCTION__, __LINE__, size);
-    // if (large.size + small.size > 0)
-    //   paster(large.size + small.size);
-    // large.Init("large", 0);
-    // small.Init("small", 0);
-    // Init();
     for (size_t i = LID; i < size; i += 32)
     {
       if (prob[i] > 1)
@@ -426,15 +376,7 @@ struct alias_table_shmem
         small.Add(i);
     }
     __syncwarp(0xffffffff);
-    // if (LID == 0)
-    // {
-    //   if (large.Size() > ELE_PER_WARP)
-    //     printf("LINE: %d vlarge too large , capacity %lu \n", __LINE__, (unsigned long)large.Size());
-    //   if (small.Size() > ELE_PER_WARP)
-    //     printf("LINE: %d vsmall too large , capacity %lu \n", __LINE__, (unsigned long)small.Size());
-    // }
 
-    // active_size(__LINE__);
 #ifdef check
     if (LID == 0)
     {
@@ -450,13 +392,7 @@ struct alias_table_shmem
 #endif
     __syncwarp(0xffffffff);
     int itr = 0;
-    // if (LID == 0)
-    // {
-    //   // prob.size = size;
-    //   // alias.size = size;
-    //   if ((prob.Size() > ELE_PER_WARP) || (alias.Size() > ELE_PER_WARP))
-    //     printf("LINE: %d prob or alias too large , capacity %u    %u \n", __LINE__, alias.Size(), prob.Size());
-    // }
+
     while (!small.Empty() && !large.Empty())
     {
 
@@ -469,8 +405,6 @@ struct alias_table_shmem
         if (LID == 0)
         {
           small.size -= MIN(small.Size(), 32);
-          // if (small.size >= ELE_PER_WARP)
-          //   printf("LINE: %d largeV too large  %u \n", __LINE__, small.Size());
         }
         T smallV = small[old_small_id];
         int res = old_small_id % large.Size();
@@ -478,18 +412,9 @@ struct alias_table_shmem
         bool holder = ((LID < MIN(large.Size(), 32)) ? true : false);
 
         T largeV = large[large.Size() - res - 1];
-        // printf("~~~lid %d largeV %d  smallV %d holder %d\n", LID, largeV,
-        //        smallV,
-        //        holder);
-        // if (largeV >= ELE_PER_WARP)
-        //   printf("LINE: %d largeV too large %lld, capacity %lld \n", __LINE__, (long long)largeV, (long long)Size());
         if (LID == 0)
         {
           large.size -= MIN(large.Size(), old_small_size);
-          // if (large.Size() > ELE_PER_WARP)
-          //   printf("LINE: %d large size too large  %u \n", __LINE__, large.Size());
-          // printf("large.size %d min %d\n", large.size,
-          //        MIN(large.size, old_small_size));
         }
         // todo how to ensure holder alwasy success??
         float old;
@@ -539,11 +464,7 @@ struct alias_table_shmem
       }
 #endif
       __syncwarp(0xffffffff);
-      // if (itr == 5)
-      // return;
     }
-    // printf("%s\t %s :%d\n",__FILE__,__PRETTY_FUNCTION__,__LINE__);
-    // active_size(__LINE__);
     __syncwarp(0xffffffff);
   }
 };

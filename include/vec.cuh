@@ -40,27 +40,13 @@ struct Vector_shmem
   T data[ELE_PER_WARP];
   char *name;
 
-  // __device__ void Init(size_t s = 0)
-  // {
-  //   if (LID == 0)
-  //   {
-  //     capacity = ELE_PER_WARP;
-  //     size = s;
-  //   }
-  //   for (size_t i = LID; i < capacity; i += 32)
-  //   {
-  //     data[i] = 0;
-  //   }
-  // }
-  __device__ void Init(char *_name, size_t s = 0)
+  __device__ void Init(size_t s = 0)
   {
     if (LID == 0)
     {
-      name = _name;
-      // capacity = ELE_PER_WARP;
+      capacity = ELE_PER_WARP;
       size = s;
     }
-    capacity = ELE_PER_WARP;
     for (size_t i = LID; i < capacity; i += 32)
     {
       data[i] = 0;
@@ -74,15 +60,11 @@ struct Vector_shmem
       uint old = atomicAdd(&size, 1);
       if (old < capacity)
       {
-        // if (old >= ELE_PER_WARP)
-        //   printf("LINE: %d Add too large %u, size %u  capacity %u \n", __LINE__, old, size, capacity);
         data[old] = t;
       }
       else
       {
         atomicDec(&size, 1);
-        // if (LID == 0)
-        //   printf("Vector_shmem %s overflow %u\n", *name, old);
       }
     }
   }
