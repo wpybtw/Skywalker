@@ -24,12 +24,8 @@ __device__ void SampleUsingShmem(sample_result &result, gpu_graph *ggraph, alias
 
 __global__ void sample_kernel(Sampler *sampler)
 {
-  __shared__ alias_table_shmem<uint> tables[WARP_PER_SM];
-  alias_table_shmem<uint> *table = &tables[WID];
-  // int wid = WID;
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
-
   curandState state;
   curand_init(TID, 0, 0, &state);
 
@@ -50,8 +46,8 @@ __global__ void sample_kernel(Sampler *sampler)
     {
       if (ggraph->getDegree(job.node_id) < ELE_PER_WARP)
       {
-        if (ggraph->getDegree(job.node_id) >= ELE_PER_WARP)
-          printf("go into wrong func\n");
+        __shared__ alias_table_shmem<uint> tables[WARP_PER_SM];
+        alias_table_shmem<uint> *table = &tables[WID];
         SampleUsingShmem(result, ggraph, table, state, current_itr, job.idx, job.node_id);
         if (LID == 0)
           job = result.requireOneJob(current_itr);
@@ -65,7 +61,6 @@ __global__ void sample_kernel(Sampler *sampler)
           printf("need larger buf for id %d degree %d \n", job.node_id, ggraph->getDegree(job.node_id));
       }
     }
-
     __syncthreads();
     if (threadIdx.x == 0)
     {
