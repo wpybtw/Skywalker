@@ -8,6 +8,12 @@
 template <typename T>
 struct alias_table;
 
+enum class Execution
+{
+  WC,
+  BC
+};
+
 __global__ void load_id_weight();
 // inline __device__ char char_atomicCAS(char *addr, char cmp, char val)
 // {
@@ -92,13 +98,10 @@ struct alias_table_shmem
       return true;
     }
     else
-    {
       return false;
-    }
   }
   __device__ void Init(uint sz)
   {
-
     large.Init();
     small.Init();
     alias.Init(sz);
@@ -108,7 +111,6 @@ struct alias_table_shmem
   }
   __device__ void normalize()
   {
-
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32)
     {
@@ -134,7 +136,6 @@ struct alias_table_shmem
       selected.Clean();
     }
   }
-
   __device__ void roll_atomic(T *array, int target_size, curandState *state, sample_result result)
   {
     // curandState state;
@@ -169,13 +170,9 @@ struct alias_table_shmem
 #endif
     uint candidate;
     if (p < prob[col])
-    {
       candidate = col;
-    }
     else
-    {
       candidate = alias[col];
-    }
 #ifdef check
     // if (LID == 0)
     printf("tid %d candidate %d\n", LID, candidate);
@@ -184,10 +181,7 @@ struct alias_table_shmem
     if (!updated)
     {
       if (AddTillSize(local_size, target_size))
-      {
         result.AddActive(current_itr, array, ggraph->getOutNode(src_id, candidate));
-        // printf("tid %d suc sampled %d\n", LID, candidate);
-      }
       return true;
     }
     else
@@ -223,7 +217,6 @@ struct alias_table_shmem
 
     while (!small.Empty() && !large.Empty())
     {
-
       int old_small_id = small.Size() - LID - 1;
       int old_small_size = small.Size();
       // printf("old_small_id %d\n", old_small_id);
@@ -286,7 +279,5 @@ struct alias_table_shmem
 #endif
       __syncwarp(0xffffffff);
     }
-    __syncwarp(0xffffffff);
   }
 };
-
