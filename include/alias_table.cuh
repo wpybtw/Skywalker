@@ -5,16 +5,10 @@
 // #include "sampler.cuh"
 #define verbose
 
-template <typename T>
-struct alias_table;
+// template <typename T>
+// struct alias_table;
 
-enum class Execution
-{
-  WC,
-  BC
-};
-
-__global__ void load_id_weight();
+// __global__ void load_id_weight();
 // inline __device__ char char_atomicCAS(char *addr, char cmp, char val)
 // {
 //   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr) &
@@ -42,16 +36,16 @@ __device__ bool AddTillSize(uint *size, size_t target_size) //T *array,       T 
   uint old = atomicAdd(size, 1);
   if (old < target_size)
   {
-    // array[old] = t;
     return true;
   }
   return false;
-  // else
-  //   printf("already finished\n");
 }
 
+template <typename T, ExecutionPolicy policy>
+struct alias_table_shmem;
+
 template <typename T>
-struct alias_table_shmem
+struct alias_table_shmem<T, ExecutionPolicy::BC>
 {
   uint size;
   float weight_sum;
@@ -61,11 +55,244 @@ struct alias_table_shmem
   gpu_graph *ggraph;
   int src_id;
 
-  Vector_shmem<T> large;
-  Vector_shmem<T> small;
-  Vector_shmem<T> alias;
-  Vector_shmem<float> prob;
-  Vector_shmem<unsigned short int> selected;
+  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK> large;
+  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK> small;
+  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK> alias;
+  Vector_shmem<float, ExecutionPolicy::BC, ELE_PER_BLOCK> prob;
+  Vector_shmem<unsigned short int, ExecutionPolicy::BC, ELE_PER_BLOCK> selected;
+
+  __host__ __device__ volatile uint Size() { return size; }
+  __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size, uint _current_itr, int _src_id)
+  {
+    if (LTID == 0)
+    {
+      ggraph = graph;
+      current_itr = _current_itr;
+      size = _size;
+      ids = _ids;
+      src_id = _src_id;
+      // weights = _weights;
+    }
+    __syncthreads();
+
+    Init(graph->getDegree((uint)_src_id));
+    float local_sum = 0.0, tmp;
+    for (size_t i = LTID; i < size; i += 32)
+    {
+      local_sum += graph->getBias(ids[i]);
+    }
+    // TODO block reduce
+    // tmp = warpReduce<float>(local_sum, LTID);
+
+    __syncthreads();
+    if (LTID == 0)
+    {
+      weight_sum = tmp;
+    }
+    __syncthreads();
+
+    if (weight_sum != 0.0)
+    {
+      normalize_from_graph(graph);
+      return true;
+    }
+    else
+      return false;
+  }
+  __device__ void Init(uint sz)
+  {
+    large.Init();
+    small.Init();
+    alias.Init(sz);
+    prob.Init(sz);
+    selected.Init(sz);
+    // paster(Size());
+  }
+  __device__ void normalize_from_graph(gpu_graph *graph)
+  {
+    float scale = size / weight_sum;
+    for (size_t i = LTID; i < size; i += BLOCK_SIZE)
+    {
+      prob[i] = graph->getBias(ids[i]) * scale; //gdb error
+    }
+    __syncthreads();
+  }
+  __device__ void Clean()
+  {
+    if (LTID == 0)
+    {
+      large.Clean();
+      small.Clean();
+      alias.Clean();
+      prob.Clean();
+      selected.Clean();
+    }
+    __syncthreads();
+  }
+  __device__ void roll_atomic(T *array, int target_size, curandState *state, sample_result result)
+  {
+    // curandState state;
+    if (target_size > 0)
+    {
+      int itr = 0;
+      __shared__ uint sizes[1];
+      uint *local_size = &sizes[0];
+      if (LTID == 0)
+        *local_size = 0;
+      __syncthreads();
+      // TODO warp centric??
+      while (*local_size < target_size)
+      {
+        for (size_t i = *local_size + LTID; i < target_size; i += BLOCK_SIZE)
+        {
+          roll_once(array, local_size, state, target_size, result);
+        }
+        itr++;
+        __syncthreads();
+        if (itr > 10)
+          break;
+      }
+    }
+  }
+
+  __device__ bool roll_once(T *array, uint *local_size,
+                            curandState *local_state, size_t target_size, sample_result result)
+  {
+    int col = (int)floor(curand_uniform(local_state) * size);
+    float p = curand_uniform(local_state);
+#ifdef check
+    if (LID == 0)
+      printf("tid %d col %d p %f\n", LID, col, p);
+#endif
+    uint candidate;
+    if (p < prob[col])
+      candidate = col;
+    else
+      candidate = alias[col];
+#ifdef check
+    // if (LID == 0)
+    printf("tid %d candidate %d\n", LID, candidate);
+#endif
+    unsigned short int updated = atomicCAS(&selected[candidate], (unsigned short int)0, (unsigned short int)1);
+    if (!updated)
+    {
+      if (AddTillSize(local_size, target_size))
+        result.AddActive(current_itr, array, ggraph->getOutNode(src_id, candidate));
+      return true;
+    }
+    else
+      return false;
+  }
+
+  __device__ void construct()
+  {
+    for (size_t i = LTID; i < size; i += BLOCK_SIZE)
+    {
+      if (prob[i] > 1)
+        large.Add(i);
+      else
+        small.Add(i);
+    }
+    __syncthreads();
+
+#ifdef check
+    if (LTID == 0)
+    {
+      printf("large: ");
+      printD(large.data, large.size);
+      printf("small: ");
+      printD(small.data, small.size);
+      printf("prob: ");
+      printD(prob.data, prob.size);
+      printf("alias: ");
+      printD(alias.data, alias.size);
+    }
+#endif
+    int itr = 0;
+
+    // todo block lock step
+    while (!small.Empty() && !large.Empty())
+    {
+      int old_small_id = small.Size() - LTID - 1;
+      int old_small_size = small.Size();
+
+      if (old_small_id >= 0)
+      {
+        if (LTID == 0)
+        {
+          small.size -= MIN(small.Size(), 32);
+        }
+        T smallV = small[old_small_id];
+        int res = old_small_id % large.Size();
+        // bool holder = (old_small_id / large.size == 0);
+        bool holder = ((LID < MIN(large.Size(), 32)) ? true : false);
+
+        T largeV = large[large.Size() - res - 1];
+        if (LID == 0)
+        {
+          large.size -= MIN(large.Size(), old_small_size);
+        }
+        // todo how to ensure holder alwasy success??
+        float old;
+        if (holder)
+          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        if (!holder)
+          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 + prob[smallV]);
+        if (old + prob[smallV] - 1.0 >= 0)
+        {
+          // prob[smallV] = weights[smallV];
+          alias[smallV] = largeV;
+          if (holder)
+          {
+            if (prob[largeV] < 1)
+              small.Add(largeV);
+            else if (prob[largeV] > 1)
+              large.Add(largeV);
+          }
+        }
+        else
+        {
+          atomicAdd(&prob[largeV], 1 - prob[smallV]);
+          small.Add(smallV);
+        }
+      }
+      itr++;
+#ifdef check
+      if (LTID == 0)
+      {
+        printf("itr: %d\n", itr);
+        printf("large: ");
+        printD(large.data, large.size);
+        printf("small: ");
+        printD(small.data, small.size);
+        printf("prob: ");
+        printD(prob.data, prob.size);
+        printf("alias: ");
+        printD(alias.data, alias.size);
+      }
+#endif
+      __syncthreads();
+    }
+  }
+};
+
+template <typename T>
+struct alias_table_shmem<T, ExecutionPolicy::WC>
+{
+  uint size;
+  float weight_sum;
+  T *ids;
+  float *weights;
+  uint current_itr;
+  gpu_graph *ggraph;
+  int src_id;
+
+  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP> large;
+  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP> small;
+  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP> alias;
+  Vector_shmem<float, ExecutionPolicy::WC, ELE_PER_WARP> prob;
+  Vector_shmem<unsigned short int, ExecutionPolicy::WC, ELE_PER_WARP> selected;
 
   __host__ __device__ volatile uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size, uint _current_itr, int _src_id)
@@ -108,14 +335,6 @@ struct alias_table_shmem
     prob.Init(sz);
     selected.Init(sz);
     // paster(Size());
-  }
-  __device__ void normalize()
-  {
-    float scale = size / weight_sum;
-    for (size_t i = LID; i < size; i += 32)
-    {
-      prob[i] = weights[i] * scale;
-    }
   }
   __device__ void normalize_from_graph(gpu_graph *graph)
   {

@@ -12,6 +12,14 @@
 // alignment
 #define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 12) //8
 
+#define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 12)
+
+enum class ExecutionPolicy
+{
+  WC,
+  BC
+};
+
 template <typename T>
 class Vector_itf
 {
@@ -26,48 +34,33 @@ public:
   virtual T &operator[](int id) {}
 };
 
-template <typename T>
+template <typename T, int size>
 struct buf
 {
-  T data[ELE_PER_WARP];
+  T data[size];
 };
 
-template <typename T>
-struct Vector_shmem
-{
-  uint size = 0;
-  uint capacity = ELE_PER_WARP;
-  T data[ELE_PER_WARP];
-  char *name;
+// <typename T, int _size>
+// struct Simple_vector;
 
-  __device__ void Init(size_t s = 0)
-  {
-    if (LID == 0)
-    {
-      capacity = ELE_PER_WARP;
-      size = s;
-    }
-    for (size_t i = LID; i < capacity; i += 32)
-    {
-      data[i] = 0;
-    }
-  }
-  __device__ volatile uint Size() { return size; }
-  __device__ void Add(T t)
-  {
-    if (Size() < ELE_PER_WARP)
-    {
-      uint old = atomicAdd(&size, 1);
-      if (old < capacity)
-      {
-        data[old] = t;
-      }
-      else
-      {
-        atomicDec(&size, 1);
-      }
-    }
-  }
+// <typename T>
+// struct Simple_vector<T,8>{
+//   buf<T, 8> data;
+//   uint size;
+//   uint capacity;
+// };
+
+template <typename T, ExecutionPolicy policy, uint _size>
+struct Vector_shmem;
+
+template <typename T, uint _size>
+struct Vector_shmem<T, ExecutionPolicy::WC, _size>
+{
+  uint size;
+  uint capacity;
+  buf<T, _size> data;
+
+  __device__ uint Size() { return size; }
   __device__ void Clean() { size = 0; }
   __device__ bool Empty()
   {
@@ -75,7 +68,72 @@ struct Vector_shmem
       return true;
     return false;
   }
-  __device__ T &operator[](int id) { return data[id]; }
+  __device__ void Init(size_t s = 0)
+  {
+    if (LID == 0)
+    {
+      capacity = _size;
+      size = s;
+    }
+    for (size_t i = LID; i < _size; i += ELE_PER_WARP)
+    {
+      data.data[i] = 0;
+    }
+    __syncwarp(0xffffffff);
+  }
+  __device__ void Add(T t)
+  {
+    if (Size() < _size)
+    {
+      uint old = atomicAdd(&size, 1);
+      if (old < capacity)
+        data.data[old] = t;
+      else
+        atomicDec(&size, 1);
+    }
+  }
+  __device__ T &operator[](int id) { return data.data[id]; }
+};
+template <typename T, uint _size>
+struct Vector_shmem<T, ExecutionPolicy::BC, _size>
+{
+  uint size;
+  uint capacity;
+  buf<T, _size> data;
+
+  __device__ uint Size() { return size; }
+  __device__ void Clean() { size = 0; }
+  __device__ bool Empty()
+  {
+    if (size == 0)
+      return true;
+    return false;
+  }
+  __device__ void Init(size_t s = 0)
+  {
+    if (LTID == 0)
+    {
+      capacity = _size;
+      size = s;
+    }
+    for (size_t i = LTID; i < _size; i += BLOCK_SIZE)
+    {
+      data.data[i] = 0;
+    }
+    __syncthreads();
+  }
+  __device__ void Add(T t)
+  {
+    if (Size() < _size)
+    {
+      uint old = atomicAdd(&size, 1);
+      if (old < capacity)
+        data.data[old] = t;
+      else
+        atomicDec(&size, 1);
+    }
+  }
+  __device__ T &operator[](int id) { return data.data[id]; }
 };
 
 // template <typename T> __global__ void myMemsetKernel(T *ptr, size_t size){
@@ -118,7 +176,7 @@ public:
     cudaMalloc(&data, _capacity * sizeof(T));
     use_self_buffer = true;
   }
-  __host__ __device__ volatile u64 Size() { return *size; }
+  __host__ __device__ u64 Size() { return *size; }
   __device__ void add(T t)
   {
     u64 old = atomicAdd(size, 1);

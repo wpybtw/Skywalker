@@ -15,6 +15,7 @@ using namespace cooperative_groups;
 
 #define u64 unsigned long long int
 #define TID (threadIdx.x + blockIdx.x * blockDim.x)
+#define LTID (threadIdx.x)
 #define TBID (blockIdx.x)
 #define LID (threadIdx.x % 32)
 #define WID (threadIdx.x / 32)
