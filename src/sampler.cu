@@ -48,9 +48,9 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
                                   int node_id, void *buffer)
 {
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_shmem<uint, ExecutionPolicy::BC> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::BC> *)buffer;
+  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
+  // alias_table_shmem<uint, ExecutionPolicy::BC> *tables =
+  //     (alias_table_shmem<uint, ExecutionPolicy::BC> *)buffer;
   alias_table_shmem<uint, ExecutionPolicy::BC> *table = &tables[0];
 
 #ifdef check
@@ -85,8 +85,9 @@ __global__ void sample_kernel(Sampler *sampler)
     current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
-  void * buffer=&table;
+  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
+  // void * buffer=&table;
+  void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
   
 
@@ -105,37 +106,37 @@ __global__ void sample_kernel(Sampler *sampler)
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    // if (job.val) {
-    //   if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
-    //     SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
-    //                      job.node_id, buffer);
-    //     if (LID == 0)
-    //       job = result.requireOneJob(current_itr);
-    //     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
-    //     job.val = __shfl_sync(0xffffffff, job.val, 0);
-    //     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    //   } else {
-    //     if (LID == 0) {
-    //       if (ggraph->getDegree(job.node_id) < ELE_PER_BLOCK) {
-    //         high_degree.idx = job.idx;
-    //         high_degree.node_id = job.node_id;
-    //         high_degree_vec.Add(high_degree);
-    //         printf("need larger buf for id %d degree %d \n", job.node_id,
-    //                ggraph->getDegree(job.node_id));
-    //       } else
-    //         printf("need global mem for id %d degree %d \n", job.node_id,
-    //                ggraph->getDegree(job.node_id));
-    //     }
-    //     __syncwarp(0xffffffff);
-    //   }
-    // }
-
-    if (LID == 0 && WID == 0)
-    {
-      high_degree.idx = 0;
-      high_degree.node_id = 339;
-      high_degree_vec.Add(high_degree);
+    if (job.val) {
+      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
+        SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
+                         job.node_id, buffer);
+        if (LID == 0)
+          job = result.requireOneJob(current_itr);
+        job.idx = __shfl_sync(0xffffffff, job.idx, 0);
+        job.val = __shfl_sync(0xffffffff, job.val, 0);
+        job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
+      } else {
+        if (LID == 0) {
+          if (ggraph->getDegree(job.node_id) < ELE_PER_BLOCK) {
+            high_degree.idx = job.idx;
+            high_degree.node_id = job.node_id;
+            high_degree_vec.Add(high_degree);
+            printf("need larger buf for id %d degree %d \n", job.node_id,
+                   ggraph->getDegree(job.node_id));
+          } else
+            printf("need global mem for id %d degree %d \n", job.node_id,
+                   ggraph->getDegree(job.node_id));
+        }
+        __syncwarp(0xffffffff);
+      }
     }
+
+    // if (LID == 0 && WID == 0)
+    // {
+    //   high_degree.idx = 0;
+    //   high_degree.node_id = 339;
+    //   high_degree_vec.Add(high_degree);
+    // }
     __syncthreads();
     if (threadIdx.x == 0)
     {

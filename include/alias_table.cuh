@@ -222,7 +222,6 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
       else
         small.Add(i);
     }
-
 #ifdef check
     __syncthreads();
     // __threadfence_block();
@@ -242,110 +241,115 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
     int itr = 0;
     // return;
     // todo block lock step
-    while (!small.Empty() && !large.Empty())
+    while (!small.Empty() && !large.Empty() && WID == 0)
     {
-      // active_size(0);
-      // __syncthreads();
-      // int old_small_idx = small.Size() - LTID - 1;
-      // paster(small.Size());
-      // everyone thread got one small
-      // int old_small_size = small.Size();
-      // TODO can opt?
-      // printf("size ptr %llu \n", &(small.size));
-      // uint old_small_idx = atomicDec(&(small.size), 1);
-      // ll old_small_idx = atomicAdd(&(small.size), -1);
-      ll old_small_idx = my_atomicSub(&(small.size), 1);
-      //
-      // printf("old_small_idx %u",old_small_idx);
+      int old_small_idx = small.Size() - LID - 1;
+      int old_small_size = small.Size();
+      // printf("old_small_idx %d\n", old_small_idx);
       if (old_small_idx >= 0)
       {
-        coalesced_group active = coalesced_threads();
-        ll local_large_idx;
-        if (active.thread_rank() == 0)
+        if (LID == 0)
         {
-          // local_large_idx = atomicAdd(&large.size, -1);
-          local_large_idx = my_atomicSub(&large.size, 1);
-          printf("local_large_idx %lld\n", local_large_idx);
+          small.size -= MIN(small.Size(), 32);
         }
-        local_large_idx = active.shfl(local_large_idx, 0);
-        if (local_large_idx < 0)
-        {
-          if (active.thread_rank() == 0)
-            // atomicAdd(&large.size, 1);
-            my_atomicAdd(&large.size, 1);
-          break;
-        }
-        printf("old_small_idx %lld\n", old_small_idx);
         T smallV = small[old_small_idx];
-        T largeV = large[local_large_idx];
-        bool holder = (active.thread_rank() == 0);
-
-        // paster(smallV);
-
-        // printf("holder %d tid %d\n",holder,LID )   ;
+        int res = old_small_idx % large.Size();   //error TODO
+        // bool holder = (old_small_idx / large.size == 0);
+        bool holder = ((LID < MIN(large.Size(), 32)) ? true : false);
+        // paster(holder);
+        T largeV = large[large.Size() - res - 1];
+        if (LID == 0)
+        {
+          large.size -= MIN(MIN(large.Size(), old_small_size), 32);
+        }
+        // todo how to ensure holder alwasy success??
         float old;
         if (holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0); //gdb error?
+          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (!holder)
           old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 + prob[smallV]);
+        // printf("holder %d\n",holder);
         if (old + prob[smallV] - 1.0 >= 0)
         {
+          printf("cunsume small %u\n", smallV);
           // prob[smallV] = weights[smallV];
+          // printf("setting alias of %u to %u \n", smallV, largeV);
           alias[smallV] = largeV;
           if (holder)
           {
             if (prob[largeV] < 1)
             {
               small.Add(largeV);
-              // printf("adding %u\n", largeV);
+              printf("%d   %d add to small %u\n", holder,LID, largeV);
             }
             else if (prob[largeV] > 1)
+            {
               large.Add(largeV);
+              // printf("add back %u\n", largeV);
+            }
           }
         }
         else
         {
-          // atomicAdd(&small.size, 1);
           atomicAdd(&prob[largeV], 1 - prob[smallV]);
           small.Add(smallV);
-          // printf("add back %u\n", smallV);
         }
       }
-      else
-      {
-        // atomicAdd(&small.size, 1);
-        my_atomicAdd(&(small.size), 1);
-
-        break;
-      }
-
-      itr++;
-    }
+      if (LID == 0)
+        itr++;
 #ifdef check
-    __syncthreads();
-    if (LTID == 0)
-    {
-      printf("itr: %d\n", itr);
-      printf("large.size %lld\n", large.size);
-      printf("small.size %lld\n", small.size);
-      if (small.size > 0)
+      __syncwarp(0xffffffff);
+      if (LTID == 0)
       {
-        printf("large: ");
-        printDL(large.data.data, large.size);
+        printf("itr: %d\n", itr);
+        printf("large.size %lld\n", large.size);
+        printf("small.size %lld\n", small.size);
+        if (small.size > 0)
+        {
+          printf("large: ");
+          printDL(large.data.data, large.size);
+        }
+        if (small.size > 0)
+        {
+          printf("small: ");
+          printDL(small.data.data, small.size);
+        }
+        printf("prob: ");
+        printDL(prob.data.data, prob.size);
+        printf("alias: ");
+        printDL(alias.data.data, alias.size);
       }
-      if (small.size > 0)
-      {
-        printf("small: ");
-        printDL(small.data.data, small.size);
-      }
-      printf("prob: ");
-      printDL(prob.data.data, prob.size);
-      printf("alias: ");
-      printDL(alias.data.data, alias.size);
-    }
-    __syncthreads();
+      __syncwarp(0xffffffff);
 #endif
+      __syncwarp(0xffffffff);
+    }
+
+    // active_size(0);
+    // #ifdef check
+    //     __syncthreads();
+    //     if (LTID == 0)
+    //     {
+    //       printf("itr: %d\n", itr);
+    //       printf("large.size %lld\n", large.size);
+    //       printf("small.size %lld\n", small.size);
+    //       if (small.size > 0)
+    //       {
+    //         printf("large: ");
+    //         printDL(large.data.data, large.size);
+    //       }
+    //       if (small.size > 0)
+    //       {
+    //         printf("small: ");
+    //         printDL(small.data.data, small.size);
+    //       }
+    //       printf("prob: ");
+    //       printDL(prob.data.data, prob.size);
+    //       printf("alias: ");
+    //       printDL(alias.data.data, alias.size);
+    //     }
+    //     __syncthreads();
+    // #endif
   }
 };
 
@@ -530,7 +534,7 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
         T largeV = large[large.Size() - res - 1];
         if (LID == 0)
         {
-          large.size -= MIN(large.Size(), old_small_size);
+          large.size -= MIN(MIN(large.Size(), old_small_size), 32);
         }
         // todo how to ensure holder alwasy success??
         float old;
@@ -577,3 +581,130 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
     }
   }
 };
+
+//  __device__ void construct()
+//   {
+//     for (size_t i = LTID; i < size; i += BLOCK_SIZE)
+//     {
+//       if (prob[i] > 1)
+//         large.Add(i);
+//       else
+//         small.Add(i);
+//     }
+// #ifdef check
+//     __syncthreads();
+//     // __threadfence_block();
+//     if (LTID == 0)
+//     {
+//       printf("large: ");
+//       printDL(large.data.data, large.size); // MIN(large.size, 334)
+//       printf("small: ");
+//       printDL(small.data.data, small.size);
+//       printf("prob: ");
+//       printDL(prob.data.data, prob.size);
+//       printf("alias: ");
+//       printDL(alias.data.data, alias.size);
+//     }
+// #endif
+//     __syncthreads();
+//     int itr = 0;
+//     // return;
+//     // todo block lock step
+//     while (!small.Empty() && !large.Empty())
+//     {
+//       __syncwarp(0xffffffff);
+//       active_size(0);
+//       if (small.Empty())
+//         break;
+//       ll local_large_idx;
+//       if (LID == 0)
+//       {
+//         local_large_idx = my_atomicSub(&large.size, 1);
+//         printf("local_large_idx %lld\n", local_large_idx);
+//       }
+//       // local_large_idx = active.shfl(local_large_idx, 0);
+//       local_large_idx = __shfl_sync(0xffffffff, local_large_idx, 0);
+//       if (local_large_idx >= 0)
+//       {
+//         ll old_small_idx = my_atomicSub(&(small.size), 1);
+//         if (old_small_idx >= 0)
+//         {
+//           coalesced_group active = coalesced_threads();
+
+//           printf("old_small_idx %lld\n", old_small_idx);
+//           T smallV = small[old_small_idx];
+//           T largeV = large[local_large_idx];
+//           bool holder = (active.thread_rank() == 0);
+//           float old;
+//           if (holder)
+//             old = atomicAdd(&prob[largeV], prob[smallV] - 1.0); //gdb error?
+//           if (!holder)
+//             old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+//           // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 + prob[smallV]);
+//           if (old + prob[smallV] - 1.0 >= 0)
+//           {
+//             // prob[smallV] = weights[smallV];
+//             alias[smallV] = largeV;
+//             if (holder)
+//             {
+//               if (prob[largeV] < 1)
+//               {
+//                 small.Add(largeV);
+//                 // printf("adding %u\n", largeV);
+//               }
+//               else if (prob[largeV] > 1)
+//               {
+//                 large.Add(largeV);
+//                 printf("adding back %u with p %f\n", largeV, prob[largeV]);
+//               }
+//             }
+//           }
+//           else
+//           {
+//             // atomicAdd(&small.size, 1);
+//             atomicAdd(&prob[largeV], 1 - prob[smallV]);
+//             small.Add(smallV);
+//             // printf("add back %u\n", smallV);
+//           }
+//         }
+//         else
+//         {
+//           my_atomicAdd(&(small.size), 1);
+//           break;
+//         }
+//       }
+//       else
+//       {
+//         if (LID == 0)
+//           my_atomicAdd(&large.size, 1);
+//         break;
+//       }
+
+//       itr++;
+//     }
+//     // active_size(0);
+// #ifdef check
+//     __syncthreads();
+//     if (LTID == 0)
+//     {
+//       printf("itr: %d\n", itr);
+//       printf("large.size %lld\n", large.size);
+//       printf("small.size %lld\n", small.size);
+//       if (small.size > 0)
+//       {
+//         printf("large: ");
+//         printDL(large.data.data, large.size);
+//       }
+//       if (small.size > 0)
+//       {
+//         printf("small: ");
+//         printDL(small.data.data, small.size);
+//       }
+//       printf("prob: ");
+//       printDL(prob.data.data, prob.size);
+//       printf("alias: ");
+//       printDL(alias.data.data, alias.size);
+//     }
+//     __syncthreads();
+// #endif
+//   }
