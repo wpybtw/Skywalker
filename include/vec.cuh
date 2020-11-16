@@ -1,23 +1,9 @@
 #include "util.cuh"
 
-#define SHMEM_SIZE 49152
-
-#define BLOCK_SIZE 256
-#define WARP_PER_SM (BLOCK_SIZE / 32)
-
-#define SHMEM_PER_WARP (SHMEM_SIZE / WARP_PER_SM)
-
-#define TMP_PER_ELE (4 + 4 + 4 + 4 + 2)
-// #define TMP_PER_ELE (4 + 4 + 4 + 4 + 1)
-// alignment
-#define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 12) //8
-
-#define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 12)
-
 enum class ExecutionPolicy
 {
-  WC,
-  BC
+  WC = 0,
+  BC = 1
 };
 
 template <typename T>
@@ -75,7 +61,7 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size>
       capacity = _size;
       size = s;
     }
-    for (size_t i = LID; i < _size; i += ELE_PER_WARP)
+    for (size_t i = LID; i < _size; i += 32)
     {
       data.data[i] = 0;
     }
@@ -97,15 +83,15 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size>
 template <typename T, uint _size>
 struct Vector_shmem<T, ExecutionPolicy::BC, _size>
 {
-  uint size;
+  long long size;
   uint capacity;
   buf<T, _size> data;
 
-  __device__ uint Size() { return size; }
+  __device__ long long Size() { return size; }
   __device__ void Clean() { size = 0; }
   __device__ bool Empty()
   {
-    if (size == 0)
+    if (size <= 0)
       return true;
     return false;
   }
@@ -126,11 +112,15 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size>
   {
     if (Size() < _size)
     {
-      uint old = atomicAdd(&size, 1);
+      long long old = atomicAdd((unsigned long long *)&size, 1);
       if (old < capacity)
         data.data[old] = t;
       else
-        atomicDec(&size, 1);
+      {
+        // atomicDec(&size, 1);
+        atomicAdd((unsigned long long *)&size, -1);
+        // printf("Vector_shmem overflow %d \n", __LINE__);
+      }
     }
   }
   __device__ T &operator[](int id) { return data.data[id]; }

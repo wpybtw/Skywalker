@@ -64,6 +64,50 @@ void printH(T *ptr, int size)
   printf("\n");
   delete ptrh;
 }
+
+
+
+__device__ double my_atomicSub(double* address, double val) {
+ unsigned long long int* address_as_ull = (unsigned long long int*)address;
+ unsigned long long int old = *address_as_ull, assumed;
+ do {
+      assumed = old;
+      old = atomicCAS(address_as_ull, assumed, __double_as_longlong(__longlong_as_double(assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+    } while (assumed != old);
+  return __longlong_as_double(old);
+}
+
+__device__ float my_atomicSub(float* address, float val) {
+ int* address_as_int = (int*)address;
+ int old = *address_as_int, assumed;
+ do {
+      assumed = old;
+      old = atomicCAS(address_as_int, assumed, __float_as_int(__int_as_float(assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+    } while (assumed != old);
+  return __int_as_float(old);
+}
+
+__device__ long long my_atomicSub(long long* address, long long val) {
+ unsigned long long int* address_as_ull = (unsigned long long int*)address;
+ unsigned long long int old = *address_as_ull, assumed;
+ do {
+      assumed = old;
+      old = atomicCAS(address_as_ull, assumed, ((assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+    } while (assumed != old);
+  return (old);
+}
+
+__device__ long long my_atomicAdd(long long* address, long long val) {
+ unsigned long long int* address_as_ull = (unsigned long long int*)address;
+ unsigned long long int old = *address_as_ull, assumed;
+ do {
+      assumed = old;
+      old = atomicCAS(address_as_ull, assumed, ((assumed) + val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+    } while (assumed != old);
+  return (old);
+}
+
+
 __device__ void printD(float *ptr, int size)
 {
   printf("printDf: size %d, ", size);
@@ -85,6 +129,61 @@ __device__ void printD(int *ptr, int size)
 __device__ void printD(uint *ptr, int size)
 {
   printf("printDi: size %d, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
+    printf("%u\t", ptr[i]);
+  }
+  printf("\n");
+}
+__device__ void printD(float *ptr, uint size)
+{
+  printf("printDf: size %u, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
+    printf("%f\t", ptr[i]);
+  }
+  printf("\n");
+}
+__device__ void printD(int *ptr, uint size)
+{
+  printf("printDi: size %u, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
+    printf("%d\t", ptr[i]);
+  }
+  printf("\n");
+}
+__device__ void printD(uint *ptr, uint size)
+{
+  printf("printDi: size %u, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
+    printf("%u\t", ptr[i]);
+  }
+  printf("\n");
+}
+
+__device__ void printDL(float *ptr, long long size)
+{
+  printf("printDL: size %u, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
+    printf("%f\t", ptr[i]);
+  }
+  printf("\n");
+}
+__device__ void printDL(int *ptr, long long size)
+{
+  printf("printDL: size %u, ", size);
+  for (size_t i = 0; i < size; i++)
+  {
+    printf("%d\t", ptr[i]);
+  }
+  printf("\n");
+}
+__device__ void printDL(uint *ptr, long long size)
+{
+  printf("printDL: size %u, ", size);
   for (size_t i = 0; i < size; i++)
   {
     printf("%u\t", ptr[i]);
