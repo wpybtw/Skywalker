@@ -6,16 +6,18 @@ template <typename file_vert_t, typename file_index_t, typename file_weight_t,
           typename new_vert_t, typename new_index_t, typename new_weight_t>
 graph<file_vert_t, file_index_t, file_weight_t, new_vert_t, new_index_t,
       new_weight_t>::graph(const char *beg_file, const char *adj_file,
-                           const char *weight_file) {
+                           const char *weight_file)
+{
   double tm = wtime();
   FILE *file = NULL;
   file_index_t ret;
 
   vtx_num = fsize(beg_file) / sizeof(file_index_t) - 1;
   edge_num = fsize(adj_file) / sizeof(file_vert_t);
-
+  printf("loading %s\n", beg_file);
   file = fopen(beg_file, "rb");
-  if (file != NULL) {
+  if (file != NULL)
+  {
     file_index_t *tmp_beg_pos = NULL;
 
     if (posix_memalign((void **)&tmp_beg_pos, getpagesize(),
@@ -31,21 +33,26 @@ graph<file_vert_t, file_index_t, file_weight_t, new_vert_t, new_index_t,
     assert(tmp_beg_pos[vtx_num] > 0);
 
     // converting to new type when different
-    if (sizeof(file_index_t) != sizeof(new_index_t)) {
+    if (sizeof(file_index_t) != sizeof(new_index_t))
+    {
       if (posix_memalign((void **)&beg_pos, getpagesize(),
                          sizeof(new_index_t) * (vtx_num + 1)))
         perror("posix_memalign");
       for (new_index_t i = 0; i < vtx_num + 1; ++i)
         beg_pos[i] = (new_index_t)tmp_beg_pos[i];
       delete[] tmp_beg_pos;
-    } else {
+    }
+    else
+    {
       beg_pos = (new_index_t *)tmp_beg_pos;
     }
-  } else
+  }
+  else
     std::cout << "beg file cannot open\n";
 
   file = fopen(adj_file, "rb");
-  if (file != NULL) {
+  if (file != NULL)
+  {
     file_vert_t *tmp_adj_list = NULL;
     if (posix_memalign((void **)&tmp_adj_list, getpagesize(),
                        sizeof(file_vert_t) * edge_num))
@@ -56,17 +63,19 @@ graph<file_vert_t, file_index_t, file_weight_t, new_vert_t, new_index_t,
     // assert(ret==beg_pos[vtx_num]);
     fclose(file);
 
-    if (sizeof(file_vert_t) != sizeof(new_vert_t)) {
+    if (sizeof(file_vert_t) != sizeof(new_vert_t))
+    {
       if (posix_memalign((void **)&adj_list, getpagesize(),
                          sizeof(new_vert_t) * edge_num))
         perror("posix_memalign");
       for (new_index_t i = 0; i < edge_num; ++i)
         adj_list[i] = (new_vert_t)tmp_adj_list[i];
       delete[] tmp_adj_list;
-    } else
+    }
+    else
       adj_list = (new_vert_t *)tmp_adj_list;
-
-  } else
+  }
+  else
     std::cout << "adj file cannot open\n";
 
   /*

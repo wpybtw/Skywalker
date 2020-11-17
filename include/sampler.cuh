@@ -33,7 +33,7 @@ public:
   ~Sampler() {}
   void SetSeed(uint _num_seed, uint _hop_num, uint *_hops)
   {
-    printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
+    // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
     num_seed = _num_seed;
     std::random_device rd;
     std::mt19937 gen(56);

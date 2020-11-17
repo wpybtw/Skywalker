@@ -6,7 +6,7 @@
 #include "header.h"
 #include "util.h"
 #include "graph.h"
-
+#include <algorithm>
 class gpu_graph
 {
 public:
@@ -50,23 +50,21 @@ public:
 		size_t adj_sz = sizeof(vertex_t) * edge_num;
 		size_t deg_sz = sizeof(vertex_t) * edge_num;
 		size_t beg_sz = sizeof(index_t) * (vtx_num + 1);
-		vertex_t *cpu_degree_list = (vertex_t *)malloc(sizeof(vertex_t) * edge_num);
+
 		/* Alloc GPU space */
 		H_ERR(cudaMalloc((void **)&adj_list, adj_sz));
-		H_ERR(cudaMalloc((void **)&degree_list, deg_sz));
+		// H_ERR(cudaMalloc((void **)&degree_list, deg_sz));
 		H_ERR(cudaMalloc((void **)&beg_pos, beg_sz));
 		// H_ERR(cudaMalloc((void **)&weight_list, weight_sz));
 
-		// for (int i = 0; i < (ginst->edge_num); i++)
-		// {
-		// 	int neighbor = ginst->adj_list[i];
-		// 	//cout<<"Index: "<<i<<"\tNeighbor: "<<neighbor<<"\n";
-		// 	cpu_degree_list[i] = ginst->beg_pos[neighbor + 1] - ginst->beg_pos[neighbor];
-		// 	if ((cpu_degree_list[i] > 1950) & (cpu_degree_list[i] < 2050))
-		// 	{
-		// 		//printf("V: %d, Degree:%d\n",neighbor,cpu_degree_list[i]);
-		// 	}
-		// }
+		uint *outDegree = new uint[vtx_num];
+		for (int i = 0; i < (ginst->vtx_num); i++)
+		{
+			outDegree[i] = ginst->beg_pos[i + 1] - ginst->beg_pos[i];
+		}
+		uint maxD = std::distance(
+			outDegree, std::max_element(outDegree, outDegree + vtx_num));
+		printf(" %d has max out degree %d\n", maxD, outDegree[maxD]);
 
 		/* copy it to GPU */
 		H_ERR(cudaMemcpy(adj_list, ginst->adj_list,

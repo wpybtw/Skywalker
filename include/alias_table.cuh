@@ -57,11 +57,11 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
   gpu_graph *ggraph;
   int src_id;
 
-  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK> large;
-  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK> small;
-  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK> alias;
-  Vector_shmem<float, ExecutionPolicy::BC, ELE_PER_BLOCK> prob;
-  Vector_shmem<unsigned short int, ExecutionPolicy::BC, ELE_PER_BLOCK> selected;
+  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> large;
+  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> small;
+  Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> alias;
+  Vector_shmem<float, ExecutionPolicy::BC, ELE_PER_BLOCK, true> prob;
+  Vector_shmem<unsigned short int, ExecutionPolicy::BC, ELE_PER_BLOCK, true> selected;
 
   __host__ __device__ volatile uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
@@ -345,11 +345,11 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
   gpu_graph *ggraph;
   int src_id;
 
-  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP> large;
-  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP> small;
-  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP> alias;
-  Vector_shmem<float, ExecutionPolicy::WC, ELE_PER_WARP> prob;
-  Vector_shmem<unsigned short int, ExecutionPolicy::WC, ELE_PER_WARP> selected;
+  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> large;
+  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> small;
+  Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> alias;
+  Vector_shmem<float, ExecutionPolicy::WC, ELE_PER_WARP, false> prob;
+  Vector_shmem<unsigned short int, ExecutionPolicy::WC, ELE_PER_WARP, false> selected;
 
   __host__ __device__ volatile uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,

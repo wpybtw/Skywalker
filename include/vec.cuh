@@ -36,11 +36,11 @@ struct buf
 //   uint capacity;
 // };
 
-template <typename T, ExecutionPolicy policy, uint _size>
+template <typename T, ExecutionPolicy policy, uint _size, bool use_gmem = false>
 struct Vector_shmem;
 
 template <typename T, uint _size>
-struct Vector_shmem<T, ExecutionPolicy::WC, _size>
+struct Vector_shmem<T, ExecutionPolicy::WC, _size, false>
 {
   uint size;
   uint capacity;
@@ -80,8 +80,9 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size>
   }
   __device__ T &operator[](int id) { return data.data[id]; }
 };
+
 template <typename T, uint _size>
-struct Vector_shmem<T, ExecutionPolicy::BC, _size>
+struct Vector_shmem<T, ExecutionPolicy::BC, _size, false>
 {
   long long size;
   uint capacity;
@@ -101,6 +102,87 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size>
     {
       capacity = _size;
       size = s;
+    }
+    for (size_t i = LTID; i < _size; i += BLOCK_SIZE)
+    {
+      data.data[i] = 0;
+    }
+    __syncthreads();
+  }
+  __device__ void Add(T t)
+  {
+    if (Size() < _size)
+    {
+      long long old = atomicAdd((unsigned long long *)&size, 1);
+      if (old < capacity)
+        data.data[old] = t;
+      else
+      {
+        // atomicDec(&size, 1);
+        atomicAdd((unsigned long long *)&size, -1);
+        // printf("Vector_shmem overflow %d \n", __LINE__);
+      }
+    }
+  }
+  __device__ T &operator[](int id) { return data.data[id]; }
+};
+
+// template <typename T, uint _size>
+struct Global_buffer
+{
+  long long size;
+  uint *data;
+  unsigned short int lock;
+  __device__ void load(uint *_data, long long _size)
+  {
+    data = _data;
+    size = _size;
+  }
+  __device__ void init()
+  {
+    lock = 0;
+  }
+  __device__ bool claim()
+  {
+    bool old = (bool)atomicCAS(&lock, 0, 1);
+    return (!old);
+  }
+  __device__ void release()
+  {
+    if (lock == 0)
+      printf("some error on lock\n");
+    lock = 0;
+  }
+};
+
+template <typename T, uint _size>
+struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
+{
+  long long size;
+  uint capacity;
+  buf<T, _size> data;
+  Global_buffer *global_buffer;
+
+  __device__ long long Size() { return size; }
+  __device__ void Clean() { size = 0; }
+  __device__ bool Empty()
+  {
+    if (size <= 0)
+      return true;
+    return false;
+  }
+  __device__ void Init(size_t s = 0, Global_buffer *gbuffer = nullptr)
+  {
+    if (LTID == 0)
+    {
+      capacity = _size;
+      size = s;
+      global_buffer = gbuffer;
+      if (global_buffer != nullptr)
+      {
+        if (!global_buffer->claim())
+          printf("claim error \n");
+      }
     }
     for (size_t i = LTID; i < _size; i += BLOCK_SIZE)
     {

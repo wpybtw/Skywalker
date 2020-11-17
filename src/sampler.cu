@@ -194,6 +194,8 @@ void Start(Sampler sampler)
   // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
   // printf("ELE_PER_WARP %d\n ", ELE_PER_WARP);
 
+  // orkut max degree 932101
+
   int device;
   cudaDeviceProp prop;
   // int activeWarps;
@@ -208,7 +210,8 @@ void Start(Sampler sampler)
   //        sizeof(float[WARP_PER_SM]) - 2 * sizeof(uint) - sizeof(float[WARP_PER_SM]));
   // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM);
   // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>));
-
+  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>) < sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM)
+    printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   H_ERR(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),

@@ -35,7 +35,7 @@ using ll = long long;
 // #define TMP_PER_ELE (4 + 4 + 4 + 4 + 1)
 // alignment
 #define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 12) // 8
-#define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 20)
+#define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 22)
 
 #define HERR(ans)                                                              \
   { gpuAssert((ans), __FILE__, __LINE__); }

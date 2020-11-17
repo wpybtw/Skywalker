@@ -47,7 +47,7 @@ struct sample_result
     }
     capacity=offset;
 
-    paster(capacity);
+    // paster(capacity);
     cudaMalloc(&data, capacity * sizeof(uint));
     cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
 
