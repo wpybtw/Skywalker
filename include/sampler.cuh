@@ -6,11 +6,14 @@
 // struct sample_result;
 // class Sampler;
 
-template <typename T> void printH(T *ptr, int size) {
+template <typename T>
+void printH(T *ptr, int size)
+{
   T *ptrh = new T[size];
   HERR(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
   printf("printH: ");
-  for (size_t i = 0; i < size; i++) {
+  for (size_t i = 0; i < size; i++)
+  {
     // printf("%d\t", ptrh[i]);
     std::cout << ptrh[i] << "\t";
   }
@@ -18,7 +21,8 @@ template <typename T> void printH(T *ptr, int size) {
   delete ptrh;
 }
 
-class Sampler {
+class Sampler
+{
 public:
   gpu_graph ggraph;
   sample_result result;
@@ -27,19 +31,22 @@ public:
 public:
   Sampler(gpu_graph graph) { ggraph = graph; }
   ~Sampler() {}
-  void SetSeed(uint _num_seed, uint _hop_num, uint *_hops) {
+  void SetSeed(uint _num_seed, uint _hop_num, uint *_hops)
+  {
     printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
     num_seed = _num_seed;
     std::random_device rd;
     std::mt19937 gen(56);
     std::uniform_int_distribution<> dis(1, ggraph.vtx_num);
     uint *seeds = new uint[num_seed];
-    for (int n = 0; n < num_seed; ++n) {
-      // seeds[n] = dis(gen);
+    for (int n = 0; n < num_seed; ++n)
+    {
+
 #ifdef check
-      seeds[n] = 339;
-#else
       seeds[n] = n;
+      // seeds[n] = 339;
+#else
+      seeds[n] = dis(gen);
 #endif // check
 
       // h_sample_id[n] = 0;

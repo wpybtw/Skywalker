@@ -112,7 +112,7 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
     if (LTID == 0)
     {
       weight_sum = tmp;
-      printf("weight_sum %f\n", weight_sum);
+      // printf("weight_sum %f\n", weight_sum);
     }
     __syncthreads();
 
@@ -248,52 +248,60 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
       // printf("old_small_idx %d\n", old_small_idx);
       if (old_small_idx >= 0)
       {
-        if (LID == 0)
+        coalesced_group active = coalesced_threads();
+        if (active.thread_rank() == 0)
         {
-          small.size -= MIN(small.Size(), 32);
+          small.size -= MIN(small.Size(), active.size());
         }
         T smallV = small[old_small_idx];
-        int res = old_small_idx % large.Size();   //error TODO
-        // bool holder = (old_small_idx / large.size == 0);
-        bool holder = ((LID < MIN(large.Size(), 32)) ? true : false);
-        // paster(holder);
-        T largeV = large[large.Size() - res - 1];
-        if (LID == 0)
+        T largeV;
+        bool holder = ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
+                                                                                 : false);
+        if (large.Size() < active.size())
         {
-          large.size -= MIN(MIN(large.Size(), old_small_size), 32);
+          int res = old_small_idx % large.Size();
+          largeV = large[large.Size() - res - 1];
+          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res, largeV);
         }
-        // todo how to ensure holder alwasy success??
+        else
+        {
+          largeV = large[large.Size() - active.thread_rank() - 1];
+        }
+        if (active.thread_rank() == 0)
+        {
+          large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
+        }
         float old;
         if (holder)
           old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (!holder)
           old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 + prob[smallV]);
-        // printf("holder %d\n",holder);
-        if (old + prob[smallV] - 1.0 >= 0)
+        // printf("%d   LID %d decide largeV %u %f   need %f\n", holder, LID, largeV, old, 1.0 - prob[smallV]);
+        if (old + prob[smallV] - 1.0 < 0)
         {
-          printf("cunsume small %u\n", smallV);
-          // prob[smallV] = weights[smallV];
-          // printf("setting alias of %u to %u \n", smallV, largeV);
+          // active_size2("prob<0 ", __LINE__);
+          atomicAdd(&prob[largeV], 1 - prob[smallV]);
+          small.Add(smallV);
+        }
+        else
+        {
+          // __threadfence_block();
+          // active_size2("cunsume small ", __LINE__);
           alias[smallV] = largeV;
           if (holder)
           {
             if (prob[largeV] < 1)
             {
               small.Add(largeV);
-              printf("%d   %d add to small %u\n", holder,LID, largeV);
+              // printf("%d   LID %d add to small %u\n", holder, LID, largeV);
+              // active_size2("add to small ", __LINE__);
             }
             else if (prob[largeV] > 1)
             {
               large.Add(largeV);
-              // printf("add back %u\n", largeV);
+              // active_size2("add back  ", __LINE__);
             }
           }
-        }
-        else
-        {
-          atomicAdd(&prob[largeV], 1 - prob[smallV]);
-          small.Add(smallV);
         }
       }
       if (LID == 0)
@@ -320,36 +328,9 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
         printf("alias: ");
         printDL(alias.data.data, alias.size);
       }
-      __syncwarp(0xffffffff);
 #endif
       __syncwarp(0xffffffff);
     }
-
-    // active_size(0);
-    // #ifdef check
-    //     __syncthreads();
-    //     if (LTID == 0)
-    //     {
-    //       printf("itr: %d\n", itr);
-    //       printf("large.size %lld\n", large.size);
-    //       printf("small.size %lld\n", small.size);
-    //       if (small.size > 0)
-    //       {
-    //         printf("large: ");
-    //         printDL(large.data.data, large.size);
-    //       }
-    //       if (small.size > 0)
-    //       {
-    //         printf("small: ");
-    //         printDL(small.data.data, small.size);
-    //       }
-    //       printf("prob: ");
-    //       printDL(prob.data.data, prob.size);
-    //       printf("alias: ");
-    //       printDL(alias.data.data, alias.size);
-    //     }
-    //     __syncthreads();
-    // #endif
   }
 };
 
@@ -499,22 +480,21 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
     }
     __syncwarp(0xffffffff);
 
-    // #ifdef check
-    //     if (LID == 0)
-    //     {
-    //       printf("large: ");
-    //       printD(large.data, large.size);
-    //       printf("small: ");
-    //       printD(small.data, small.size);
-    //       printf("prob: ");
-    //       printD(prob.data, prob.size);
-    //       printf("alias: ");
-    //       printD(alias.data, alias.size);
-    //     }
-    // #endif
+#ifdef check
+    if (LID == 0)
+    {
+      printf("large: ");
+      printD(large.data.data, large.size);
+      printf("small: ");
+      printD(small.data.data, small.size);
+      printf("prob: ");
+      printD(prob.data.data, prob.size);
+      printf("alias: ");
+      printD(alias.data.data, alias.size);
+    }
+#endif
     __syncwarp(0xffffffff);
     int itr = 0;
-
     while (!small.Empty() && !large.Empty())
     {
       int old_small_idx = small.Size() - LID - 1;
@@ -522,63 +502,89 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
       // printf("old_small_idx %d\n", old_small_idx);
       if (old_small_idx >= 0)
       {
-        if (LID == 0)
+        coalesced_group active = coalesced_threads();
+        if (active.thread_rank() == 0)
         {
-          small.size -= MIN(small.Size(), 32);
+          small.size -= MIN(small.Size(), active.size());
         }
         T smallV = small[old_small_idx];
-        int res = old_small_idx % large.Size();
-        // bool holder = (old_small_idx / large.size == 0);
-        bool holder = ((LID < MIN(large.Size(), 32)) ? true : false);
-
-        T largeV = large[large.Size() - res - 1];
-        if (LID == 0)
+        T largeV;
+        bool holder = ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
+                                                                                 : false);
+        if (large.Size() < active.size())
         {
-          large.size -= MIN(MIN(large.Size(), old_small_size), 32);
+          int res = old_small_idx % large.Size();
+          largeV = large[large.Size() - res - 1];
+          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res, largeV);
         }
-        // todo how to ensure holder alwasy success??
+        else
+        {
+          largeV = large[large.Size() - active.thread_rank() - 1];
+        }
+        if (active.thread_rank() == 0)
+        {
+          large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
+        }
         float old;
         if (holder)
           old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (!holder)
           old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 + prob[smallV]);
-        if (old + prob[smallV] - 1.0 >= 0)
+        // printf("%d   LID %d decide largeV %u %f   need %f\n", holder, LID, largeV, old, 1.0 - prob[smallV]);
+        if (old + prob[smallV] - 1.0 < 0)
         {
-          // prob[smallV] = weights[smallV];
+          // active_size2("prob<0 ", __LINE__);
+          atomicAdd(&prob[largeV], 1 - prob[smallV]);
+          small.Add(smallV);
+        }
+        else
+        {
+          // __threadfence_block();
+          // active_size2("cunsume small ", __LINE__);
           alias[smallV] = largeV;
           if (holder)
           {
             if (prob[largeV] < 1)
+            {
               small.Add(largeV);
+              // printf("%d   LID %d add to small %u\n", holder, LID, largeV);
+              // active_size2("add to small ", __LINE__);
+            }
             else if (prob[largeV] > 1)
+            {
               large.Add(largeV);
+              // active_size2("add back  ", __LINE__);
+            }
           }
-        }
-        else
-        {
-          atomicAdd(&prob[largeV], 1 - prob[smallV]);
-          small.Add(smallV);
         }
       }
       if (LID == 0)
         itr++;
-      // #ifdef check
-      //       if (LID == 0)
-      //       {
-      //         printf("itr: %d\n", itr);
-      //         printf("large: ");
-      //         printD(large.data, large.size);
-      //         printf("small: ");
-      //         printD(small.data, small.size);
-      //         printf("prob: ");
-      //         printD(prob.data, prob.size);
-      //         printf("alias: ");
-      //         printD(alias.data, alias.size);
-      //       }
-      // #endif
       __syncwarp(0xffffffff);
     }
+#ifdef check
+    __syncwarp(0xffffffff);
+    if (LTID == 0)
+    {
+      printf("itr: %d\n", itr);
+      printf("large.size %lld\n", large.size);
+      printf("small.size %lld\n", small.size);
+      if (small.size > 0)
+      {
+        printf("large: ");
+        printDL(large.data.data, large.size);
+      }
+      if (small.size > 0)
+      {
+        printf("small: ");
+        printDL(small.data.data, small.size);
+      }
+      printf("prob: ");
+      printDL(prob.data.data, prob.size);
+      printf("alias: ");
+      printDL(alias.data.data, alias.size);
+    }
+#endif
   }
 };
 
@@ -640,7 +646,8 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
 //             old = atomicAdd(&prob[largeV], prob[smallV] - 1.0); //gdb error?
 //           if (!holder)
 //             old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-//           // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 + prob[smallV]);
+//           // printf("old - 1 + prob[smallV] %f\n ", old - 1.0 +
+//           prob[smallV]);
 //           if (old + prob[smallV] - 1.0 >= 0)
 //           {
 //             // prob[smallV] = weights[smallV];

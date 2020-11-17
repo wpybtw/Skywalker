@@ -11,7 +11,7 @@ using namespace cooperative_groups;
 #include <stdio.h>
 #include <stdlib.h>
 
-#define check
+// #define check
 
 #define u64 unsigned long long int
 using ll = long long;
@@ -37,15 +37,11 @@ using ll = long long;
 #define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 12) // 8
 #define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 20)
 
-#define HERR(ans)                         \
-  {                                       \
-    gpuAssert((ans), __FILE__, __LINE__); \
-  }
+#define HERR(ans)                                                              \
+  { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
-                      bool abort = true)
-{
-  if (code != cudaSuccess)
-  {
+                      bool abort = true) {
+  if (code != cudaSuccess) {
     fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
             line);
     if (abort)
@@ -53,26 +49,25 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
   }
 }
 __device__ void active_size(int n);
+ __device__ int active_size2(char *txt, int n );
 #define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 #define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 
-namespace print
-{
-  template <typename... Args>
-  __host__ __device__ __forceinline__ void
-  myprintf(const char *file, int line, const char *__format, Args... args)
-  {
+namespace print {
+template <typename... Args>
+__host__ __device__ __forceinline__ void
+myprintf(const char *file, int line, const char *__format, Args... args) {
 #if defined(__CUDA_ARCH__)
-    // if (LID == 0)
-    {
-      printf("%s:%d GPU: ", file, line);
-      printf(__format, args...);
-    }
-#else
-    printf("%s:%d HOST: ", file, line);
+  // if (LID == 0)
+  {
+    printf("%s:%d GPU: ", file, line);
     printf(__format, args...);
-#endif
   }
+#else
+  printf("%s:%d HOST: ", file, line);
+  printf(__format, args...);
+#endif
+}
 } // namespace print
 __device__ void __conv();
 #include <stdlib.h>
@@ -114,18 +109,14 @@ using uint = unsigned int;
 // }
 #define FULL_MASK 0xffffffff
 
-template <typename T>
-__inline__ __device__ T warpReduce(T val)
-{
+template <typename T> __inline__ __device__ T warpReduce(T val) {
   // T val_shuffled;
   for (int offset = 16; offset > 0; offset /= 2)
     val += __shfl_down_sync(FULL_MASK, val, offset);
   return val;
 }
 
-template <typename T>
-__inline__ __device__ T blockReduce(T val)
-{
+template <typename T> __inline__ __device__ T blockReduce(T val) {
   __shared__ T buf[WARP_PER_SM];
   // T val_shuffled;
   T tmp = warpReduce<T>(val);
@@ -133,16 +124,14 @@ __inline__ __device__ T blockReduce(T val)
   __syncthreads();
   // if (LTID == 0)
   //   printf("warp sum ");
-  if (LID == 0)
-  {
+  if (LID == 0) {
     buf[WID] = tmp;
     // printf("%f \t", tmp);
   }
   // if (LTID == 0)
   //   printf("warp sum \n");
   __syncthreads();
-  if (WID == 0)
-  {
+  if (WID == 0) {
     tmp = (LID < WARP_PER_SM) ? buf[LID] : 0.0;
     tmp = warpReduce<T>(tmp);
     if (LID == 0)
@@ -153,8 +142,7 @@ __inline__ __device__ T blockReduce(T val)
   return tmp;
 }
 
-template <typename T>
-void printH(T *ptr, int size);
+template <typename T> void printH(T *ptr, int size);
 __device__ void printD(float *ptr, int size);
 __device__ void printD(int *ptr, int size);
 __device__ void printD(uint *ptr, int size);
@@ -170,7 +158,8 @@ __device__ void printDL(uint *ptr, long long size);
 // template <typename T> __global__ void init_array_d(T *ptr, size_t size, T v);
 // template <typename T> void init_array(T *ptr, size_t size, T v);
 
-// from https://forums.developer.nvidia.com/t/how-can-i-use-atomicsub-for-floats-and-doubles/64340/5
+// from
+// https://forums.developer.nvidia.com/t/how-can-i-use-atomicsub-for-floats-and-doubles/64340/5
 __device__ double my_atomicSub(double *address, double val);
 
 __device__ float my_atomicSub(float *address, float val);

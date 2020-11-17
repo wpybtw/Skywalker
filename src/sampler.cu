@@ -48,9 +48,9 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
                                   int node_id, void *buffer)
 {
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
-  // alias_table_shmem<uint, ExecutionPolicy::BC> *tables =
-  //     (alias_table_shmem<uint, ExecutionPolicy::BC> *)buffer;
+  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
+  alias_table_shmem<uint, ExecutionPolicy::BC> *tables =
+      (alias_table_shmem<uint, ExecutionPolicy::BC> *)buffer;
   alias_table_shmem<uint, ExecutionPolicy::BC> *table = &tables[0];
 
 #ifdef check
@@ -85,9 +85,9 @@ __global__ void sample_kernel(Sampler *sampler)
     current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
-  // void * buffer=&table;
-  void * buffer=nullptr;
+  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
+  void * buffer=&table;
+  // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
   
 
@@ -121,8 +121,8 @@ __global__ void sample_kernel(Sampler *sampler)
             high_degree.idx = job.idx;
             high_degree.node_id = job.node_id;
             high_degree_vec.Add(high_degree);
-            printf("need larger buf for id %d degree %d \n", job.node_id,
-                   ggraph->getDegree(job.node_id));
+            // printf("need larger buf for id %d degree %d \n", job.node_id,
+            //        ggraph->getDegree(job.node_id));
           } else
             printf("need global mem for id %d degree %d \n", job.node_id,
                    ggraph->getDegree(job.node_id));
@@ -138,19 +138,19 @@ __global__ void sample_kernel(Sampler *sampler)
     //   high_degree_vec.Add(high_degree);
     // }
     __syncthreads();
-    if (threadIdx.x == 0)
-    {
-      if (high_degree_vec.Size() != 0)
-      {
-        paster(high_degree_vec.Size());
-        for (size_t i = 0; i < high_degree_vec.Size(); i++)
-        {
-          printf("idx %u id %u", high_degree_vec[i].idx,
-                 high_degree_vec[i].node_id);
-        }
-        printf("\n");
-      }
-    }
+    // if (threadIdx.x == 0)
+    // {
+    //   if (high_degree_vec.Size() != 0)
+    //   {
+    //     paster(high_degree_vec.Size());
+    //     for (size_t i = 0; i < high_degree_vec.Size(); i++)
+    //     {
+    //       printf("idx %u id %u", high_degree_vec[i].idx,
+    //              high_degree_vec[i].node_id);
+    //     }
+    //     printf("\n");
+    //   }
+    // }
 
     for (size_t i = 0; i < high_degree_vec.Size(); i++)
     {
@@ -195,13 +195,13 @@ void Start(Sampler sampler)
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   int n_sm = prop.multiProcessorCount;
-  paster(n_sm);
+  // paster(n_sm);
 
-  paster(sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>));
-  paster(SHMEM_SIZE - sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>) -
-         sizeof(float[WARP_PER_SM]) - 2 * sizeof(uint) - sizeof(float[WARP_PER_SM]));
-  paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM);
-  paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>));
+  // paster(sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>));
+  // paster(SHMEM_SIZE - sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>) -
+  //        sizeof(float[WARP_PER_SM]) - 2 * sizeof(uint) - sizeof(float[WARP_PER_SM]));
+  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM);
+  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>));
 
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));

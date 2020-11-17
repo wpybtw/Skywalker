@@ -50,6 +50,12 @@ __device__ void active_size(int n = 0)
   if (active.thread_rank() == 0)
     printf("WID: %d coalesced_group %llu at line %d\n", WID, active.size(), n);
 }
+ __device__ int active_size2( char * txt,int n = 0)
+{
+  coalesced_group active = coalesced_threads();
+  if (active.thread_rank() == 0)
+    printf("%s  coalesced_group %llu at line %d\n", txt, active.size(), n);
+}
 template <typename T>
 void printH(T *ptr, int size)
 {
