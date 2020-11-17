@@ -86,10 +86,9 @@ __global__ void sample_kernel(Sampler *sampler)
   __syncthreads();
   // __shared__ char buffer[48928];
   __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
-  void * buffer=&table;
+  void *buffer = &table;
   // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
-  
 
   for (; current_itr < result.hop_num - 1;)
   {
@@ -106,8 +105,10 @@ __global__ void sample_kernel(Sampler *sampler)
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    if (job.val) {
-      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
+    if (job.val)
+    {
+      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP)
+      {
         SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
                          job.node_id, buffer);
         if (LID == 0)
@@ -115,15 +116,20 @@ __global__ void sample_kernel(Sampler *sampler)
         job.idx = __shfl_sync(0xffffffff, job.idx, 0);
         job.val = __shfl_sync(0xffffffff, job.val, 0);
         job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-      } else {
-        if (LID == 0) {
-          if (ggraph->getDegree(job.node_id) < ELE_PER_BLOCK) {
+      }
+      else
+      {
+        if (LID == 0)
+        {
+          if (ggraph->getDegree(job.node_id) < ELE_PER_BLOCK)
+          {
             high_degree.idx = job.idx;
             high_degree.node_id = job.node_id;
             high_degree_vec.Add(high_degree);
             // printf("need larger buf for id %d degree %d \n", job.node_id,
             //        ggraph->getDegree(job.node_id));
-          } else
+          }
+          else
             printf("need global mem for id %d degree %d \n", job.node_id,
                    ggraph->getDegree(job.node_id));
         }
@@ -207,15 +213,19 @@ void Start(Sampler sampler)
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   H_ERR(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                    cudaMemcpyHostToDevice));
-
+  double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
+  start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 #else
   sample_kernel<<<n_sm, 256, 0, 0>>>(sampler_ptr);
 #endif
+  total_time = wtime() - start_time;
+  printf("SamplingTime:%.6f\n", total_time);
+
   HERR(cudaDeviceSynchronize());
   HERR(cudaPeekAtLastError());
 }
