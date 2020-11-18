@@ -1,20 +1,30 @@
-all: main
+all: main main_high_degree
 # util sampler main
 
-CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage   -G -g #  -keep 
-# CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage
+CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo -Xptxas -O0,-v  #-keep   #-Xptxas -O3,-v
+debug: CUFLAG +=  -G -g 
+debug: main main_high_degree
 
 main: main.cu util.cu sampler.cu
 	nvcc main.cu util.cu sampler.cu  $(CUFLAG) -o main
 
+main_high_degree: main_high_degree.cu util.cu sampler_high_degree.cu
+	nvcc main_high_degree.cu util.cu sampler_high_degree.cu  $(CUFLAG) -o main_high_degree
+
 # main: main.cu util.o sampler.o
 # 	nvcc main.cu util.o sampler.o  $(CUFLAG) -o main
+
+
 
 util: ../include/util.cuh util.cu
 	nvcc util.cu  $(CUFLAG) -c 
 
 sampler: ../include/sampler.cuh sampler.cu util.cu
 	nvcc sampler.cu util.o  $(CUFLAG) -c 
+
+sampler_high_degree: ../include/sampler.cuh sampler_high_degree.cu util.cu
+	nvcc sampler_high_degree.cu util.o  $(CUFLAG) -c 
+
 
 test: main
 	#Multidimensional random walk
@@ -34,4 +44,4 @@ lj: main
 
 
 clean:
-	rm *.o alias main *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx
+	rm *.o  main main_high_degree alias *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx

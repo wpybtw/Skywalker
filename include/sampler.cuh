@@ -44,6 +44,7 @@ public:
 
 #ifdef check
       seeds[n] = n;
+      // seeds[n] = 1;
       // seeds[n] = 339;
 #else
       seeds[n] = dis(gen);
@@ -64,3 +65,4 @@ public:
 };
 
 void Start(Sampler sampler);
+void Start_high_degree(Sampler sampler);

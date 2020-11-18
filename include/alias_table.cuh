@@ -42,6 +42,27 @@ __device__ bool AddTillSize(uint *size,
   }
   return false;
 }
+struct Buffer_pointer
+{
+  uint *b0, *b1, *b2;
+  float *b3;
+  unsigned short int *b4;
+  uint size;
+
+  void allocate(uint _size)
+  {
+    size = _size;
+    // paster(size);
+    // paster(size * sizeof(uint));
+    H_ERR(cudaMalloc(&b0, size * sizeof(uint)));
+    H_ERR(cudaMalloc(&b1, size * sizeof(uint)));
+    H_ERR(cudaMalloc(&b2, size * sizeof(uint)));
+    H_ERR(cudaMalloc(&b3, size * sizeof(float)));
+    H_ERR(cudaMalloc(&b4, size * sizeof(unsigned short int)));
+  }
+  // __host__ ~Buffer_pointer(){
+  // }
+};
 
 template <typename T, ExecutionPolicy policy>
 struct alias_table_shmem;
@@ -61,8 +82,20 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> small;
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> alias;
   Vector_shmem<float, ExecutionPolicy::BC, ELE_PER_BLOCK, true> prob;
-  Vector_shmem<unsigned short int, ExecutionPolicy::BC, ELE_PER_BLOCK, true> selected;
+  Vector_shmem<unsigned short int, ExecutionPolicy::BC, ELE_PER_BLOCK, true>
+      selected;
 
+  __device__ bool loadGlobalBuffer(Buffer_pointer *buffer_pointer)
+  {
+    if (LTID == 0)
+    {
+      large.LoadBuffer(buffer_pointer->b0, buffer_pointer->size);
+      small.LoadBuffer(buffer_pointer->b1, buffer_pointer->size);
+      alias.LoadBuffer(buffer_pointer->b2, buffer_pointer->size);
+      prob.LoadBuffer(buffer_pointer->b3, buffer_pointer->size);
+      selected.LoadBuffer(buffer_pointer->b4, buffer_pointer->size);
+    }
+  }
   __host__ __device__ volatile uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
                                 uint _current_itr, int _src_id)
@@ -81,32 +114,11 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
 
     Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
-    for (size_t i = LTID; i < size; i += BLOCK_SIZE)
+    for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i]);
     }
 
-    // if (LTID == 0)
-    //   printf("local_sum \n");
-    // __syncthreads();
-    // // for (size_t i = LTID; i < size; i += BLOCK_SIZE) {
-    //   printf( "%f\t", local_sum);
-    // // }
-    // __syncthreads();
-    // if (LTID == 0)
-    //   printf("local_sum \n");
-
-    // if (LTID == 0)
-    //   printf("bias \n");
-    // __syncthreads();
-    // for (size_t i = LTID; i < size; i += BLOCK_SIZE) {
-    //   printf( "%u\t", graph->getBias(ids[i]));
-    // }
-    // __syncthreads();
-    // if (LTID == 0)
-    //   printf("bias \n");
-
-    // TODO block reduce
     tmp = blockReduce<float>(local_sum);
     __syncthreads();
     if (LTID == 0)
@@ -135,12 +147,57 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
   }
   __device__ void normalize_from_graph(gpu_graph *graph)
   {
-    float scale = size / weight_sum;
-    for (size_t i = LTID; i < size; i += BLOCK_SIZE)
+    if (LTID == 0)
     {
-      prob[i] = graph->getBias(ids[i]) * scale;
+      //   printf("size %u\n", size);
+      // //   // printf("ptr %lld\n", 0x00006ef0ll - &prob[ELE_PER_BLOCK]);
+      // float tmp;
+      // //   // for (size_t i = ELE_PER_BLOCK; i < ELE_PER_BLOCK + 17; // 17ok 18err
+      // //   //      i++)                                              // size - 1000
+      // //   // // printf("%f\t", prob[i]);
+      // //   // {
+      // //   //   paster(i);
+      // //   //   // printf("%p\n", &prob[i]);
+      // //   //   tmp += (float)large[i];
+      // //   // }
+      // paster(MIN(ELE_PER_BLOCK + 1000, size));
+      // printf("%p\n", &prob.data.data[0]);
+      // printf("%p\n", &prob.global_buffer.data[0]);
+
+      // for (size_t i = ELE_PER_BLOCK - 10; i < MIN(ELE_PER_BLOCK + 3000, size);
+      //      i++) // 17ok 18err // MIN(ELE_PER_BLOCK-2,size) // size - 1000
+      // // printf("%f\t", prob[i]);
+      // {
+      //   // paster(i);
+      //   // printf("%p\n", &prob[i]);
+      //   // tmp += prob[i];
+      //   tmp += prob.Get(i);
+      //   // if (i > MIN(ELE_PER_BLOCK + 1200, size))
+      //   //   printf("%p\n", &prob[i]);
+      // }
+      // printf("sum %f\t", tmp);
+    }
+    float scale = size / weight_sum;
+    for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
+    {                                                //size //TODO
+      prob.Get(i) = graph->getBias(ids[i]) * scale;
     }
     __syncthreads();
+
+    float local_sum = 0.0, tmp;
+    for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
+    {
+      local_sum += prob.Get(i);
+    }
+
+    tmp = blockReduce<float>(local_sum);
+    __syncthreads();
+    if (LTID == 0)
+    {
+      weight_sum = tmp;
+      printf("normed weight_sum %f\n", weight_sum);
+      printf("scale %f\n", scale);
+    }
   }
   __device__ void Clean()
   {
@@ -188,20 +245,20 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
     int col = (int)floor(curand_uniform(local_state) * size);
     float p = curand_uniform(local_state);
 #ifdef check
-    if (LTID == 0)
-      printf("tid %d col %d p %f\n", LID, col, p);
+    // if (LTID == 0)
+    printf("tid %d col %d p %f   prob %f  alias %u\n", LID, col, p, prob.Get(col), alias.Get(col));
 #endif
     uint candidate;
-    if (p < prob[col])
+    if (p < prob.Get(col))
       candidate = col;
     else
-      candidate = alias[col];
+      candidate = alias.Get(col);
 #ifdef check
     // if (LID == 0)
-    printf("tid %d candidate %d\n", LID, candidate);
+    printf("tid %d candidate %u\n", LID, candidate);
 #endif
     unsigned short int updated = atomicCAS(
-        &selected[candidate], (unsigned short int)0, (unsigned short int)1);
+        &selected.Get(candidate), (unsigned short int)0, (unsigned short int)1);
     if (!updated)
     {
       if (AddTillSize(local_size, target_size))
@@ -215,26 +272,34 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
 
   __device__ void construct()
   {
-    for (size_t i = LTID; i < size; i += BLOCK_SIZE)
+    __shared__ uint smallsize;
+    if (LTID == 0)
+      smallsize = 0;
+    for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
     {
-      if (prob[i] > 1)
+      if (prob.Get(i) > 1)
         large.Add(i);
       else
+      {
         small.Add(i);
+        atomicAdd(&smallsize,1);
+      }
     }
+    __threadfence_block();
 #ifdef check
     __syncthreads();
-    // __threadfence_block();
     if (LTID == 0)
     {
-      printf("large: ");
-      printDL(large.data.data, large.size); // MIN(large.size, 334)
-      printf("small: ");
-      printDL(small.data.data, small.size);
-      printf("prob: ");
-      printDL(prob.data.data, prob.size);
-      printf("alias: ");
-      printDL(alias.data.data, alias.size);
+      // printf("itr: %d\n", itr);
+      printf("\nlarge size: %lld  %p\n", large.size,&large.size);
+
+      printf("\nsmall size: %lld  %p %u\n", small.size, &small.size, smallsize);
+
+      printf("\nprob size: %lld\n", prob.size);
+      float tmp = 0.0;
+      for (int i = 0; i < large.size; i++)
+        tmp += prob.Get(i);
+      printf("large p sum %f\n", tmp);
     }
 #endif
     __syncthreads();
@@ -253,19 +318,21 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
         {
           small.size -= MIN(small.Size(), active.size());
         }
-        T smallV = small[old_small_idx];
+        T smallV = small.Get(old_small_idx);
         T largeV;
-        bool holder = ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
-                                                                                 : false);
+        bool holder =
+            ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
+                                                                       : false);
         if (large.Size() < active.size())
         {
           int res = old_small_idx % large.Size();
-          largeV = large[large.Size() - res - 1];
-          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res, largeV);
+          largeV = large.Get(large.Size() - res - 1);
+          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
+          // largeV);
         }
         else
         {
-          largeV = large[large.Size() - active.thread_rank() - 1];
+          largeV = large.Get(large.Size() - active.thread_rank() - 1);
         }
         if (active.thread_rank() == 0)
         {
@@ -273,33 +340,34 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
         }
         float old;
         if (holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
         if (!holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        // printf("%d   LID %d decide largeV %u %f   need %f\n", holder, LID, largeV, old, 1.0 - prob[smallV]);
-        if (old + prob[smallV] - 1.0 < 0)
+          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
+        printf("%d   LID %d decide largeV %u %f   need %f\n", holder, LID,
+               largeV, old, 1.0 - prob.Get(smallV));
+        if (old + prob.Get(smallV) - 1.0 < 0)
         {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob[largeV], 1 - prob[smallV]);
+          atomicAdd(&prob.Get(largeV), 1 - prob.Get(smallV));
           small.Add(smallV);
         }
         else
         {
           // __threadfence_block();
-          // active_size2("cunsume small ", __LINE__);
-          alias[smallV] = largeV;
+          active_size2("cunsume small ", __LINE__);
+          alias.Get(smallV) = largeV;
           if (holder)
           {
-            if (prob[largeV] < 1)
+            if (prob.Get(largeV) < 1.0)
             {
               small.Add(largeV);
               // printf("%d   LID %d add to small %u\n", holder, LID, largeV);
-              // active_size2("add to small ", __LINE__);
+              active_size2("add to small ", __LINE__);
             }
-            else if (prob[largeV] > 1)
+            else if (prob.Get(largeV) > 1.0)
             {
               large.Add(largeV);
-              // active_size2("add back  ", __LINE__);
+              active_size2("add back  ", __LINE__);
             }
           }
         }
@@ -311,26 +379,42 @@ struct alias_table_shmem<T, ExecutionPolicy::BC>
       if (LTID == 0)
       {
         printf("itr: %d\n", itr);
-        printf("large.size %lld\n", large.size);
-        printf("small.size %lld\n", small.size);
-        if (small.size > 0)
-        {
-          printf("large: ");
-          printDL(large.data.data, large.size);
-        }
-        if (small.size > 0)
-        {
-          printf("small: ");
-          printDL(small.data.data, small.size);
-        }
-        printf("prob: ");
-        printDL(prob.data.data, prob.size);
-        printf("alias: ");
-        printDL(alias.data.data, alias.size);
+        printf("\nlarge size: %lld\n", large.size);
+        for (int i = 0; i < MIN(20, large.size); i++)
+          printf("%u\t ", large.Get(i));
+        printf("\nsmall size: %lld\n", small.size);
+        for (int i = 0; i < MIN(20, small.size); i++)
+          printf("%u\t ", small.Get(i));
+        printf("\nalias size: %lld\n", alias.size);
+        for (int i = 0; i < 20; i++)
+          printf("%u\t ", alias.Get(i));
+        printf("\nprob size: %lld\n", prob.size);
+        for (int i = 0; i < 20; i++)
+          printf("%.2f\t ", prob.Get(i));
+        printf("\n");
       }
 #endif
       __syncwarp(0xffffffff);
     }
+    // #ifdef check
+    //     __syncwarp(0xffffffff);
+    //     if (LTID == 0)
+    //     {
+    //       printf("itr: %d\n", itr);
+    //       printf("large size: %lld\n", large.size);
+    //       for (int i = 0; i < MIN(100, large.size) ; i++)
+    //         printf("%u\t ", large.Get(i));
+    //       printf("small size: %lld\n", small.size);
+    //       for (int i = 0; i <  MIN(100, small.size) ; i++)
+    //         printf("%u\t ", small.Get(i));
+    //       printf("alias size: %lld\n", alias.size);
+    //       for (int i = 0; i < 100; i++)
+    //         printf("%u\t ", alias.Get(i));
+
+    //       for (int i = 0; i < 100; i++)
+    //         printf("%.2f\t ", prob.Get(i));
+    //     }
+    // #endif
   }
 };
 
@@ -349,7 +433,8 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> small;
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> alias;
   Vector_shmem<float, ExecutionPolicy::WC, ELE_PER_WARP, false> prob;
-  Vector_shmem<unsigned short int, ExecutionPolicy::WC, ELE_PER_WARP, false> selected;
+  Vector_shmem<unsigned short int, ExecutionPolicy::WC, ELE_PER_WARP, false>
+      selected;
 
   __host__ __device__ volatile uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
@@ -509,13 +594,15 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
         }
         T smallV = small[old_small_idx];
         T largeV;
-        bool holder = ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
-                                                                                 : false);
+        bool holder =
+            ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
+                                                                       : false);
         if (large.Size() < active.size())
         {
           int res = old_small_idx % large.Size();
           largeV = large[large.Size() - res - 1];
-          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res, largeV);
+          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
+          // largeV);
         }
         else
         {
@@ -530,7 +617,8 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
           old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (!holder)
           old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        // printf("%d   LID %d decide largeV %u %f   need %f\n", holder, LID, largeV, old, 1.0 - prob[smallV]);
+        // printf("%d   LID %d decide largeV %u %f   need %f\n", holder, LID,
+        // largeV, old, 1.0 - prob[smallV]);
         if (old + prob[smallV] - 1.0 < 0)
         {
           // active_size2("prob<0 ", __LINE__);
@@ -715,3 +803,22 @@ struct alias_table_shmem<T, ExecutionPolicy::WC>
 //     __syncthreads();
 // #endif
 //   }
+
+// printf("large size: %lld\n", alias.size);
+// printf("small size: %lld\n", alias.size);
+// printf("prob size: %lld\n", alias.size);
+// printf("alias size: %lld\n", alias.size);
+// if (large.size > 0)
+// {
+//   printf("large: ");
+//   printDL(large.data.data, large.size);
+// }
+// if (small.size > 0)
+// {
+//   printf("small: ");
+//   printDL(small.data.data, small.size);
+// }
+// printf("prob: ");
+// printDL(prob.data.data, prob.size);
+// printf("alias: ");
+// printDL(alias.data.data, alias.size);

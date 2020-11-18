@@ -11,14 +11,14 @@ using namespace cooperative_groups;
 #include <stdio.h>
 #include <stdlib.h>
 
-// #define check
+#define check
 
 #define u64 unsigned long long int
 using ll = long long;
 
 #define TID (threadIdx.x + blockIdx.x * blockDim.x)
 #define LTID (threadIdx.x)
-#define TBID (blockIdx.x)
+#define BID (blockIdx.x)
 #define LID (threadIdx.x % 32)
 #define WID (threadIdx.x / 32)
 #define GWID (TID / 32)
@@ -35,7 +35,7 @@ using ll = long long;
 // #define TMP_PER_ELE (4 + 4 + 4 + 4 + 1)
 // alignment
 #define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 12) // 8
-#define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 22)
+#define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 26)
 
 #define HERR(ans)                                                              \
   { gpuAssert((ans), __FILE__, __LINE__); }
@@ -117,7 +117,7 @@ template <typename T> __inline__ __device__ T warpReduce(T val) {
 }
 
 template <typename T> __inline__ __device__ T blockReduce(T val) {
-  __shared__ T buf[WARP_PER_SM];
+  __shared__ T buf[ WARP_PER_SM ];  //blockDim.x/32
   // T val_shuffled;
   T tmp = warpReduce<T>(val);
 
@@ -132,7 +132,7 @@ template <typename T> __inline__ __device__ T blockReduce(T val) {
   //   printf("warp sum \n");
   __syncthreads();
   if (WID == 0) {
-    tmp = (LID < WARP_PER_SM) ? buf[LID] : 0.0;
+    tmp = (LID < blockDim.x/32) ? buf[LID] : 0.0;
     tmp = warpReduce<T>(tmp);
     if (LID == 0)
       buf[0] = tmp;

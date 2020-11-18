@@ -17,7 +17,7 @@ public:
   virtual void clean() {}
   virtual bool empty() {}
   virtual size_t size() {}
-  virtual T &operator[](int id) {}
+  virtual T &operator[](size_t id) {}
 };
 
 template <typename T, int size>
@@ -78,7 +78,7 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size, false>
         atomicDec(&size, 1);
     }
   }
-  __device__ T &operator[](int id) { return data.data[id]; }
+  __device__ T &operator[](size_t id) { return data.data[id]; }
 };
 
 template <typename T, uint _size>
@@ -120,30 +120,28 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false>
       {
         // atomicDec(&size, 1);
         atomicAdd((unsigned long long *)&size, -1);
-        // printf("Vector_shmem overflow %d \n", __LINE__);
+        printf("Vector_shmem overflow %d \n", __LINE__);
       }
     }
   }
-  __device__ T &operator[](int id) { return data.data[id]; }
+  __device__ T &operator[](size_t id) { return data.data[id]; }
 };
 
-// template <typename T, uint _size>
+template <typename T>
 struct Global_buffer
 {
   long long size;
-  uint *data;
+  T *data;
   unsigned short int lock;
-  __device__ void load(uint *_data, long long _size)
+  __device__ void load(T *_data, long long _size)
   {
     data = _data;
     size = _size;
   }
-  __device__ void init()
-  {
-    lock = 0;
-  }
+  __device__ void init() { lock = 0; }
   __device__ bool claim()
   {
+    // printf("lock %d\n",lock);
     bool old = (bool)atomicCAS(&lock, 0, 1);
     return (!old);
   }
@@ -153,6 +151,18 @@ struct Global_buffer
       printf("some error on lock\n");
     lock = 0;
   }
+  // __device__ T &operator[](size_t id)
+  // {
+  //   if (id % 32 == 0)
+  //     printf("accessing Global_buffer %d %p\n", (int)id, &data[id]);
+  //   return data[id];
+  // }
+  __device__ T &Get(size_t id)
+  {
+    // if (id % 32 == 0)
+    //   printf("accessing Global_buffer %d %p\n", (int)id, &data[id]);
+    return data[id];
+  }
 };
 
 template <typename T, uint _size>
@@ -161,7 +171,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
   long long size;
   uint capacity;
   buf<T, _size> data;
-  Global_buffer *global_buffer;
+  Global_buffer<T> global_buffer;
 
   __device__ long long Size() { return size; }
   __device__ void Clean() { size = 0; }
@@ -171,18 +181,23 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
       return true;
     return false;
   }
-  __device__ void Init(size_t s = 0, Global_buffer *gbuffer = nullptr)
+  __device__ void LoadBuffer(T *gbuffer, uint _buffer_size)
+  {
+    // if (LTID == 0)
+    // {
+    global_buffer.load(gbuffer, _buffer_size);
+    global_buffer.init();
+    if (!global_buffer.claim())
+      printf("claim error \n");
+
+    // }
+  }
+  __device__ void Init(size_t s = 0)
   {
     if (LTID == 0)
     {
       capacity = _size;
       size = s;
-      global_buffer = gbuffer;
-      if (global_buffer != nullptr)
-      {
-        if (!global_buffer->claim())
-          printf("claim error \n");
-      }
     }
     for (size_t i = LTID; i < _size; i += BLOCK_SIZE)
     {
@@ -192,20 +207,43 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
   }
   __device__ void Add(T t)
   {
-    if (Size() < _size)
+    if (Size() < _size + global_buffer.size)
     {
       long long old = atomicAdd((unsigned long long *)&size, 1);
       if (old < capacity)
         data.data[old] = t;
+      else if (old < capacity + _size)
+      {
+        global_buffer.Get(old - capacity) = t;
+      }
       else
       {
-        // atomicDec(&size, 1);
         atomicAdd((unsigned long long *)&size, -1);
+        // atomicDec(&size, 1);
         // printf("Vector_shmem overflow %d \n", __LINE__);
       }
     }
   }
-  __device__ T &operator[](int id) { return data.data[id]; }
+  // __device__ T &operator[](size_t idx)
+  // {
+  //   if (idx < capacity)
+  //     return data.data[idx];
+  //   else
+  //   {
+  //     // if(TID==0) printf("accessing idx %d\n",idx);
+  //     global_buffer[idx - capacity];
+  //   }
+  // }
+  __device__ T &Get(size_t idx)
+  {
+    if (idx < capacity)
+      return data.data[idx];
+    else
+    {
+      // if(TID==0) printf("accessing idx %d\n",idx);
+      global_buffer.Get(idx - capacity);
+    }
+  }
 };
 
 // template <typename T> __global__ void myMemsetKernel(T *ptr, size_t size){
@@ -275,5 +313,5 @@ public:
       return true;
     return false;
   }
-  __device__ T &operator[](int id) { return data[id]; }
+  __device__ T &operator[](size_t id) { return data[id]; }
 };

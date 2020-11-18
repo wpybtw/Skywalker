@@ -41,7 +41,8 @@ double wtime()
 
   return time[0] + time[1] * 1.0e-6;
 }
-__device__ void __conv(){
+__device__ void __conv()
+{
   coalesced_group active = coalesced_threads();
 }
 __device__ void active_size(int n = 0)
@@ -50,7 +51,7 @@ __device__ void active_size(int n = 0)
   if (active.thread_rank() == 0)
     printf("WID: %d coalesced_group %llu at line %d\n", WID, active.size(), n);
 }
- __device__ int active_size2( char * txt,int n = 0)
+__device__ int active_size2(char *txt, int n = 0)
 {
   coalesced_group active = coalesced_threads();
   if (active.thread_rank() == 0)
@@ -71,48 +72,53 @@ void printH(T *ptr, int size)
   delete ptrh;
 }
 
-
-
-__device__ double my_atomicSub(double* address, double val) {
- unsigned long long int* address_as_ull = (unsigned long long int*)address;
- unsigned long long int old = *address_as_ull, assumed;
- do {
-      assumed = old;
-      old = atomicCAS(address_as_ull, assumed, __double_as_longlong(__longlong_as_double(assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-    } while (assumed != old);
+__device__ double my_atomicSub(double *address, double val)
+{
+  unsigned long long int *address_as_ull = (unsigned long long int *)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do
+  {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(__longlong_as_double(assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+  } while (assumed != old);
   return __longlong_as_double(old);
 }
 
-__device__ float my_atomicSub(float* address, float val) {
- int* address_as_int = (int*)address;
- int old = *address_as_int, assumed;
- do {
-      assumed = old;
-      old = atomicCAS(address_as_int, assumed, __float_as_int(__int_as_float(assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-    } while (assumed != old);
+__device__ float my_atomicSub(float *address, float val)
+{
+  int *address_as_int = (int *)address;
+  int old = *address_as_int, assumed;
+  do
+  {
+    assumed = old;
+    old = atomicCAS(address_as_int, assumed, __float_as_int(__int_as_float(assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+  } while (assumed != old);
   return __int_as_float(old);
 }
 
-__device__ long long my_atomicSub(long long* address, long long val) {
- unsigned long long int* address_as_ull = (unsigned long long int*)address;
- unsigned long long int old = *address_as_ull, assumed;
- do {
-      assumed = old;
-      old = atomicCAS(address_as_ull, assumed, ((assumed) - val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-    } while (assumed != old);
+__device__ long long my_atomicSub(long long *address, long long val)
+{
+  unsigned long long int *address_as_ull = (unsigned long long int *)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do
+  {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, ((assumed)-val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+  } while (assumed != old);
   return (old);
 }
 
-__device__ long long my_atomicAdd(long long* address, long long val) {
- unsigned long long int* address_as_ull = (unsigned long long int*)address;
- unsigned long long int old = *address_as_ull, assumed;
- do {
-      assumed = old;
-      old = atomicCAS(address_as_ull, assumed, ((assumed) + val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-    } while (assumed != old);
+__device__ long long my_atomicAdd(long long *address, long long val)
+{
+  unsigned long long int *address_as_ull = (unsigned long long int *)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do
+  {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, ((assumed) + val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+  } while (assumed != old);
   return (old);
 }
-
 
 __device__ void printD(float *ptr, int size)
 {
@@ -172,7 +178,7 @@ __device__ void printD(uint *ptr, uint size)
 __device__ void printDL(float *ptr, long long size)
 {
   printf("printDL: size %u, ", size);
-  for (size_t i = 0; i < size; i++)
+  for (size_t i = 0; i < MIN(size, 100); i++)
   {
     printf("%f\t", ptr[i]);
   }
@@ -181,7 +187,7 @@ __device__ void printDL(float *ptr, long long size)
 __device__ void printDL(int *ptr, long long size)
 {
   printf("printDL: size %u, ", size);
-  for (size_t i = 0; i < size; i++)
+  for (size_t i = 0; i < MIN(size, 100); i++)
   {
     printf("%d\t", ptr[i]);
   }
@@ -190,7 +196,7 @@ __device__ void printDL(int *ptr, long long size)
 __device__ void printDL(uint *ptr, long long size)
 {
   printf("printDL: size %u, ", size);
-  for (size_t i = 0; i < size; i++)
+  for (size_t i = 0; i < MIN(size, 100); i++)
   {
     printf("%u\t", ptr[i]);
   }
