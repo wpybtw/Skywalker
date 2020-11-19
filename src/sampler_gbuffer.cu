@@ -162,11 +162,7 @@ __global__ void init_kernel_ptr(Sampler *sampler)
 }
 __global__ void print_result(Sampler *sampler)
 {
-  if (TID == 0)
-  {
-    printf("result: \n");
-    printD(sampler->result.data, MIN(sampler->result.capacity, 100));
-  }
+  sampler->result.PrintResult();
 }
 
 // void Start_high_degree(Sampler sampler)
@@ -210,15 +206,12 @@ void Start(Sampler sampler)
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
-
 #else
   sample_kernel<<<n_sm, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
-
 #endif
   total_time = wtime() - start_time;
-  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   printf("SamplingTime:%.6f\n", total_time);
-
+  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   HERR(cudaDeviceSynchronize());
   HERR(cudaPeekAtLastError());
 }

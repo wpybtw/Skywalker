@@ -30,6 +30,8 @@
 //   }
 //   return val;
 // }
+
+
 double wtime()
 {
   double time[2];

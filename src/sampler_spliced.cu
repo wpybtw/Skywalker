@@ -50,7 +50,7 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   Buffer_pointer *buffer_pointer)
 {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED > *tables =
+  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *tables =
       (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *)buffer;
   alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *table = &tables[0];
 
@@ -224,11 +224,7 @@ __global__ void init_kernel_ptr(Sampler *sampler)
 }
 __global__ void print_result(Sampler *sampler)
 {
-  if (TID == 0)
-  {
-    printf("result: \n");
-    printD(sampler->result.data, sampler->result.capacity);
-  }
+  sampler->result.PrintResult();
 }
 
 // void Start_high_degree(Sampler sampler)
@@ -269,13 +265,12 @@ void Start(Sampler sampler)
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
-  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 #else
   sample_kernel<<<n_sm, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
 #endif
   total_time = wtime() - start_time;
   printf("SamplingTime:%.6f\n", total_time);
-
+  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   HERR(cudaDeviceSynchronize());
   HERR(cudaPeekAtLastError());
 }

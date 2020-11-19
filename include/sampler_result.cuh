@@ -45,7 +45,7 @@ struct sample_result
       cum *= _hops[i];
       offset += cum;
     }
-    capacity=offset;
+    capacity = offset;
 
     // paster(capacity);
     cudaMalloc(&data, capacity * sizeof(uint));
@@ -60,6 +60,16 @@ struct sample_result
     cudaMalloc(&job_sizes, (hop_num) * sizeof(int));
     cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int));
     // cudaMemcpy(job_sizes, _hops, hop_num * sizeof(int), cudaMemcpyHostToDevice);
+  }
+  __device__ void PrintResult()
+  {
+    if (LTID == 0)
+    {
+      printf("job_sizes \n");
+      printD(job_sizes, hop_num);
+      printf("result: \n");
+      printD(data, MIN(capacity, 100));
+    }
   }
   __device__ void setAddrOffset()
   {
@@ -79,7 +89,7 @@ struct sample_result
   __device__ uint *getNextAddr(uint hop)
   {
     // uint offset =  ;// + hops[hop] * idx;
-    return &data[addr_offset[hop+1]];
+    return &data[addr_offset[hop + 1]];
   }
   __device__ uint getNodeId(uint idx, uint hop)
   {
@@ -131,6 +141,7 @@ struct sample_result
     // printf("start itr %d at block %d \n", current_itr, blockIdx.x);
   }
 };
+
 
 // __device__ uint *getAddr(uint idx, uint hop)
 //   {

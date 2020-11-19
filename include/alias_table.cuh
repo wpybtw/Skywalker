@@ -9,27 +9,26 @@
 // struct alias_table;
 
 // __global__ void load_id_weight();
-// inline __device__ char char_atomicCAS(char *addr, char cmp, char val)
-// {
-//   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr)
-//   &
-//                                                    (0xFFFFFFFFFFFFFFFCULL));
-//   unsigned al_offset = ((unsigned)(((unsigned long long)addr) & 3)) * 8;
-//   unsigned mask = 0xFFU;
-//   mask <<= al_offset;
-//   mask = ~mask;
-//   unsigned sval = val;
-//   sval <<= al_offset;
-//   unsigned old = *al_addr, assumed, setval;
-//   do
-//   {
-//     assumed = old;
-//     setval = assumed & mask;
-//     setval |= sval;
-//     old = atomicCAS(al_addr, assumed, setval);
-//   } while (assumed != old);
-//   return (char)((assumed >> al_offset) & 0xFFU);
-// }
+inline __device__ char char_atomicCAS(char *addr, char cmp, char val)
+{
+  unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr) &
+                                                   (0xFFFFFFFFFFFFFFFCULL));
+  unsigned al_offset = ((unsigned)(((unsigned long long)addr) & 3)) * 8;
+  unsigned mask = 0xFFU;
+  mask <<= al_offset;
+  mask = ~mask;
+  unsigned sval = val;
+  sval <<= al_offset;
+  unsigned old = *al_addr, assumed, setval;
+  do
+  {
+    assumed = old;
+    setval = assumed & mask;
+    setval |= sval;
+    old = atomicCAS(al_addr, assumed, setval);
+  } while (assumed != old);
+  return (char)((assumed >> al_offset) & 0xFFU);
+}
 
 // template <typename T>
 __device__ bool AddTillSize(uint *size,
@@ -46,7 +45,8 @@ struct Buffer_pointer
 {
   uint *b0, *b1, *b2;
   float *b3;
-  unsigned short int *b4;
+  // unsigned short int *b4;
+  char *b4;
   uint size;
 
   void allocate(uint _size)
@@ -58,7 +58,7 @@ struct Buffer_pointer
     H_ERR(cudaMalloc(&b1, size * sizeof(uint)));
     H_ERR(cudaMalloc(&b2, size * sizeof(uint)));
     H_ERR(cudaMalloc(&b3, size * sizeof(float)));
-    H_ERR(cudaMalloc(&b4, size * sizeof(unsigned short int)));
+    H_ERR(cudaMalloc(&b4, size * sizeof(char))); //unsigned short int
   }
   // __host__ ~Buffer_pointer(){
   // }
@@ -153,57 +153,12 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM>
   }
   __device__ void normalize_from_graph(gpu_graph *graph)
   {
-    if (LTID == 0)
-    {
-      //   printf("size %u\n", size);
-      // //   // printf("ptr %lld\n", 0x00006ef0ll - &prob[ELE_PER_BLOCK]);
-      // float tmp;
-      // //   // for (size_t i = ELE_PER_BLOCK; i < ELE_PER_BLOCK + 17; // 17ok 18err
-      // //   //      i++)                                              // size - 1000
-      // //   // // printf("%f\t", prob[i]);
-      // //   // {
-      // //   //   paster(i);
-      // //   //   // printf("%p\n", &prob[i]);
-      // //   //   tmp += (float)large[i];
-      // //   // }
-      // paster(MIN(ELE_PER_BLOCK + 1000, size));
-      // printf("%p\n", &prob.data.data[0]);
-      // printf("%p\n", &prob.global_buffer.data[0]);
-
-      // for (size_t i = ELE_PER_BLOCK - 10; i < MIN(ELE_PER_BLOCK + 3000, size);
-      //      i++) // 17ok 18err // MIN(ELE_PER_BLOCK-2,size) // size - 1000
-      // // printf("%f\t", prob[i]);
-      // {
-      //   // paster(i);
-      //   // printf("%p\n", &prob[i]);
-      //   // tmp += prob[i];
-      //   tmp += prob.Get(i);
-      //   // if (i > MIN(ELE_PER_BLOCK + 1200, size))
-      //   //   printf("%p\n", &prob[i]);
-      // }
-      // printf("sum %f\t", tmp);
-    }
     float scale = size / weight_sum;
     for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
     {                                                //size //TODO
       prob.data[i] = graph->getBias(ids[i]) * scale;
     }
     __syncthreads();
-
-    // float local_sum = 0.0, tmp;
-    // for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
-    // {
-    //   local_sum += prob.Get(i);
-    // }
-
-    // tmp = blockReduce<float>(local_sum);
-    // __syncthreads();
-    // if (LTID == 0)
-    // {
-    //   weight_sum = tmp;
-    //   printf("normed weight_sum %f\n", weight_sum);
-    //   printf("scale %f\n", scale);
-    // }
   }
   __device__ void Clean()
   {
@@ -291,38 +246,11 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM>
         atomicAdd(&smallsize, 1);
       }
     }
-    // if (LTID == 0)
-    // {
-    //   {
-    //     for (int i = 0; i < 10; i++)
-    //       printf("large %u\n", large.data[i]);
-    //   }
-    //   {
-    //     for (int i = 0; i < 10; i++)
-    //       printf("small %u\n", small.data[i]);
-    //   }
-    //   {
-    //     for (int i = 0; i < 10; i++)
-    //       printf("small %u\n", small.Get(i));
-    //   }
-    // }
     __threadfence_block();
 #ifdef check
     __syncthreads();
     if (LTID == 0)
     {
-      // printf("itr: %d\n", itr);
-      // printf("\nlarge size: %lld  %p\n", large.Size(), &large.size);
-
-      // printf("\nsmall size: %lld  %p %u\n", small.Size(), &small.size, smallsize);
-
-      // printf("\nprob size: %lld\n", prob.Size());
-      // float tmp = 0.0;
-      // for (int i = 0; i < large.Size(); i++)
-      //   tmp += prob.Get(i);
-      // printf("large p sum %f\n", tmp);
-
-      // printf("itr: %d\n", itr);
       printf("\nlarge size: %llu\n", large.Size());
       for (int i = 0; i < MIN(20, large.Size()); i++)
         printf("%u\t ", large.Get(i));
@@ -525,57 +453,12 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM>
   }
   __device__ void normalize_from_graph(gpu_graph *graph)
   {
-    if (LTID == 0)
-    {
-      //   printf("size %u\n", size);
-      // //   // printf("ptr %lld\n", 0x00006ef0ll - &prob[ELE_PER_BLOCK]);
-      // float tmp;
-      // //   // for (size_t i = ELE_PER_BLOCK; i < ELE_PER_BLOCK + 17; // 17ok 18err
-      // //   //      i++)                                              // size - 1000
-      // //   // // printf("%f\t", prob[i]);
-      // //   // {
-      // //   //   paster(i);
-      // //   //   // printf("%p\n", &prob[i]);
-      // //   //   tmp += (float)large[i];
-      // //   // }
-      // paster(MIN(ELE_PER_BLOCK + 1000, size));
-      // printf("%p\n", &prob.data.data[0]);
-      // printf("%p\n", &prob.global_buffer.data[0]);
-
-      // for (size_t i = ELE_PER_BLOCK - 10; i < MIN(ELE_PER_BLOCK + 3000, size);
-      //      i++) // 17ok 18err // MIN(ELE_PER_BLOCK-2,size) // size - 1000
-      // // printf("%f\t", prob[i]);
-      // {
-      //   // paster(i);
-      //   // printf("%p\n", &prob[i]);
-      //   // tmp += prob[i];
-      //   tmp += prob.Get(i);
-      //   // if (i > MIN(ELE_PER_BLOCK + 1200, size))
-      //   //   printf("%p\n", &prob[i]);
-      // }
-      // printf("sum %f\t", tmp);
-    }
     float scale = size / weight_sum;
     for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
     {                                                //size //TODO
       prob.Get(i) = graph->getBias(ids[i]) * scale;
     }
     __syncthreads();
-
-    // float local_sum = 0.0, tmp;
-    // for (size_t i = LTID; i < size; i += blockDim.x) //BLOCK_SIZE
-    // {
-    //   local_sum += prob.Get(i);
-    // }
-
-    // tmp = blockReduce<float>(local_sum);
-    // __syncthreads();
-    // if (LTID == 0)
-    // {
-    //   weight_sum = tmp;
-    //   printf("normed weight_sum %f\n", weight_sum);
-    //   printf("scale %f\n", scale);
-    // }
   }
   __device__ void Clean()
   {
@@ -732,7 +615,7 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM>
         else
         {
           // __threadfence_block();
-          active_size2("cunsume small ", __LINE__);
+          // active_size2("cunsume small ", __LINE__);
           alias.Get(smallV) = largeV;
           if (holder)
           {
@@ -740,12 +623,12 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM>
             {
               small.Add(largeV);
               // printf("%d   LID %d add to small %u\n", holder, LID, largeV);
-              active_size2("add to small ", __LINE__);
+              // active_size2("add to small ", __LINE__);
             }
             else if (prob.Get(largeV) > 1.0)
             {
               large.Add(largeV);
-              active_size2("add back  ", __LINE__);
+              // active_size2("add back  ", __LINE__);
             }
           }
         }
@@ -811,7 +694,9 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED>
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> small;
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> alias;
   Vector_shmem<float, ExecutionPolicy::BC, ELE_PER_BLOCK, true> prob;
-  Vector_shmem<unsigned short int, ExecutionPolicy::BC, ELE_PER_BLOCK, true>
+  // Vector_shmem<unsigned short int, ExecutionPolicy::BC, ELE_PER_BLOCK, true>
+  //     selected;
+  Vector_shmem<char, ExecutionPolicy::BC, ELE_PER_BLOCK, true>
       selected;
 
   __forceinline__ __device__ bool loadGlobalBuffer(Buffer_pointer *buffer_pointer)
@@ -819,19 +704,6 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED>
     if (LTID == 0)
     {
       large.LoadBuffer(buffer_pointer->b0, buffer_pointer->size);
-
-      // printf("itr: %d\n", itr);
-      // printf("\nlarge size: %lld  %p\n", large.size, &large.size);
-      // for (size_t i = ELE_PER_BLOCK - 10; i < ELE_PER_BLOCK + 10; i++)
-      // {
-      //   paster(large.Get(i) );
-      // }
-      // printf("%p \n",buffer_pointer->b0 );
-      // printf("%p \n",buffer_pointer->b1 );
-      // printf("%p \n",buffer_pointer->b2 );
-      // printf("%p \n",buffer_pointer->b3 );
-      // printf("%p \n",buffer_pointer->b4 );
-
       small.LoadBuffer(buffer_pointer->b1, buffer_pointer->size);
       alias.LoadBuffer(buffer_pointer->b2, buffer_pointer->size);
       prob.LoadBuffer(buffer_pointer->b3, buffer_pointer->size);
@@ -954,7 +826,7 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED>
     // if (LID == 0)
     printf("tid %d candidate %u\n", LID, candidate);
 #endif
-    unsigned short int updated = atomicCAS(
+    unsigned short int updated = char_atomicCAS( //atomicCAS
         selected.GetPtr(candidate), (unsigned short int)0, (unsigned short int)1);
     if (!updated)
     {

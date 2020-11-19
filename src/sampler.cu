@@ -184,11 +184,7 @@ __global__ void init_kernel_ptr(Sampler *sampler)
 }
 __global__ void print_result(Sampler *sampler)
 {
-  if (TID == 0)
-  {
-    printf("result: \n");
-    printD(sampler->result.data, sampler->result.capacity);
-  }
+  sampler->result.PrintResult();
 }
 void Start(Sampler sampler)
 {
@@ -223,12 +219,12 @@ void Start(Sampler sampler)
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
-  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 #else
   sample_kernel<<<n_sm, 256, 0, 0>>>(sampler_ptr);
 #endif
   total_time = wtime() - start_time;
   printf("SamplingTime:%.6f\n", total_time);
+  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 
   HERR(cudaDeviceSynchronize());
   HERR(cudaPeekAtLastError());
