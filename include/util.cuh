@@ -11,7 +11,7 @@ using namespace cooperative_groups;
 #include <stdio.h>
 #include <stdlib.h>
 
-#define check
+// #define check
 
 #define u64 unsigned long long int
 using ll = long long;

@@ -125,6 +125,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false>
     }
   }
   __device__ T &operator[](size_t id) { return data.data[id]; }
+  __device__ T &Get(size_t id) { return data.data[id]; }
 };
 
 template <typename T>
@@ -157,11 +158,13 @@ struct Global_buffer
   //     printf("accessing Global_buffer %d %p\n", (int)id, &data[id]);
   //   return data[id];
   // }
-  __device__ T &Get(size_t id)
+  __forceinline__ __device__ T Get(size_t id)
   {
-    // if (id % 32 == 0)
-    //   printf("accessing Global_buffer %d %p\n", (int)id, &data[id]);
     return data[id];
+  }
+  __forceinline__ __device__ T *GetPtr(size_t id)
+  {
+    return data + id;
   }
 };
 
@@ -171,7 +174,9 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
   long long size;
   uint capacity;
   buf<T, _size> data;
-  Global_buffer<T> global_buffer;
+  // Global_buffer<T> global_buffer;
+  long long buffer_size;
+  T *gbuf_data;
 
   __device__ long long Size() { return size; }
   __device__ void Clean() { size = 0; }
@@ -183,14 +188,12 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
   }
   __device__ void LoadBuffer(T *gbuffer, uint _buffer_size)
   {
-    // if (LTID == 0)
-    // {
-    global_buffer.load(gbuffer, _buffer_size);
-    global_buffer.init();
-    if (!global_buffer.claim())
-      printf("claim error \n");
-
-    // }
+    gbuf_data = gbuffer;
+    buffer_size = _buffer_size;
+    // global_buffer.load(gbuffer, _buffer_size);
+    // global_buffer.init();
+    // if (!global_buffer.claim())
+    //   printf("claim error \n");
   }
   __device__ void Init(size_t s = 0)
   {
@@ -207,14 +210,14 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
   }
   __device__ void Add(T t)
   {
-    if (Size() < _size + global_buffer.size)
+    if (Size() < _size + buffer_size)
     {
       long long old = atomicAdd((unsigned long long *)&size, 1);
       if (old < capacity)
         data.data[old] = t;
-      else if (old < capacity + _size)
+      else if (old < capacity + buffer_size)
       {
-        global_buffer.Get(old - capacity) = t;
+        gbuf_data[old - capacity] = t;
       }
       else
       {
@@ -234,14 +237,24 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
   //     global_buffer[idx - capacity];
   //   }
   // }
-  __device__ T &Get(size_t idx)
+  __forceinline__ __device__ T Get(size_t idx)
   {
     if (idx < capacity)
       return data.data[idx];
     else
     {
       // if(TID==0) printf("accessing idx %d\n",idx);
-      global_buffer.Get(idx - capacity);
+      return gbuf_data[idx - capacity];
+    }
+  }
+   __device__ T *GetPtr(size_t idx)
+  {
+    if (idx < capacity)
+      return (data.data + idx);
+    else
+    {
+      // if(TID==0) printf("accessing idx %d\n",idx);
+      return (gbuf_data + idx - capacity);
     }
   }
 };
@@ -259,35 +272,47 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
 // }
 
 template <typename T>
-class Vector
+class Vector_gmem
 {
 public:
-  u64 *size;
-  u64 *capacity;
+  u64 *size, size_h;
+  u64 *capacity, capacity_h;
   T *data = nullptr;
-  bool use_self_buffer = false;
+  // bool use_self_buffer = false;
   // T data[VECTOR_SHMEM_SIZE];
 
-  __host__ Vector() {}
-  __host__ void free()
+  __host__ Vector_gmem() {}
+  __host__ void Free()
   {
-    if (use_self_buffer && data != nullptr)
+    if (data != nullptr)
       cudaFree(data);
   }
-  __device__ __host__ ~Vector() {}
-  __host__ void init(int _capacity)
+  __device__ __host__ ~Vector_gmem() {}
+  __host__ void Allocate(int _capacity)
   {
-    cudaMallocManaged(&size, sizeof(u64));
-    cudaMallocManaged(&capacity, sizeof(u64));
-    *capacity = _capacity;
+    capacity_h = _capacity;
+    size_h = 0;
+    cudaMalloc(&size, sizeof(u64));
+    cudaMalloc(&capacity, sizeof(u64));
+    H_ERR(cudaMemcpy(size, &size_h,
+                     sizeof(u64), cudaMemcpyHostToDevice));
+
+    H_ERR(cudaMemcpy(capacity, &capacity_h,
+                     sizeof(u64), cudaMemcpyHostToDevice));
+
+    H_ERR(cudaMalloc(&data, _capacity * sizeof(T)));
+  }
+  __device__ void Init(int _size = 0)
+  {
+    *size = _size;
+  }
+  __device__ void Clean()
+  {
     *size = 0;
-    // init_array(capacity,1,_capacity);
-    // init_array(capacity,1,_capacity);
-    cudaMalloc(&data, _capacity * sizeof(T));
-    use_self_buffer = true;
   }
   __host__ __device__ u64 Size() { return *size; }
-  __device__ void add(T t)
+  // __host__ __device__ u64 &SizeRef() { return *size; }
+  __device__ void Add(T t)
   {
     u64 old = atomicAdd(size, 1);
     if (old < *capacity)
@@ -306,12 +331,51 @@ public:
     else
       printf("already full %d\n", old);
   }
-  __device__ void clean() { *size = 0; }
-  __device__ bool empty()
+  // __device__ void clean() { *size = 0; }
+  __device__ bool Empty()
   {
     if (*size == 0)
       return true;
     return false;
   }
-  __device__ T &operator[](size_t id) { return data[id]; }
+  __device__ T &operator[](size_t id)
+  {
+    if (id < *size)
+      return data[id];
+    else
+      printf("%s\t:%d overflow\n", __FILE__, __LINE__);
+  }
+  __device__ T Get(size_t id)
+  {
+    // if (id < *size)
+    return data[id];
+    // else
+    //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n", __FILE__, __LINE__, *capacity, *size, (u64)id);
+  }
+  // __device__ T &Get(long long id)
+  // {
+  //   if (id < *size && id >= 0)
+  //     return data[id];
+  //   else
+  //     printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n", __FILE__, __LINE__, *capacity, *size, (u64)id);
+  // }
+};
+template <typename T>
+struct Vector_pack
+{
+  Vector_gmem<T> large;
+  Vector_gmem<T> small;
+  Vector_gmem<T> alias;
+  Vector_gmem<float> prob;
+  Vector_gmem<unsigned short int> selected;
+  int size = 0;
+  void Allocate(int size)
+  {
+    this->size = size;
+    large.Allocate(size);
+    small.Allocate(size);
+    alias.Allocate(size);
+    prob.Allocate(size);
+    selected.Allocate(size);
+  }
 };

@@ -1,15 +1,18 @@
-all: main main_high_degree
+all: main main_gbuffer main_spliced
 # util sampler main
 
-CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo -Xptxas -O0,-v  #-keep   #-Xptxas -O3,-v
+CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo -Xptxas -v  #-keep   #-Xptxas -O3,-v -O3,
 debug: CUFLAG +=  -G -g 
-debug: main main_high_degree
+debug: main main_gbuffer main_spliced	
 
 main: main.cu util.cu sampler.cu
 	nvcc main.cu util.cu sampler.cu  $(CUFLAG) -o main
 
-main_high_degree: main_high_degree.cu util.cu sampler_high_degree.cu
-	nvcc main_high_degree.cu util.cu sampler_high_degree.cu  $(CUFLAG) -o main_high_degree
+main_spliced: main.cu util.cu sampler_spliced.cu
+	nvcc main.cu util.cu sampler_spliced.cu  $(CUFLAG) -o main_spliced
+
+main_gbuffer: main.cu util.cu sampler_gbuffer.cu
+	nvcc main.cu util.cu sampler_gbuffer.cu  $(CUFLAG) -o main_gbuffer
 
 # main: main.cu util.o sampler.o
 # 	nvcc main.cu util.o sampler.o  $(CUFLAG) -o main
@@ -44,4 +47,4 @@ lj: main
 
 
 clean:
-	rm *.o  main main_high_degree alias *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx
+	rm *.o  main main_spliced main_gbuffer alias *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx

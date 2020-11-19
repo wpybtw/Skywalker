@@ -46,38 +46,92 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
 
 __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
-                                  int node_id, void *buffer)
+                                  int node_id, void *buffer,
+                                  Buffer_pointer *buffer_pointer)
 {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *table = &tables[0];
+  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED > *tables =
+      (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *)buffer;
+  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *table = &tables[0];
 
 #ifdef check
   if (LTID == 0)
-    printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n",
+    printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n ",
            GWID, current_itr, idx, node_id, ggraph->getDegree(node_id));
 #endif
+  // if (LTID == 0)
+  // {
+  //   printf("table %p\n", table);
+  //   printf("buffer_pointer %p\n", buffer_pointer);
+  // }
+
+  if (ggraph->getDegree(node_id) > ELE_PER_BLOCK && buffer_pointer != nullptr)
+    table->loadGlobalBuffer(buffer_pointer);
+  __syncthreads();
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
+
+  // if (TID == 0)
+  // {
+  //   printf("large: ");
+  //   printDL(table->large.data.data, table->large.size); // MIN(large.size, 334) table->
+  //   printf("small: ");
+  //   printDL(table->small.data.data, table->small.size);
+  //   printf("prob: ");
+  //   // printDL(table->prob.data.data, table->prob.size); //table->prob.size
+  //   for (int i = 0; i < ELE_PER_BLOCK+10 ; i++)
+  //   printf("%f\t ", table->prob.Get(i));
+  //     // printf("%p   %d;   \t ", &table->prob.data.data[i], table->prob.data.data[i]);
+
+  //   printf("\nalias ");
+  //   printDL(table->alias.data.data, table->alias.size);
+  // }
   __syncthreads();
   if (not_all_zero)
   {
     table->construct();
+    // if (TID == 0)
+    // {
+    //   for (int i = 0; i < ELE_PER_BLOCK + 10; i++)
+    //     printf("%u\t ", table->alias.Get(i));
+    // }
+    // if (TID == 0)
+    // {
+    //   for (int i = 0; i < ELE_PER_BLOCK + 10; i++)
+    //     printf("%.2f\t ", table->prob.Get(i));
+    // }
     uint target_size =
         MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
-    // table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
-    //                    result);
+    table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
+                       result);
   }
   __syncthreads();
   table->Clean();
 }
 
-__global__ void sample_kernel(Sampler *sampler)
+__global__ void sample_kernel(Sampler *sampler,
+                              Buffer_pointer *buffer_pointers)
 {
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
+  Buffer_pointer *buffer_pointer = &buffer_pointers[BID];
+  // if (LTID == 0) {
+  //   printf("buffer_pointer %p\n", buffer_pointer);
+  //   printf("buffer_pointer %p\n", buffer_pointer);
+  //   // tmp(buffer_pointer);
+  //   // float tmp;
+  //   // for (size_t i = 0; i < 100; // 17ok 18err
+  //   //      i++)                                              // size - 1000
+  //   // // printf("%f\t", prob[i]);
+  //   // {
+  //   //   // paster(i);
+  //   //   printf("ptr %p\n", &buffer_pointer->b3[i]);
+  //   //   tmp += (float)buffer_pointer->b3[i];
+
+  //   // }
+  //   // printf("sum0 %f\t", tmp);
+  // }
   curandState state;
   curand_init(TID, 0, 0, &state);
 
@@ -86,7 +140,7 @@ __global__ void sample_kernel(Sampler *sampler)
     current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> table;
+  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
   void *buffer = &table;
   // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
@@ -108,7 +162,11 @@ __global__ void sample_kernel(Sampler *sampler)
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
     if (job.val)
     {
+#ifdef check
+      if (ggraph->getDegree(job.node_id) < 0)
+#else
       if (ggraph->getDegree(job.node_id) < ELE_PER_WARP)
+#endif
       {
         SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
                          job.node_id, buffer);
@@ -122,22 +180,16 @@ __global__ void sample_kernel(Sampler *sampler)
       {
         if (LID == 0)
         {
-          if (ggraph->getDegree(job.node_id) < ELE_PER_BLOCK)
-          {
-            high_degree.idx = job.idx;
-            high_degree.node_id = job.node_id;
-            high_degree_vec.Add(high_degree);
-            // printf("need larger buf for id %d degree %d \n", job.node_id,
-            //        ggraph->getDegree(job.node_id));
-          }
-          else
-            printf("need global mem for id %d degree %d \n", job.node_id,
-                   ggraph->getDegree(job.node_id));
+          high_degree.idx = job.idx;
+          high_degree.node_id = job.node_id;
+          high_degree_vec.Add(high_degree);
+          // printf("need larger buf for id %d degree %d \n", job.node_id,
+          //        ggraph->getDegree(job.node_id));
+          // paster(high_degree_vec);
         }
         __syncwarp(0xffffffff);
       }
     }
-
     // if (LID == 0 && WID == 0)
     // {
     //   high_degree.idx = 0;
@@ -145,28 +197,16 @@ __global__ void sample_kernel(Sampler *sampler)
     //   high_degree_vec.Add(high_degree);
     // }
     __syncthreads();
-    // if (threadIdx.x == 0)
-    // {
-    //   if (high_degree_vec.Size() != 0)
-    //   {
-    //     paster(high_degree_vec.Size());
-    //     for (size_t i = 0; i < high_degree_vec.Size(); i++)
-    //     {
-    //       printf("idx %u id %u", high_degree_vec[i].idx,
-    //              high_degree_vec[i].node_id);
-    //     }
-    //     printf("\n");
-    //   }
-    // }
 
     for (size_t i = 0; i < high_degree_vec.Size(); i++)
     {
       SampleBlockCentic(result, ggraph, state, current_itr,
                         high_degree_vec[i].idx, high_degree_vec[i].node_id,
-                        buffer);
+                        buffer, buffer_pointer); // buffer_pointer
+      // uint tmp=high_degree_vec[i].idx;
+      // uint tmp2=high_degree_vec[i].node_id;
     }
-
-    // TODO switch to BC
+    __syncthreads();
     if (threadIdx.x == 0)
     {
       result.NextItr(current_itr);
@@ -190,28 +230,20 @@ __global__ void print_result(Sampler *sampler)
     printD(sampler->result.data, sampler->result.capacity);
   }
 }
+
+// void Start_high_degree(Sampler sampler)
 void Start(Sampler sampler)
 {
-  // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
-  // printf("ELE_PER_WARP %d\n ", ELE_PER_WARP);
-
   // orkut max degree 932101
 
   int device;
   cudaDeviceProp prop;
-  // int activeWarps;
-  // int maxWarps;
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   int n_sm = prop.multiProcessorCount;
-  // paster(n_sm);
 
-  // paster(sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>));
-  // paster(SHMEM_SIZE - sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>) -
-  //        sizeof(float[WARP_PER_SM]) - 2 * sizeof(uint) - sizeof(float[WARP_PER_SM]));
-  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM);
-  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>));
-  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) < sizeof(alias_table_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) * WARP_PER_SM)
+  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>) <
+      sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM)
     printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
@@ -220,12 +252,26 @@ void Start(Sampler sampler)
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
+  // allocate global buffer
+  Buffer_pointer *buffer_pointers = new Buffer_pointer[n_sm];
+  for (size_t i = 0; i < n_sm; i++)
+  {
+    buffer_pointers[i].allocate(932101);
+  }
+  HERR(cudaDeviceSynchronize());
+  Buffer_pointer *buffer_pointers_g;
+  H_ERR(cudaMalloc(&buffer_pointers_g, sizeof(Buffer_pointer) * n_sm));
+  H_ERR(cudaMemcpy(buffer_pointers_g, buffer_pointers,
+                   sizeof(Buffer_pointer) * n_sm, cudaMemcpyHostToDevice));
+
+  //  Global_buffer
+
   start_time = wtime();
 #ifdef check
-  sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+  sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 #else
-  sample_kernel<<<n_sm, 256, 0, 0>>>(sampler_ptr);
+  sample_kernel<<<n_sm, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
 #endif
   total_time = wtime() - start_time;
   printf("SamplingTime:%.6f\n", total_time);

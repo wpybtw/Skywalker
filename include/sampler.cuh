@@ -43,8 +43,8 @@ public:
     {
 
 #ifdef check
-      seeds[n] = n;
-      // seeds[n] = 1;
+      // seeds[n] = n;
+      seeds[n] = 1;
       // seeds[n] = 339;
 #else
       seeds[n] = dis(gen);
