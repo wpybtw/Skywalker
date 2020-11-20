@@ -1,7 +1,7 @@
 all: main main_gbuffer main_spliced
 # util sampler main
 
-CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo -Xptxas -v  #-keep   #-Xptxas -O3,-v -O3,
+CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo  -Xptxas -O3,-v  #-keep   #-Xptxas -O3,-v   
 debug: CUFLAG +=  -G -g 
 debug: main main_gbuffer main_spliced	
 

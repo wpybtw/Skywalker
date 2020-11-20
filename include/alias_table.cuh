@@ -1067,39 +1067,67 @@ struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM>
       selected.Clean();
     }
   }
-  __device__ void roll_atomic(T *array, int target_size, curandState *state,
+  __device__ void roll_atomic(T *array, curandState *state,
                               sample_result result)
   {
     // curandState state;
-    if (target_size > 0)
+    uint target_size = result.hops[current_itr + 1];
+    if ((target_size > 0) && (target_size < ggraph->getDegree(src_id)))
     {
       int itr = 0;
       __shared__ uint sizes[WARP_PER_SM];
       uint *local_size = &sizes[WID];
       if (LID == 0)
         *local_size = 0;
+      __syncwarp(0xffffffff);
       while (*local_size < target_size)
       {
-        for (size_t i = *local_size + LID; i < target_size; i += 32)
+        for (size_t i = *local_size + LID; i < 32 * (target_size / 32 + 1); i += 32)
         {
           roll_once(array, local_size, state, target_size, result);
         }
         itr++;
         if (itr > 10)
+        {
+          // if (LID == 0)
+          // {
+          //   printf("roll_atomic too many, id %d require %d got %d for %d\n", node_id, target_size, *local_size, ggraph->getDegree(node_id));
+          //   printf("\nlarge size: %u\n", large.Size());
+          //   for (int i = 0; i < MIN(20, large.Size()); i++)
+          //     printf("%u\t ", large.Get(i));
+
+          //   printf("\nsmall size: %u\n", small.Size());
+          //   for (int i = 0; i < small.Size(); i++)
+          //     printf("%u\t ", small.Get(i));
+          //   printf("\nalias size: %u\n", alias.Size());
+          //   for (int i = 0; i < alias.Size(); i++)
+          //     printf("%u\t ", alias.Get(i));
+          //   printf("\nprob size: %u\n", prob.Size());
+          //   for (int i = 0; i < prob.Size(); i++)
+          //     printf("%.2f\t ", prob.Get(i));
+          //   printf("\n");
+          // }
           break;
+        }
       }
+    }
+    else if (target_size >= ggraph->getDegree(src_id))
+    {
+      for (size_t i = LID; i < ggraph->getDegree(src_id); i += 32)
+        result.AddActive(current_itr, array, ggraph->getOutNode(src_id, i));
     }
   }
 
-  __device__ bool roll_once(T *array, uint *local_size,
-                            curandState *local_state, size_t target_size,
-                            sample_result result)
+  __device__ bool
+  roll_once(T *array, uint *local_size,
+            curandState *local_state, size_t target_size,
+            sample_result result)
   {
     int col = (int)floor(curand_uniform(local_state) * size);
     float p = curand_uniform(local_state);
     // #ifdef check
-    //     if (LID == 0)
-    //       printf("tid %d col %d p %f\n", LID, col, p);
+    // if (node_id == 4670577)
+    //   printf("tid %d col %d p %f\n", LID, col, p);
     // #endif
     uint candidate;
     if (p < prob[col])
@@ -1244,4 +1272,3 @@ struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM>
 #endif
   }
 };
- 

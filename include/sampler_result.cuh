@@ -67,6 +67,8 @@ struct sample_result
     {
       printf("job_sizes \n");
       printD(job_sizes, hop_num);
+      printf("job_sizes_floor \n");
+      printD(job_sizes_floor, hop_num);
       printf("result: \n");
       printD(data, MIN(capacity, 100));
     }

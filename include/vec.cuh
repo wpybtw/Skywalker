@@ -79,6 +79,7 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size, false>
     }
   }
   __device__ T &operator[](size_t id) { return data.data[id]; }
+  __device__ T Get(size_t id) { return data.data[id]; }
 };
 
 template <typename T, uint _size>
@@ -120,7 +121,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false>
       {
         // atomicDec(&size, 1);
         atomicAdd((unsigned long long *)&size, -1);
-        printf("Vector_shmem overflow %d \n", __LINE__);
+        // printf("Vector_shmem overflow %d \n", __LINE__);
       }
     }
   }

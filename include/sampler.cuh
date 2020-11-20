@@ -37,7 +37,7 @@ public:
     num_seed = _num_seed;
     std::random_device rd;
     std::mt19937 gen(56);
-    std::uniform_int_distribution<> dis(1, ggraph.vtx_num);
+    std::uniform_int_distribution<> dis(1,  10000);// ggraph.vtx_num);
     uint *seeds = new uint[num_seed];
     for (int n = 0; n < num_seed; ++n)
     {
@@ -47,6 +47,7 @@ public:
       seeds[n] = 1;
       // seeds[n] = 339;
 #else
+      seeds[n] = 1;
       seeds[n] = dis(gen);
 #endif // check
 
