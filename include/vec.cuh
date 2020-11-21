@@ -168,7 +168,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
     }
     __syncthreads();
   }
-  __device__ void Add(T t) {
+  inline __device__ void Add(T t) {
     if (Size() < _size + buffer_size) {
       long long old = atomicAdd((unsigned long long *)&size, 1);
       if (old < capacity)
@@ -200,7 +200,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
       return gbuf_data[idx - capacity];
     }
   }
-  __device__ T *GetPtr(size_t idx) {
+  inline __device__ T *GetPtr(size_t idx) {
     if (idx < capacity)
       return (data.data + idx);
     else {
@@ -273,7 +273,7 @@ public:
   // __device__ T Consume() {
   //   u64 old = atomicAdd(floor, 1);
   //   if (old < *size){
-  //     return 
+  //     return
   //   }
   // }
   // __device__ void clean() { *size = 0; }
