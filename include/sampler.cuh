@@ -47,8 +47,8 @@ public:
       seeds[n] = 1;
       // seeds[n] = 339;
 #else
-      seeds[n] = 1;
-      seeds[n] = dis(gen);
+      seeds[n] = n;
+      // seeds[n] = dis(gen);
 #endif // check
 
       // h_sample_id[n] = 0;

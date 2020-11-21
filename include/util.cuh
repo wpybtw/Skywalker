@@ -34,11 +34,14 @@ using ll = long long;
 #define WARP_PER_BLK (BLOCK_SIZE / 32)
 #define WARP_PER_SM (THREAD_PER_SM / 32)
 #define SHMEM_PER_WARP (SHMEM_SIZE / WARP_PER_SM)
+#define SHMEM_PER_BLK (SHMEM_SIZE * BLOCK_SIZE / THREAD_PER_SM)
+
 #define MEM_PER_ELE (4 + 4 + 4 + 4 + 2)
 // #define MEM_PER_ELE (4 + 4 + 4 + 4 + 1)
 // alignment
 #define ELE_PER_WARP (SHMEM_PER_WARP / MEM_PER_ELE - 12) // 8
-#define ELE_PER_BLOCK (SHMEM_SIZE / MEM_PER_ELE - 26)
+
+#define ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)
 
 #define HERR(ans)                                                              \
   { gpuAssert((ans), __FILE__, __LINE__); }

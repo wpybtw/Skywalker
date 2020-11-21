@@ -3,41 +3,21 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-struct id_pair
-{
-  uint idx, node_id;
-  __device__ id_pair &operator=(uint idx)
-  {
-    idx = 0;
-    node_id = 0;
-    return *this;
-  }
-};
-
 __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
-                                 int node_id, void *buffer)
-{
+                                 int node_id, void *buffer) {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
   // tables[WARP_PER_BLK];
   alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_shmem<uint, ExecutionPolicy::WC> *)buffer;
   alias_table_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
 
-  // #ifdef check
-  //   if (LID == 0)
-  //     printf("GWID %d itr %d got one job idx %u node_id %u with degree %d
-  //     \n",
-  //            GWID, current_itr, idx, node_id, ggraph->getDegree(node_id));
-  // #endif
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
-  if (not_all_zero)
-  {
+  if (not_all_zero) {
     table->construct();
-    table->roll_atomic(result.getNextAddr(current_itr), &state,
-                       result);
+    table->roll_atomic(result.getNextAddr(current_itr), &state, result);
   }
   table->Clean();
 }
@@ -45,60 +25,28 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
 __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
                                   int node_id, void *buffer,
-                                  Buffer_pointer *buffer_pointer)
-{
+                                  Buffer_pointer *buffer_pointer) {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
   alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *table = &tables[0];
+      (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *)
+          buffer;
+  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *table =
+      &tables[0];
 
 #ifdef check
   if (LTID == 0)
     printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n ",
            GWID, current_itr, idx, node_id, ggraph->getDegree(node_id));
 #endif
-  // if (LTID == 0)
-  // {
-  //   printf("table %p\n", table);
-  //   printf("buffer_pointer %p\n", buffer_pointer);
-  // }
-
   if (ggraph->getDegree(node_id) > ELE_PER_BLOCK && buffer_pointer != nullptr)
     table->loadGlobalBuffer(buffer_pointer);
   __syncthreads();
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
-
-  // if (TID == 0)
-  // {
-  //   printf("large: ");
-  //   printDL(table->large.data.data, table->large.size); // MIN(large.size, 334) table->
-  //   printf("small: ");
-  //   printDL(table->small.data.data, table->small.size);
-  //   printf("prob: ");
-  //   // printDL(table->prob.data.data, table->prob.size); //table->prob.size
-  //   for (int i = 0; i < ELE_PER_BLOCK+10 ; i++)
-  //   printf("%f\t ", table->prob.Get(i));
-  //     // printf("%p   %d;   \t ", &table->prob.data.data[i], table->prob.data.data[i]);
-
-  //   printf("\nalias ");
-  //   printDL(table->alias.data.data, table->alias.size);
-  // }
   __syncthreads();
-  if (not_all_zero)
-  {
+  if (not_all_zero) {
     table->construct();
-    // if (TID == 0)
-    // {
-    //   for (int i = 0; i < ELE_PER_BLOCK + 10; i++)
-    //     printf("%u\t ", table->alias.Get(i));
-    // }
-    // if (TID == 0)
-    // {
-    //   for (int i = 0; i < ELE_PER_BLOCK + 10; i++)
-    //     printf("%.2f\t ", table->prob.Get(i));
-    // }
     uint target_size =
         MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
     table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
@@ -109,8 +57,7 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
 }
 
 __global__ void sample_kernel(Sampler *sampler,
-                              Buffer_pointer *buffer_pointers)
-{
+                              Buffer_pointer *buffer_pointers) {
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Buffer_pointer *buffer_pointer = &buffer_pointers[BID];
@@ -126,15 +73,12 @@ __global__ void sample_kernel(Sampler *sampler,
   __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
   void *buffer = &table;
   // void * buffer=nullptr;
-  __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
+  // __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 32> high_degree_vec;
+  Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[0];
 
-  for (; current_itr < result.hop_num - 1;)
-  {
+  for (; current_itr < result.hop_num - 1;) {
     // TODO
-    high_degree_vec.Init(0);
-
-    id_pair high_degree;
-
+    // high_degree_vec.Init(0);
     sample_job job;
 
     if (LID == 0)
@@ -143,20 +87,16 @@ __global__ void sample_kernel(Sampler *sampler,
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    while (job.val)
-    {
-      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP)
-      {
+    while (job.val) {
+      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
         SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
                          job.node_id, buffer);
-      }
-      else
-      {
-        if (LID == 0)
-        {
-          high_degree.idx = job.idx;
-          high_degree.node_id = job.node_id;
-          high_degree_vec.Add(high_degree);
+      } else {
+        if (LID == 0) {
+          // high_degree.idx = job.idx;
+          // high_degree.node_id = job.node_id;
+          // high_degree_vec.Add(high_degree);
+          result.AddHighDegree(current_itr, job.node_id);
         }
       }
       __syncwarp(0xffffffff);
@@ -168,36 +108,45 @@ __global__ void sample_kernel(Sampler *sampler,
     }
     __syncthreads();
 
-    for (size_t i = 0; i < high_degree_vec.Size(); i++)
-    {
-      SampleBlockCentic(result, ggraph, state, current_itr,
-                        high_degree_vec[i].idx, high_degree_vec[i].node_id,
-                        buffer, buffer_pointer); // buffer_pointer
+    // for (size_t i = 0; i < high_degree_vec.Size(); i++)
+    __shared__ sample_job high_degree_job;
+    if (LTID == 0) {
+      job = result.requireOneHighDegreeJob(current_itr);
+      high_degree_job.val = job.val;
+      high_degree_job.node_id = job.node_id;
     }
     __syncthreads();
-    if (threadIdx.x == 0)
-    {
+    while (high_degree_job.val) {
+      SampleBlockCentic(result, ggraph, state, current_itr, 0,
+                        high_degree_job.node_id, buffer,
+                        buffer_pointer); // buffer_pointer
+      __syncthreads();
+      if (LTID == 0) {
+        job = result.requireOneHighDegreeJob(current_itr);
+        high_degree_job.val = job.val;
+        high_degree_job.node_id = job.node_id;
+      }
+      __syncthreads();
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) {
       result.NextItr(current_itr);
     }
     __syncthreads();
   }
 }
 
-__global__ void init_kernel_ptr(Sampler *sampler)
-{
-  if (TID == 0)
-  {
+__global__ void init_kernel_ptr(Sampler *sampler) {
+  if (TID == 0) {
     sampler->result.setAddrOffset();
   }
 }
-__global__ void print_result(Sampler *sampler)
-{
+__global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 
 // void Start_high_degree(Sampler sampler)
-void Start(Sampler sampler)
-{
+void Start(Sampler sampler) {
   // orkut max degree 932101
 
   int device;
@@ -217,16 +166,18 @@ void Start(Sampler sampler)
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
-  Buffer_pointer *buffer_pointers = new Buffer_pointer[n_sm];
-  for (size_t i = 0; i < n_sm; i++)
-  {
-    buffer_pointers[i].allocate(932101);
+  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int gbuff_size = 932101;
+  LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
+  Buffer_pointer *buffer_pointers = new Buffer_pointer[block_num];
+  for (size_t i = 0; i < block_num; i++) {
+    buffer_pointers[i].allocate(gbuff_size);
   }
   HERR(cudaDeviceSynchronize());
   Buffer_pointer *buffer_pointers_g;
-  H_ERR(cudaMalloc(&buffer_pointers_g, sizeof(Buffer_pointer) * n_sm));
+  H_ERR(cudaMalloc(&buffer_pointers_g, sizeof(Buffer_pointer) * block_num));
   H_ERR(cudaMemcpy(buffer_pointers_g, buffer_pointers,
-                   sizeof(Buffer_pointer) * n_sm, cudaMemcpyHostToDevice));
+                   sizeof(Buffer_pointer) * block_num, cudaMemcpyHostToDevice));
 
   //  Global_buffer
   HERR(cudaDeviceSynchronize());
@@ -234,11 +185,13 @@ void Start(Sampler sampler)
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
 #else
-  sample_kernel<<<n_sm, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
+  sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr,
+                                                 buffer_pointers_g);
 #endif
   HERR(cudaDeviceSynchronize());
   // HERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:%.6f\n", total_time);
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  HERR(cudaDeviceSynchronize());
 }

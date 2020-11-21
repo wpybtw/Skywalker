@@ -89,7 +89,7 @@ __global__ void sample_kernel(Sampler *sampler)
   // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
 
-  for (; current_itr < result.hop_num - 1;)
+  for (; current_itr < result.hop_num - 1;)  //3 2
   {
     // TODO
     high_degree_vec.Init(0);
