@@ -19,7 +19,7 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  int node_id, void *buffer)
 {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
-  // tables[WARP_PER_SM];
+  // tables[WARP_PER_BLK];
   alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_shmem<uint, ExecutionPolicy::WC> *)buffer;
   alias_table_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
@@ -89,7 +89,7 @@ __global__ void sample_kernel(Sampler *sampler)
   // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
 
-  for (; current_itr < result.hop_num;)
+  for (; current_itr < result.hop_num - 1;)
   {
     // TODO
     high_degree_vec.Init(0);
@@ -180,10 +180,10 @@ void Start(Sampler sampler)
 
   // paster(sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>));
   // paster(SHMEM_SIZE - sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>) -
-  //        sizeof(float[WARP_PER_SM]) - 2 * sizeof(uint) - sizeof(float[WARP_PER_SM]));
-  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM);
+  //        sizeof(float[WARP_PER_BLK]) - 2 * sizeof(uint) - sizeof(float[WARP_PER_BLK]));
+  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_BLK);
   // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>));
-  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) < sizeof(alias_table_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) * WARP_PER_SM)
+  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) < sizeof(alias_table_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) * WARP_PER_BLK)
     printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
@@ -191,7 +191,7 @@ void Start(Sampler sampler)
                    cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
-  
+
   HERR(cudaDeviceSynchronize());
   start_time = wtime();
 #ifdef check

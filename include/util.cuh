@@ -29,13 +29,16 @@ using ll = long long;
 
 #define SHMEM_SIZE 49152
 #define BLOCK_SIZE 256
-#define WARP_PER_SM (BLOCK_SIZE / 32)
+#define THREAD_PER_SM 1024
+
+#define WARP_PER_BLK (BLOCK_SIZE / 32)
+#define WARP_PER_SM (THREAD_PER_SM / 32)
 #define SHMEM_PER_WARP (SHMEM_SIZE / WARP_PER_SM)
-#define TMP_PER_ELE (4 + 4 + 4 + 4 + 2)
-// #define TMP_PER_ELE (4 + 4 + 4 + 4 + 1)
+#define MEM_PER_ELE (4 + 4 + 4 + 4 + 2)
+// #define MEM_PER_ELE (4 + 4 + 4 + 4 + 1)
 // alignment
-#define ELE_PER_WARP (SHMEM_PER_WARP / TMP_PER_ELE - 12) // 8
-#define ELE_PER_BLOCK (SHMEM_SIZE / TMP_PER_ELE - 26)
+#define ELE_PER_WARP (SHMEM_PER_WARP / MEM_PER_ELE - 12) // 8
+#define ELE_PER_BLOCK (SHMEM_SIZE / MEM_PER_ELE - 26)
 
 #define HERR(ans)                                                              \
   { gpuAssert((ans), __FILE__, __LINE__); }
@@ -49,7 +52,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
   }
 }
 __device__ void active_size(int n);
- __device__ int active_size2(char *txt, int n );
+__device__ int active_size2(char *txt, int n);
 #define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 #define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 
@@ -117,7 +120,7 @@ template <typename T> __inline__ __device__ T warpReduce(T val) {
 }
 
 template <typename T> __inline__ __device__ T blockReduce(T val) {
-  __shared__ T buf[ WARP_PER_SM ];  //blockDim.x/32
+  __shared__ T buf[WARP_PER_BLK]; // blockDim.x/32
   // T val_shuffled;
   T tmp = warpReduce<T>(val);
 
@@ -132,7 +135,7 @@ template <typename T> __inline__ __device__ T blockReduce(T val) {
   //   printf("warp sum \n");
   __syncthreads();
   if (WID == 0) {
-    tmp = (LID < blockDim.x/32) ? buf[LID] : 0.0;
+    tmp = (LID < blockDim.x / 32) ? buf[LID] : 0.0;
     tmp = warpReduce<T>(tmp);
     if (LID == 0)
       buf[0] = tmp;

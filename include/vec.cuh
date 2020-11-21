@@ -104,7 +104,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false>
       capacity = _size;
       size = s;
     }
-    for (size_t i = LTID; i < _size; i += BLOCK_SIZE)
+    for (size_t i = LTID; i < _size; i += blockDim.x)
     {
       data.data[i] = 0;
     }
@@ -203,7 +203,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
       capacity = _size;
       size = s;
     }
-    for (size_t i = LTID; i < _size; i += BLOCK_SIZE)
+    for (size_t i = LTID; i < _size; i += blockDim.x)
     {
       data.data[i] = 0;
     }
@@ -261,7 +261,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true>
 };
 
 // template <typename T> __global__ void myMemsetKernel(T *ptr, size_t size){
-//   for (size_t i = TID; i < size; i+=BLOCK_SIZE)
+//   for (size_t i = TID; i < size; i+=blockDim.x)
 //   {
 //     ptr[i]=
 //   }

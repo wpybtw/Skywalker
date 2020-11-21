@@ -4,7 +4,7 @@ __global__ void shmem_kernel(int *ids, float *weights, size_t size, size_t num,
                              Vector<int> out)
 {
 
-  __shared__ alias_table_shmem<int> tables[WARP_PER_SM];
+  __shared__ alias_table_shmem<int> tables[WARP_PER_BLK];
   alias_table_shmem<int> *table = &tables[WID];
   // printf("table size %llu\n",table->size);
 
@@ -41,7 +41,7 @@ __global__ void shmem_kernel(int *ids, float *weights, size_t size, size_t num,
 // __global__ void shmem_kernel(int *ids, float *weights, size_t size, size_t num,
 //                              int * out) {
 
-//   __shared__ alias_table_shmem<int> tables[WARP_PER_SM];
+//   __shared__ alias_table_shmem<int> tables[WARP_PER_BLK];
 //   alias_table_shmem<int> *table = &tables[WID];
 //   // printf("table size %llu\n",table->size);
 

@@ -19,7 +19,7 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  int node_id, void *buffer)
 {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
-  // tables[WARP_PER_SM];
+  // tables[WARP_PER_BLK];
   alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_shmem<uint, ExecutionPolicy::WC> *)buffer;
   alias_table_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
@@ -128,7 +128,7 @@ __global__ void sample_kernel(Sampler *sampler,
   // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
 
-  for (; current_itr < result.hop_num;)
+  for (; current_itr < result.hop_num - 1;)
   {
     // TODO
     high_degree_vec.Init(0);
@@ -207,7 +207,7 @@ void Start(Sampler sampler)
   int n_sm = prop.multiProcessorCount;
 
   if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>) <
-      sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM)
+      sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_BLK)
     printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));

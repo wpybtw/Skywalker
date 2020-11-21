@@ -19,7 +19,7 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  int node_id, void *buffer)
 {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
-  // tables[WARP_PER_SM];
+  // tables[WARP_PER_BLK];
   alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_shmem<uint, ExecutionPolicy::WC> *)buffer;
   alias_table_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
@@ -36,8 +36,7 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
   if (not_all_zero)
   {
     table->construct();
-    table->roll_atomic(result.getNextAddr(current_itr), &state,
-                       result);
+    table->roll_atomic(result.getNextAddr(current_itr), &state, result);
   }
   table->Clean();
 }
@@ -50,7 +49,8 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
   alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *tables =
       (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *table = &tables[0];
+  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *table =
+      &tables[0];
 
 #ifdef check
   if (LTID == 0)
@@ -91,12 +91,13 @@ __global__ void sample_kernel(Sampler *sampler,
     current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
-  void *buffer = &table;
+  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> table;
+  __shared__ alias_table_shmem<uint, ExecutionPolicy::WC> table[WARP_PER_BLK];
+  void *buffer = &table[0];
 
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
 
-  for (; current_itr < result.hop_num;)
+  for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
   {
     // TODO
     high_degree_vec.Init(0);
@@ -174,12 +175,15 @@ void Start(Sampler sampler)
   cudaGetDeviceProperties(&prop, device);
   int n_sm = prop.multiProcessorCount;
 
-  // paster( sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> ) );
-  // paster( sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM );
+  // paster( sizeof(alias_table_shmem<uint, ExecutionPolicy::BC,
+  // BufferType::GMEM> ) );
+  // paster( sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_BLK
+  // );
 
-  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>) <
-      sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_SM)
-    printf("buffer too small\n");
+  // if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>)
+  // <
+  //     sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_BLK)
+  //   printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   H_ERR(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
@@ -188,16 +192,20 @@ void Start(Sampler sampler)
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
-  Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[n_sm];
-  for (size_t i = 0; i < n_sm; i++)
+  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int gbuff_size = 932101;
+  LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
+
+  Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
+  for (size_t i = 0; i < block_num; i++)
   {
-    vector_pack_h[i].Allocate(932101);
+    vector_pack_h[i].Allocate(gbuff_size);
   }
   HERR(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;
-  H_ERR(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * n_sm));
+  H_ERR(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
   H_ERR(cudaMemcpy(vector_packs, vector_pack_h,
-                   sizeof(Vector_pack<uint>) * n_sm, cudaMemcpyHostToDevice));
+                   sizeof(Vector_pack<uint>) * block_num, cudaMemcpyHostToDevice));
 
   //  Global_buffer
   HERR(cudaDeviceSynchronize());
@@ -205,7 +213,8 @@ void Start(Sampler sampler)
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #else
-  sample_kernel<<<n_sm, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
+  sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr,
+                                                 vector_packs);
 #endif
   HERR(cudaDeviceSynchronize());
   // HERR(cudaPeekAtLastError());

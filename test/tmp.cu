@@ -47,7 +47,7 @@ int main(int argc, char const *argv[]) {
   Vector<int> out;
   out.init(40);
   paster(SHMEM_PER_WARP);
-  paster(TMP_PER_ELE);
+  paster(MEM_PER_ELE);
   paster(ELE_PER_WARP);
 
   shmem_kernel<<<1, 32, 0, 0>>>(id_ptr, weight_ptr, size, size / 2, out);

@@ -26,6 +26,7 @@ struct sample_result
     // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
     size = _size;
     hop_num = _hop_num;
+    // paster(hop_num);
     cudaMalloc(&hops, hop_num * sizeof(uint));
     cudaMemcpy(hops, _hops, hop_num * sizeof(uint), cudaMemcpyHostToDevice);
 
