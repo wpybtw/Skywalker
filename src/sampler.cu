@@ -3,11 +3,9 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-struct id_pair
-{
+struct id_pair {
   uint idx, node_id;
-  __device__ id_pair &operator=(uint idx)
-  {
+  __device__ id_pair &operator=(uint idx) {
     idx = 0;
     node_id = 0;
     return *this;
@@ -16,8 +14,7 @@ struct id_pair
 
 __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
-                                 int node_id, void *buffer)
-{
+                                 int node_id, void *buffer) {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
   // tables[WARP_PER_BLK];
   alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
@@ -33,23 +30,21 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
-  if (not_all_zero)
-  {
+  if (not_all_zero) {
     table->construct();
-    table->roll_atomic(result.getNextAddr(current_itr), &state,
-                       result);
+    table->roll_atomic(result.getNextAddr(current_itr), &state, result);
   }
   table->Clean();
 }
 
 __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
-                                  int node_id, void *buffer)
-{
+                                  int node_id, void *buffer) {
   // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
   alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *tables =
       (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *table = &tables[0];
+  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *table =
+      &tables[0];
 
 #ifdef check
   if (LTID == 0)
@@ -60,8 +55,7 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
   __syncthreads();
-  if (not_all_zero)
-  {
+  if (not_all_zero) {
     table->construct();
     uint target_size =
         MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
@@ -72,8 +66,7 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
   table->Clean();
 }
 
-__global__ void sample_kernel(Sampler *sampler)
-{
+__global__ void sample_kernel(Sampler *sampler) {
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   curandState state;
@@ -84,12 +77,13 @@ __global__ void sample_kernel(Sampler *sampler)
     current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> table;
+  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>
+      table;
   void *buffer = &table;
   // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
 
-  for (; current_itr < result.hop_num - 1;)  //3 2
+  for (; current_itr < result.hop_num - 1;) // 3 2
   {
     // TODO
     high_degree_vec.Init(0);
@@ -104,24 +98,17 @@ __global__ void sample_kernel(Sampler *sampler)
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    while (job.val)
-    {
-      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP)
-      {
+    while (job.val) {
+      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
         SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
                          job.node_id, buffer);
-      }
-      else
-      {
-        if (LID == 0)
-        {
-          if (ggraph->getDegree(job.node_id) < ELE_PER_BLOCK)
-          {
+      } else {
+        if (LID == 0) {
+          if (ggraph->getDegree(job.node_id) < ELE_PER_BLOCK) {
             high_degree.idx = job.idx;
             high_degree.node_id = job.node_id;
             high_degree_vec.Add(high_degree);
-          }
-          else
+          } else
             printf("need global mem for id %d degree %d \n", job.node_id,
                    ggraph->getDegree(job.node_id));
         }
@@ -135,35 +122,29 @@ __global__ void sample_kernel(Sampler *sampler)
     }
     __syncthreads();
 
-    for (size_t i = 0; i < high_degree_vec.Size(); i++)
-    {
+    for (size_t i = 0; i < high_degree_vec.Size(); i++) {
       SampleBlockCentic(result, ggraph, state, current_itr,
                         high_degree_vec[i].idx, high_degree_vec[i].node_id,
                         buffer);
     }
     __syncthreads();
     // TODO switch to BC
-    if (threadIdx.x == 0)
-    {
+    if (threadIdx.x == 0) {
       result.NextItr(current_itr);
     }
     __syncthreads();
   }
 }
 
-__global__ void init_kernel_ptr(Sampler *sampler)
-{
-  if (TID == 0)
-  {
+__global__ void init_kernel_ptr(Sampler *sampler) {
+  if (TID == 0) {
     sampler->result.setAddrOffset();
   }
 }
-__global__ void print_result(Sampler *sampler)
-{
+__global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
-void Start(Sampler sampler)
-{
+void Start(Sampler sampler) {
   // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
   // printf("ELE_PER_WARP %d\n ", ELE_PER_WARP);
 
@@ -179,11 +160,16 @@ void Start(Sampler sampler)
   // paster(n_sm);
 
   // paster(sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>));
-  // paster(SHMEM_SIZE - sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>) -
-  //        sizeof(float[WARP_PER_BLK]) - 2 * sizeof(uint) - sizeof(float[WARP_PER_BLK]));
-  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_BLK);
+  // paster(SHMEM_SIZE - sizeof(Vector_shmem<id_pair, ExecutionPolicy::BC, 16>)
+  // -
+  //        sizeof(float[WARP_PER_BLK]) - 2 * sizeof(uint) -
+  //        sizeof(float[WARP_PER_BLK]));
+  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) *
+  // WARP_PER_BLK);
   // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>));
-  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) < sizeof(alias_table_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) * WARP_PER_BLK)
+  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) <
+      sizeof(alias_table_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) *
+          WARP_PER_BLK)
     printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));

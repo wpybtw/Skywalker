@@ -120,9 +120,7 @@ struct sample_result {
   __device__ void AddHighDegree(uint current_itr, uint node_id) {
     high_degrees[current_itr].Add(node_id);
   }
-  __device__ struct sample_job
-  requireOneHighDegreeJob(uint current_itr) // uint hop
-  {
+  __device__ struct sample_job requireOneHighDegreeJob(uint current_itr) {
     sample_job job;
     // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
     job.val = false;
