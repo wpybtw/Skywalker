@@ -15,6 +15,14 @@ struct id_pair {
   }
 };
 
+enum class Job {
+  NS, //neighbour sampling
+  LS, // layer sampling
+  RW, // random walk
+};
+
+
+
 struct sample_result {
   uint size;
   uint hop_num;
@@ -82,8 +90,8 @@ struct sample_result {
     if (LTID == 0) {
       printf("job_sizes \n");
       printD(job_sizes, hop_num);
-      printf("job_sizes_floor \n");
-      printD(job_sizes_floor, hop_num);
+      // printf("job_sizes_floor \n");
+      // printD(job_sizes_floor, hop_num);
       printf("result: \n");
       printD(data, MIN(capacity, 30));
     }

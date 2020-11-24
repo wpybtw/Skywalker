@@ -12,3 +12,4 @@ alias-method/*
 *.cudafe1.*
 *.reg.c
 *.ptx
+*.ncu-rep

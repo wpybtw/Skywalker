@@ -3,14 +3,14 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-struct id_pair {
-  uint idx, node_id;
-  __device__ id_pair &operator=(uint idx) {
-    idx = 0;
-    node_id = 0;
-    return *this;
-  }
-};
+// struct id_pair {
+//   uint idx, node_id;
+//   __device__ id_pair &operator=(uint idx) {
+//     idx = 0;
+//     node_id = 0;
+//     return *this;
+//   }
+// };
 
 __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
