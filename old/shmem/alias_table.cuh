@@ -31,7 +31,7 @@ __device__ void AddTillSize(T *array, uint32_t *size, T t, u64 target_size) {
   if (old < target_size) {
     array[old] = t;
   } else
-    printf("vector overflow");
+    printf("wtf vector overflow");
 }
 
 template <typename T> struct alias_table_shmem {

@@ -178,15 +178,15 @@ void Start(Sampler sampler) {
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
-  HERR(cudaDeviceSynchronize());
+  H_ERR(cudaDeviceSynchronize());
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
 #else
   sample_kernel<<<n_sm, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
 #endif
-  HERR(cudaDeviceSynchronize());
-  // HERR(cudaPeekAtLastError());
+  H_ERR(cudaDeviceSynchronize());
+  // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:%.6f\n", total_time);
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);

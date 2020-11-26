@@ -1,5 +1,5 @@
 #include "gpu_graph.cuh"
-#include "sampler_result.cuh"
+#include "result.cuh"
 // #include "alias_table.cuh"
 #include <random>
 
@@ -18,24 +18,24 @@ template <typename T> void printH(T *ptr, int size) {
   delete ptrh;
 }
 
-class Sampler {
+class InstanceBase {
 public:
   gpu_graph ggraph;
-  sample_result result;
-  uint num_seed;
-
 
 public:
-  Sampler(gpu_graph graph) {
-    ggraph = graph;
-    // Init();
-  }
-  ~Sampler() {}
-  // void Init() {
-  //   H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
-  //   H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
-  // }
-  void SetSeed(uint _num_seed, uint _hop_num, uint *_hops) {
+  InstanceBase(gpu_graph graph) : ggraph(graph) {}
+  ~InstanceBase() {}
+};
+
+class WalkInstance : InstanceBase {
+public:
+  ResultsRW<uint> result;
+  uint num_seed;
+
+public:
+  WalkInstance(gpu_graph graph) : InstanceBase(graph) {}
+  ~WalkInstance() {}
+  void SetSeed(uint _num_seed, uint _hop_num ) {
     // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
     num_seed = _num_seed;
     std::random_device rd;
@@ -49,23 +49,14 @@ public:
       seeds[n] = 1;
 // seeds[n] = 339;
 #else
-      seeds[n] = n;
-// seeds[n] = dis(gen);
+      // seeds[n] = n;
+      seeds[n] = dis(gen);
 #endif // check
-
-      // h_sample_id[n] = 0;
-      // h_depth_tracker[n] = 0;
-      // printf("%d\n",seeds[n]);
     }
-    // printf("first ten seed:");
-    // for (int n = 0; n < 10; ++n) printf("%d \t",seeds[n]);
-    // printf("\n");
-    result.init(num_seed, _hop_num, _hops, seeds);
-    // printf("first ten seed:");
-    // printH(result.data,10 );
+    result.init(num_seed, _hop_num,  seeds);
   }
   // void Start();
 };
 
-void Start(Sampler sampler);
-void Start_high_degree(Sampler sampler);
+void Start(WalkInstance WalkInstance);
+void Start_high_degree(WalkInstance WalkInstance);

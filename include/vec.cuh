@@ -251,16 +251,31 @@ public:
 
     H_ERR(cudaMalloc(&data, _capacity * sizeof(T)));
   }
-  __device__ void Init(int _size = 0) { *size = _size; }
-  __device__ void Clean() { *size = 0; }
+  __device__ void Init(int _size = 0) {
+    *size = _size;
+    *floor = 0;
+  }
+  __device__ void Clean() {
+    if (LTID == 0) {
+      *size = 0;
+      *floor = 0;
+    }
+  }
+  __device__ void CleanData() {
+    for (size_t i = LTID; i < *size; i += blockDim.x) {
+      data[i] = 0;
+    }
+  }
   __host__ __device__ u64 Size() { return *size; }
+  __host__ __device__ void SetSize(size_t s) { *size = s; }
   // __host__ __device__ u64 &SizeRef() { return *size; }
   __device__ void Add(T t) {
     u64 old = atomicAdd(size, 1);
     if (old < *capacity)
       data[old] = t;
     else
-      printf("vector overflow %d\n", old);
+      printf("%s\t:%d Vector_gmem overflow to %llu\n", __FILE__, __LINE__, old);
+    // printf("gvector overflow %d\n", old);
   }
   __device__ void AddTillSize(T t, u64 target_size) {
     u64 old = atomicAdd(size, 1);
@@ -286,7 +301,7 @@ public:
     if (id < *size)
       return data[id];
     else
-      printf("%s\t:%d overflow\n", __FILE__, __LINE__);
+      printf("%s\t:%d Vector_gmem overflow\n", __FILE__, __LINE__);
   }
   __device__ T Get(size_t id) {
     // if (id < *size)
@@ -304,6 +319,58 @@ public:
   //     __FILE__, __LINE__, *capacity, *size, (u64)id);
   // }
 };
+
+template <typename T> class Vector_virtual {
+public:
+  u64 size, floor;
+  u64 capacity;
+  T *data = nullptr;
+
+  __device__ __host__ Vector_virtual() {}
+  __device__ __host__ ~Vector_virtual() {}
+  __device__ void Construt(T *ptr, int _capacity, int _size = 0) {
+    data = ptr;
+    capacity = _capacity;
+    size = _size;
+    floor = 0;
+  }
+  __device__ void Init(int _size = 0) {
+    size = _size;
+    floor = 0;
+  }
+  __device__ void Clean() {
+    if (LTID == 0) {
+      size = 0;
+      floor = 0;
+    }
+  }
+  __device__ void CleanData() {
+    for (size_t i = LTID; i < size; i += blockDim.x) {
+      data[i] = 0;
+    }
+  }
+  __host__ __device__ u64 Size() { return size; }
+  __host__ __device__ void SetSize(size_t s) { size = s; }
+  __device__ void Add(T t) {
+    u64 old = atomicAdd(size, (T)1);
+    if (old < capacity)
+      data[old] = t;
+    else
+      printf("%s\t:%d Vector_gmem overflow to %llu\n", __FILE__, __LINE__, old);
+  }
+  __device__ bool Empty() {
+    if (size == 0)
+      return true;
+    return false;
+  }
+  __device__ T &operator[](size_t id) {
+    if (id < size)
+      return data[id];
+    else
+      printf("%s\t:%d Vector_gmem overflow\n", __FILE__, __LINE__);
+  }
+  __device__ T Get(size_t id) { return data[id]; }
+};
 template <typename T> struct Vector_pack {
   Vector_gmem<T> large;
   Vector_gmem<T> small;
@@ -317,6 +384,23 @@ template <typename T> struct Vector_pack {
     small.Allocate(size);
     alias.Allocate(size);
     prob.Allocate(size);
+    selected.Allocate(size);
+  }
+};
+
+template <typename T> struct Vector_pack2 {
+  Vector_gmem<T> large;
+  Vector_gmem<T> small;
+  // Vector_gmem<T> alias;
+  // Vector_gmem<float> prob;
+  Vector_gmem<unsigned short int> selected;
+  int size = 0;
+  void Allocate(int size) {
+    this->size = size;
+    large.Allocate(size);
+    small.Allocate(size);
+    // alias.Allocate(size);
+    // prob.Allocate(size);
     selected.Allocate(size);
   }
 };

@@ -43,7 +43,7 @@ using ll = long long;
 
 #define ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)
 
-#define HERR(ans)                                                              \
+#define H_ERR(ans)                                                              \
   { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
                       bool abort = true) {
@@ -149,16 +149,20 @@ template <typename T> __inline__ __device__ T blockReduce(T val) {
 }
 
 template <typename T> void printH(T *ptr, int size);
-__device__ void printD(float *ptr, int size);
-__device__ void printD(int *ptr, int size);
-__device__ void printD(uint *ptr, int size);
-__device__ void printD(float *ptr, uint size);
-__device__ void printD(int *ptr, uint size);
-__device__ void printD(uint *ptr, uint size);
+// __device__ void printD(float *ptr, int size);
+// __device__ void printD(int *ptr, int size);
+// __device__ void printD(uint *ptr, int size);
+// __device__ void printD(float *ptr, uint size);
+// __device__ void printD(int *ptr, uint size);
+// __device__ void printD(uint *ptr, uint size);
 
-__device__ void printDL(float *ptr, long long size);
-__device__ void printDL(int *ptr, long long size);
-__device__ void printDL(uint *ptr, long long size);
+// __device__ void printDL(float *ptr, long long size);
+// __device__ void printDL(int *ptr, long long size);
+// __device__ void printDL(uint *ptr, long long size);
+
+template <typename T> __device__ void printD(T *ptr, size_t size);
+
+
 // template <typename T> __global__ void init_range_d(T *ptr, size_t size);
 // template <typename T> void init_range(T *ptr, size_t size);
 // template <typename T> __global__ void init_array_d(T *ptr, size_t size, T v);

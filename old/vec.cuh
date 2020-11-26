@@ -39,7 +39,7 @@ template <typename T> class Vector {
     if (old < *capacity)
       data[old] = t;
     else
-      printf("vector overflow");
+      printf("wtf vector overflow");
   }
   __device__ void clean() { *size = 0; }
   __device__ bool empty() {

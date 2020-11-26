@@ -3,46 +3,33 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-__device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
-                                 curandState state, int current_itr, int idx,
-                                 int node_id, void *buffer) {
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
-  // tables[WARP_PER_BLK];
-  // if (LID == 0)
-  //   printf("----%s %d\n", __FUNCTION__, __LINE__);
-  alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
+__device__ void ConstructWarpCentic(sample_result &result, gpu_graph *ggraph,
+                                    curandState state, int current_itr, int idx,
+                                    int node_id, void *buffer) {
+  using WCTable =
+      alias_table_shmem<uint, ExecutionPolicy::WC,
+                        BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
+  WCTable *tables = (WCTable *)buffer;
+  WCTable *table = &tables[WID];
 
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
   if (not_all_zero) {
     table->construct();
-    table->roll_atomic(result.getNextAddr(current_itr), &state, result);
+    table->SaveAliasTable(ggraph);
   }
   table->Clean();
 }
 
-__device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
-                                  curandState state, int current_itr,
-                                  int node_id, void *buffer,
-                                  Vector_pack<uint> *vector_packs) {
-  // if (LTID == 0)
-  //   printf("----%s %d\n", __FUNCTION__, __LINE__);
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *table =
-      &tables[0];
-
-#ifdef check
-  if (LTID == 0)
-    printf("GWID %d itr %d got one job  node_id %u with degree %d \n ", GWID,
-           current_itr, node_id, ggraph->getDegree(node_id));
-#endif
-
-  // if (ggraph->getDegree(node_id) > ELE_PER_BLOCK && vector_packs != nullptr)
+__device__ void ConstructBlockCentic(sample_result &result, gpu_graph *ggraph,
+                                     curandState state, int current_itr,
+                                     int node_id, void *buffer,
+                                     Vector_pack2<uint> *vector_packs) {
+  using BCTable = alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
+                                    AliasTableStorePolicy::STORE>;
+  BCTable *tables = (BCTable *)buffer;
+  BCTable *table = &tables[0];
   table->loadGlobalBuffer(vector_packs);
   __syncthreads();
   bool not_all_zero =
@@ -51,25 +38,20 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
   __syncthreads();
   if (not_all_zero) {
     table->construct();
-    uint target_size =
-        MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
-    table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
-                       result);
-  } 
-  // else {
-  //   if (LTID == 0)
-  //     paster(not_all_zero);
-  // }
+  }
   __syncthreads();
   table->Clean();
 }
 
-__global__ void sample_kernel(Sampler *sampler,
-                              Vector_pack<uint> *vector_pack) {
+__global__ void ConstructAliasTableKernel(Sampler *sampler,
+                                          Vector_pack2<uint> *vector_pack) {
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
-  Vector_pack<uint> *vector_packs = &vector_pack[BID];
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::WC> table[WARP_PER_BLK];
+  Vector_pack2<uint> *vector_packs = &vector_pack[BID];
+  using WCTable =
+      alias_table_shmem<uint, ExecutionPolicy::WC,
+                        BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
+  __shared__ WCTable table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;
   curand_init(TID, 0, 0, &state);
@@ -79,7 +61,6 @@ __global__ void sample_kernel(Sampler *sampler,
     current_itr = 0;
   __syncthreads();
 
-  // __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 32> high_degree_vec;
   Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[0];
 
   thread_block g = this_thread_block();
@@ -95,18 +76,10 @@ __global__ void sample_kernel(Sampler *sampler,
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
     __syncwarp(0xffffffff);
     while (job.val) {
-      // if (LID == 0) {
-      //   printf("got job %d with degree %d\n", job.node_id,
-      //          ggraph->getDegree(job.node_id));
-      // }
       if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
-        // if (LID == 0)
-        //   printf("----%s %d\n", __FUNCTION__, __LINE__);
-        SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
-                         job.node_id, buffer);
+        ConstructWarpCentic(result, ggraph, state, current_itr, job.idx,
+                            job.node_id, buffer);
       } else {
-        // if (LID == 0)
-        //   printf("----%s %d\n", __FUNCTION__, __LINE__);
         if (LID == 0)
           result.AddHighDegree(current_itr, job.node_id);
       }
@@ -124,15 +97,12 @@ __global__ void sample_kernel(Sampler *sampler,
       job = result.requireOneHighDegreeJob(current_itr);
       high_degree_job.val = job.val;
       high_degree_job.node_id = job.node_id;
-      // if (job.val)
-      //   printf("got high degree job %d with %d\n", job.node_id,
-      //          ggraph->getDegree(job.node_id));
     }
     __syncthreads();
     while (high_degree_job.val) {
-      SampleBlockCentic(result, ggraph, state, current_itr,
-                        high_degree_job.node_id, buffer,
-                        vector_packs); // buffer_pointer
+      ConstructBlockCentic(result, ggraph, state, current_itr,
+                           high_degree_job.node_id, buffer,
+                           vector_packs); // buffer_pointer
       __syncthreads();
       if (LTID == 0) {
         job = result.requireOneHighDegreeJob(current_itr);
@@ -157,18 +127,28 @@ __global__ void init_kernel_ptr(Sampler *sampler) {
   }
 }
 __global__ void print_result(Sampler *sampler) {
-  sampler->result.PrintResult();
+  // sampler->result.PrintResult();
+  if (TID == 0) {
+    // for (size_t i = 0; i < 100; i++) {
+    //   /* code */
+    // }
+    printf("\nprob:\n");
+    printD(sampler->ggraph.prob_array , 100);
+    printf("\nalias:\n");
+    printD(sampler->ggraph.alias_array, 100);
+  }
 }
 
 // void Start_high_degree(Sampler sampler)
 void Start(Sampler sampler) {
-  // orkut max degree 932101
 
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   int n_sm = prop.multiProcessorCount;
+
+  sampler.ggraph.AllocateAliasTable();
 
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
@@ -182,29 +162,30 @@ void Start(Sampler sampler) {
   int gbuff_size = 932101;
   LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
 
-  Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
+  Vector_pack2<uint> *vector_pack_h = new Vector_pack2<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
     vector_pack_h[i].Allocate(gbuff_size);
   }
   H_ERR(cudaDeviceSynchronize());
-  Vector_pack<uint> *vector_packs;
-  H_ERR(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+  Vector_pack2<uint> *vector_packs;
+  H_ERR(cudaMalloc(&vector_packs, sizeof(Vector_pack2<uint>) * block_num));
   H_ERR(cudaMemcpy(vector_packs, vector_pack_h,
-                   sizeof(Vector_pack<uint>) * block_num,
+                   sizeof(Vector_pack2<uint>) * block_num,
                    cudaMemcpyHostToDevice));
 
   //  Global_buffer
   H_ERR(cudaDeviceSynchronize());
   start_time = wtime();
 #ifdef check
-  sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
+  ConstructAliasTableKernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #else
-  sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
+  ConstructAliasTableKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr,
+                                                             vector_packs);
 #endif
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:%.6f\n", total_time);
+  printf("Construct table time:%.6f\n", total_time);
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

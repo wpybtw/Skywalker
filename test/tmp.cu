@@ -55,7 +55,7 @@ int main(int argc, char const *argv[]) {
   // printf("size %d %d\n",sizeof(Vector_shmem<int>),ELE_PER_WARP);
   P;
   usleep(5000);
-  HERR(cudaDeviceSynchronize());
-  HERR(cudaPeekAtLastError());
+  H_ERR(cudaDeviceSynchronize());
+  H_ERR(cudaPeekAtLastError());
   return 0;
 }

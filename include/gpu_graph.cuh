@@ -23,6 +23,10 @@ public:
   weight_t *weight_list;
   index_t *beg_pos;
   vertex_t *degree_list;
+  uint *outDegree;
+
+  float *prob_array;
+  uint *alias_array;
 
   index_t vtx_num;
   index_t edge_num;
@@ -34,6 +38,7 @@ public:
   __device__ index_t getDegree(index_t idx) {
     return beg_pos[idx + 1] - beg_pos[idx];
   }
+  __host__ index_t getDegree_h(index_t idx) { return outDegree[idx]; }
   __device__ index_t getBias(index_t idx) {
     return beg_pos[idx + 1] - beg_pos[idx];
   }
@@ -60,7 +65,7 @@ public:
     H_ERR(cudaMalloc((void **)&beg_pos, beg_sz));
     // H_ERR(cudaMalloc((void **)&weight_list, weight_sz));
 
-    uint *outDegree = new uint[vtx_num];
+    outDegree = new uint[vtx_num];
     for (int i = 0; i < (ginst->vtx_num); i++) {
       outDegree[i] = ginst->beg_pos[i + 1] - ginst->beg_pos[i];
     }
@@ -77,6 +82,10 @@ public:
 
     // H_ERR(cudaMemcpy(weight_list,ginst->weight,
     // 			weight_sz, cudaMemcpyHostToDevice));
+  }
+  void AllocateAliasTable() {
+    H_ERR(cudaMalloc((void **)&prob_array, edge_num * sizeof(float)));
+    H_ERR(cudaMalloc((void **)&alias_array, edge_num * sizeof(uint)));
   }
 };
 

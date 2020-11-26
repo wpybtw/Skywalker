@@ -1,18 +1,24 @@
-all: main main_gbuffer main_spliced
+all: main_gbuffer main_spliced  createTable # rw
 # util sampler main
 
 CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo  -Xptxas -v  #-keep   #-Xptxas -O3,-v   
 debug: CUFLAG +=  -G -g 
 debug: main main_gbuffer main_spliced	
 
-main: main.cu util.cu sampler.cu
-	nvcc main.cu util.cu sampler.cu  $(CUFLAG) -o main
+# main: main.cu util.cu sampler.cu
+# 	nvcc main.cu util.cu sampler.cu  $(CUFLAG) -o main
 
 main_spliced: main.cu util.cu sampler_spliced.cu
 	nvcc main.cu util.cu sampler_spliced.cu  $(CUFLAG) -o main_spliced
 
 main_gbuffer: main.cu util.cu sampler_gbuffer.cu
 	nvcc main.cu util.cu sampler_gbuffer.cu  $(CUFLAG) -o main_gbuffer
+
+createTable: main.cu util.cu createTable.cu
+	nvcc main.cu util.cu createTable.cu  $(CUFLAG) -o createTable
+
+rw: walker.cu util.cu rw.cu kernel.cu
+	nvcc walker.cu util.cu kernel.cu rw.cu  $(CUFLAG) -o rw
 
 # main: main.cu util.o sampler.o
 # 	nvcc main.cu util.o sampler.o  $(CUFLAG) -o main
@@ -34,8 +40,6 @@ test: main
 	./main wg ../others/C-SAW/non-stream/WG/beg.bin ../others/C-SAW/non-stream/WG/csr.bin 315 32 4000 2000 1 2000 1
 
 
-
-
 lj: main
 	./main lj ~/data/soc-LiveJournal1.txt_beg_pos.bin  ~/data/soc-LiveJournal1.txt_csr.bin   100 32 4000 2 1 1 1
 
@@ -47,4 +51,4 @@ lj: main
 
 
 clean:
-	rm *.o  main main_spliced main_gbuffer alias *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx
+	rm *.o  main main_spliced main_gbuffer createTable alias *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx

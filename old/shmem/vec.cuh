@@ -101,7 +101,7 @@ public:
     if (old < *capacity)
       data[old] = t;
     else
-      printf("vector overflow");
+      printf("wtf vector overflow");
   }
   __device__ void AddTillSize(T t, u64 target_size) {
     u64 old = atomicAdd(size, 1);
@@ -109,7 +109,7 @@ public:
       if (old < target_size)
         data[old] = t;
     } else
-      printf("vector overflow");
+      printf("wtf vector overflow");
   }
   __device__ void clean() { *size = 0; }
   __device__ bool empty() {

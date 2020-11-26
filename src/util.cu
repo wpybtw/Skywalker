@@ -63,7 +63,7 @@ template <typename T>
 void printH(T *ptr, int size)
 {
   T *ptrh = new T[size];
-  HERR(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
+  H_ERR(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
   printf("printH: ");
   for (size_t i = 0; i < size; i++)
   {
@@ -122,88 +122,92 @@ __device__ long long my_atomicAdd(long long *address, long long val)
   return (old);
 }
 
-__device__ void printD(float *ptr, int size)
+template <> 
+__device__ void printD<float>(float *ptr, size_t size)
 {
-  printf("printDf: size %d, ", size);
+  printf("printDf: size %llu: ", (u64)size);
   for (size_t i = 0; i < size; i++)
   {
     printf("%f\t", ptr[i]);
   }
   printf("\n");
 }
-__device__ void printD(int *ptr, int size)
+template <> 
+__device__ void printD<int>(int *ptr, size_t size)
 {
-  printf("printDi: size %d, ", size);
+  printf("printDf: size %llu: ", (u64)size);
   for (size_t i = 0; i < size; i++)
   {
     printf("%d\t", ptr[i]);
-  }
-  printf("\n");
-}
-__device__ void printD(uint *ptr, int size)
-{
-  printf("printDi: size %d, ", size);
-  for (size_t i = 0; i < size; i++)
-  {
-    printf("%u\t", ptr[i]);
-  }
-  printf("\n");
-}
-__device__ void printD(float *ptr, uint size)
-{
-  printf("printDf: size %u, ", size);
-  for (size_t i = 0; i < size; i++)
-  {
-    printf("%f\t", ptr[i]);
-  }
-  printf("\n");
-}
-__device__ void printD(int *ptr, uint size)
-{
-  printf("printDi: size %u, ", size);
-  for (size_t i = 0; i < size; i++)
-  {
-    printf("%d\t", ptr[i]);
-  }
-  printf("\n");
-}
-__device__ void printD(uint *ptr, uint size)
-{
-  printf("printDi: size %u, ", size);
-  for (size_t i = 0; i < size; i++)
-  {
-    printf("%u\t", ptr[i]);
   }
   printf("\n");
 }
 
-__device__ void printDL(float *ptr, long long size)
+template <> 
+__device__ void printD<uint>(uint *ptr, size_t size)
 {
-  printf("printDL: size %u, ", size);
-  for (size_t i = 0; i < MIN(size, 100); i++)
-  {
-    printf("%f\t", ptr[i]);
-  }
-  printf("\n");
-}
-__device__ void printDL(int *ptr, long long size)
-{
-  printf("printDL: size %u, ", size);
-  for (size_t i = 0; i < MIN(size, 100); i++)
-  {
-    printf("%d\t", ptr[i]);
-  }
-  printf("\n");
-}
-__device__ void printDL(uint *ptr, long long size)
-{
-  printf("printDL: size %u, ", size);
-  for (size_t i = 0; i < MIN(size, 100); i++)
+  printf("printDf: size %llu: ", (u64)size);
+  for (size_t i = 0; i < size; i++)
   {
     printf("%u\t", ptr[i]);
   }
   printf("\n");
 }
+// __device__ void printD(float *ptr, uint size)
+// {
+//   printf("printDf: size %u, ", size);
+//   for (size_t i = 0; i < size; i++)
+//   {
+//     printf("%f\t", ptr[i]);
+//   }
+//   printf("\n");
+// }
+// __device__ void printD(int *ptr, uint size)
+// {
+//   printf("printDi: size %u, ", size);
+//   for (size_t i = 0; i < size; i++)
+//   {
+//     printf("%d\t", ptr[i]);
+//   }
+//   printf("\n");
+// }
+// __device__ void printD(uint *ptr, uint size)
+// {
+//   printf("printDi: size %u, ", size);
+//   for (size_t i = 0; i < size; i++)
+//   {
+//     printf("%u\t", ptr[i]);
+//   }
+//   printf("\n");
+// }
+
+// __device__ void printDL(float *ptr, long long size)
+// {
+//   printf("printDL: size %u, ", size);
+//   for (size_t i = 0; i < MIN(size, 100); i++)
+//   {
+//     printf("%f\t", ptr[i]);
+//   }
+//   printf("\n");
+// }
+// __device__ void printDL(int *ptr, long long size)
+// {
+//   printf("printDL: size %u, ", size);
+//   for (size_t i = 0; i < MIN(size, 100); i++)
+//   {
+//     printf("%d\t", ptr[i]);
+//   }
+//   printf("\n");
+// }
+// __device__ void printDL(uint *ptr, long long size)
+// {
+//   printf("printDL: size %u, ", size);
+//   for (size_t i = 0; i < MIN(size, 100); i++)
+//   {
+//     printf("%u\t", ptr[i]);
+//   }
+//   printf("\n");
+// }
 // template <typename T> __global__ void init_range_d(T *ptr, size_t size) {
 //   if (TID < size) {
 //     ptr[TID] = TID;
