@@ -63,57 +63,48 @@ __global__ void ConstructAliasTableKernel(Sampler *sampler,
 
   Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[0];
 
-  thread_block g = this_thread_block();
-  for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
-  {
-    sample_job job;
-    __threadfence_block();
+  sample_job job;
+  __threadfence_block();
+  if (LID == 0)
+    job = result.requireOneJob(current_itr);
+  __syncwarp(0xffffffff);
+  job.idx = __shfl_sync(0xffffffff, job.idx, 0);
+  job.val = __shfl_sync(0xffffffff, job.val, 0);
+  job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
+  __syncwarp(0xffffffff);
+  while (job.val) {
+    if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
+      ConstructWarpCentic(result, ggraph, state, current_itr, job.idx,
+                          job.node_id, buffer);
+    } else {
+      if (LID == 0)
+        result.AddHighDegree(current_itr, job.node_id);
+    }
+    __syncwarp(0xffffffff);
     if (LID == 0)
       job = result.requireOneJob(current_itr);
-    __syncwarp(0xffffffff);
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    __syncwarp(0xffffffff);
-    while (job.val) {
-      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
-        ConstructWarpCentic(result, ggraph, state, current_itr, job.idx,
-                            job.node_id, buffer);
-      } else {
-        if (LID == 0)
-          result.AddHighDegree(current_itr, job.node_id);
-      }
-      __syncwarp(0xffffffff);
-      if (LID == 0)
-        job = result.requireOneJob(current_itr);
-      job.idx = __shfl_sync(0xffffffff, job.idx, 0);
-      job.val = __shfl_sync(0xffffffff, job.val, 0);
-      job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    }
-    __syncthreads();
-    g.sync();
-    __shared__ sample_job high_degree_job;
+  }
+  __syncthreads();
+  __shared__ sample_job high_degree_job;
+  if (LTID == 0) {
+    job = result.requireOneHighDegreeJob(current_itr);
+    high_degree_job.val = job.val;
+    high_degree_job.node_id = job.node_id;
+  }
+  __syncthreads();
+  while (high_degree_job.val) {
+    ConstructBlockCentic(result, ggraph, state, current_itr,
+                         high_degree_job.node_id, buffer,
+                         vector_packs); // buffer_pointer
+    // __syncthreads();
     if (LTID == 0) {
       job = result.requireOneHighDegreeJob(current_itr);
       high_degree_job.val = job.val;
       high_degree_job.node_id = job.node_id;
     }
-    __syncthreads();
-    while (high_degree_job.val) {
-      ConstructBlockCentic(result, ggraph, state, current_itr,
-                           high_degree_job.node_id, buffer,
-                           vector_packs); // buffer_pointer
-      __syncthreads();
-      if (LTID == 0) {
-        job = result.requireOneHighDegreeJob(current_itr);
-        high_degree_job.val = job.val;
-        high_degree_job.node_id = job.node_id;
-      }
-      __syncthreads();
-    }
-    __syncthreads();
-    if (threadIdx.x == 0)
-      result.NextItr(current_itr);
     __syncthreads();
   }
 }
@@ -126,21 +117,16 @@ __global__ void init_kernel_ptr(Sampler *sampler) {
     }
   }
 }
-__global__ void print_result(Sampler *sampler) {
-  // sampler->result.PrintResult();
+__global__ void PrintTable(Sampler *sampler) {
   if (TID == 0) {
-    // for (size_t i = 0; i < 100; i++) {
-    //   /* code */
-    // }
     printf("\nprob:\n");
-    printD(sampler->ggraph.prob_array , 100);
+    printD(sampler->ggraph.prob_array, 100);
     printf("\nalias:\n");
     printD(sampler->ggraph.alias_array, 100);
   }
 }
 
-// void Start_high_degree(Sampler sampler)
-void Start(Sampler sampler) {
+void ConstructTable(Sampler &sampler) {
 
   int device;
   cudaDeviceProp prop;
@@ -186,6 +172,13 @@ void Start(Sampler sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Construct table time:%.6f\n", total_time);
-  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  PrintTable<<<1, 32, 0, 0>>>(sampler_ptr);
+  H_ERR(cudaDeviceSynchronize());
+
+  Sampler *sampler_ptr2;
+  cudaMalloc(&sampler_ptr2, sizeof(Sampler));
+  H_ERR(cudaMemcpy(sampler_ptr2, &sampler, sizeof(Sampler),
+                   cudaMemcpyHostToDevice));
+  PrintTable<<<1, 32, 0, 0>>>(sampler_ptr2);
   H_ERR(cudaDeviceSynchronize());
 }

@@ -43,7 +43,7 @@ using ll = long long;
 
 #define ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)
 
-#define H_ERR(ans)                                                              \
+#define H_ERR(ans)                                                             \
   { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
                       bool abort = true) {
@@ -58,6 +58,8 @@ __device__ void active_size(int n);
 __device__ int active_size2(char *txt, int n);
 #define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 #define LOG(...) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
+
+using uint = unsigned int;
 
 namespace print {
 template <typename... Args>
@@ -75,44 +77,12 @@ myprintf(const char *file, int line, const char *__format, Args... args) {
 #endif
 }
 } // namespace print
+
 __device__ void __conv();
 #include <stdlib.h>
 #include <sys/time.h>
 double wtime();
 
-using uint = unsigned int;
-
-// __device__ char char_atomicCAS(char *addr, char cmp, char val) {
-//   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr)
-//   &
-//                                                    (0xFFFFFFFFFFFFFFFCULL));
-//   unsigned al_offset = ((unsigned)(((unsigned long long)addr) & 3)) * 8;
-//   unsigned mask = 0xFFU;
-//   mask <<= al_offset;
-//   mask = ~mask;
-//   unsigned sval = val;
-//   sval <<= al_offset;
-//   unsigned old = *al_addr, assumed, setval;
-//   do {
-//     assumed = old;
-//     setval = assumed & mask;
-//     setval |= sval;
-//     old = atomicCAS(al_addr, assumed, setval);
-//   } while (assumed != old);
-//   return (char)((assumed >> al_offset) & 0xFFU);
-// }
-
-// template <typename T>
-// __inline__ __device__ T warpPrefixSum(T val, int lane_id) {
-//   T val_shuffled;
-//   for (int offset = 1; offset < warpSize; offset *= 2) {
-//     val_shuffled = __shfl_up(val, offset);
-//     if (lane_id >= offset) {
-//       val += val_shuffled;
-//     }
-//   }
-//   return val;
-// }
 #define FULL_MASK 0xffffffff
 
 template <typename T> __inline__ __device__ T warpReduce(T val) {
@@ -149,19 +119,8 @@ template <typename T> __inline__ __device__ T blockReduce(T val) {
 }
 
 template <typename T> void printH(T *ptr, int size);
-// __device__ void printD(float *ptr, int size);
-// __device__ void printD(int *ptr, int size);
-// __device__ void printD(uint *ptr, int size);
-// __device__ void printD(float *ptr, uint size);
-// __device__ void printD(int *ptr, uint size);
-// __device__ void printD(uint *ptr, uint size);
-
-// __device__ void printDL(float *ptr, long long size);
-// __device__ void printDL(int *ptr, long long size);
-// __device__ void printDL(uint *ptr, long long size);
 
 template <typename T> __device__ void printD(T *ptr, size_t size);
-
 
 // template <typename T> __global__ void init_range_d(T *ptr, size_t size);
 // template <typename T> void init_range(T *ptr, size_t size);

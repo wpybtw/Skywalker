@@ -14,8 +14,8 @@ main_spliced: main.cu util.cu sampler_spliced.cu
 main_gbuffer: main.cu util.cu sampler_gbuffer.cu
 	nvcc main.cu util.cu sampler_gbuffer.cu  $(CUFLAG) -o main_gbuffer
 
-createTable: main.cu util.cu createTable.cu
-	nvcc main.cu util.cu createTable.cu  $(CUFLAG) -o createTable
+createTable: entry.cu util.cu createTable.cu
+	nvcc entry.cu util.cu createTable.cu  $(CUFLAG) -o createTable
 
 rw: walker.cu util.cu rw.cu kernel.cu
 	nvcc walker.cu util.cu kernel.cu rw.cu  $(CUFLAG) -o rw
@@ -25,14 +25,14 @@ rw: walker.cu util.cu rw.cu kernel.cu
 
 
 
-util: ../include/util.cuh util.cu
-	nvcc util.cu  $(CUFLAG) -c 
+# util: ../include/util.cuh util.cu
+# 	nvcc util.cu  $(CUFLAG) -c 
 
-sampler: ../include/sampler.cuh sampler.cu util.cu
-	nvcc sampler.cu util.o  $(CUFLAG) -c 
+# sampler: ../include/sampler.cuh sampler.cu util.cu
+# 	nvcc sampler.cu util.o  $(CUFLAG) -c 
 
-sampler_high_degree: ../include/sampler.cuh sampler_high_degree.cu util.cu
-	nvcc sampler_high_degree.cu util.o  $(CUFLAG) -c 
+# sampler_high_degree: ../include/sampler.cuh sampler_high_degree.cu util.cu
+# 	nvcc sampler_high_degree.cu util.o  $(CUFLAG) -c 
 
 
 test: main

@@ -144,19 +144,11 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
       for (size_t i = 0; i < size; i++) {
         printf("%llu \t", frontiers[i].Size());
       }
-      // printf("job_sizes_floor \n");
-      // printD(job_sizes_floor, hop_num);
-      // printf("result: \n");
-      // printD(data, MIN(capacity, 30));
     }
   }
   __device__ uint *getNextAddr(uint hop, uint job_idx) {
     return &results[job_idx].data[hop + 1];
   }
-  // __device__ uint getNodeId(uint idx, uint hop) {
-  //   // paster(addr_offset[hop]);
-  //   return data[addr_offset[hop] + idx];
-  // }
   __device__ uint getHopSize(uint hop) { return 1; }
   __device__ void AddHighDegree(uint current_itr, uint node_id) {
     task_t task = (node_id, current_itr);

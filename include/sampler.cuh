@@ -69,3 +69,4 @@ public:
 
 void Start(Sampler sampler);
 void Start_high_degree(Sampler sampler);
+void ConstructTable(Sampler &sampler);

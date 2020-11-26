@@ -82,7 +82,7 @@ __global__ void sample_kernel(Sampler *sampler,
   // __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 32> high_degree_vec;
   Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[0];
 
-  thread_block g = this_thread_block();
+  // thread_block tb = this_thread_block();
   for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
   {
     sample_job job;
@@ -118,15 +118,11 @@ __global__ void sample_kernel(Sampler *sampler,
       job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
     }
     __syncthreads();
-    g.sync();
     __shared__ sample_job high_degree_job;
     if (LTID == 0) {
       job = result.requireOneHighDegreeJob(current_itr);
       high_degree_job.val = job.val;
       high_degree_job.node_id = job.node_id;
-      // if (job.val)
-      //   printf("got high degree job %d with %d\n", job.node_id,
-      //          ggraph->getDegree(job.node_id));
     }
     __syncthreads();
     while (high_degree_job.val) {

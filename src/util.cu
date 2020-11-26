@@ -153,61 +153,7 @@ __device__ void printD<uint>(uint *ptr, size_t size)
   }
   printf("\n");
 }
-// __device__ void printD(float *ptr, uint size)
-// {
-//   printf("printDf: size %u, ", size);
-//   for (size_t i = 0; i < size; i++)
-//   {
-//     printf("%f\t", ptr[i]);
-//   }
-//   printf("\n");
-// }
-// __device__ void printD(int *ptr, uint size)
-// {
-//   printf("printDi: size %u, ", size);
-//   for (size_t i = 0; i < size; i++)
-//   {
-//     printf("%d\t", ptr[i]);
-//   }
-//   printf("\n");
-// }
-// __device__ void printD(uint *ptr, uint size)
-// {
-//   printf("printDi: size %u, ", size);
-//   for (size_t i = 0; i < size; i++)
-//   {
-//     printf("%u\t", ptr[i]);
-//   }
-//   printf("\n");
-// }
 
-// __device__ void printDL(float *ptr, long long size)
-// {
-//   printf("printDL: size %u, ", size);
-//   for (size_t i = 0; i < MIN(size, 100); i++)
-//   {
-//     printf("%f\t", ptr[i]);
-//   }
-//   printf("\n");
-// }
-// __device__ void printDL(int *ptr, long long size)
-// {
-//   printf("printDL: size %u, ", size);
-//   for (size_t i = 0; i < MIN(size, 100); i++)
-//   {
-//     printf("%d\t", ptr[i]);
-//   }
-//   printf("\n");
-// }
-// __device__ void printDL(uint *ptr, long long size)
-// {
-//   printf("printDL: size %u, ", size);
-//   for (size_t i = 0; i < MIN(size, 100); i++)
-//   {
-//     printf("%u\t", ptr[i]);
-//   }
-//   printf("\n");
-// }
 // template <typename T> __global__ void init_range_d(T *ptr, size_t size) {
 //   if (TID < size) {
 //     ptr[TID] = TID;
