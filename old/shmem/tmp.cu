@@ -51,7 +51,7 @@ int main(int argc, char const *argv[]) {
   paster(ELE_PER_WARP);
 
   shmem_kernel<<<1, 32, 0, 0>>>(id_ptr, weight_ptr, size, size / 2, out);
-  // printf("size %d\n",sizeof(alias_table_shmem<int>));
+  // printf("size %d\n",sizeof(alias_table_constructor_shmem<int>));
   // printf("size %d %d\n",sizeof(Vector_shmem<int>),ELE_PER_WARP);
   P;
   usleep(5000);

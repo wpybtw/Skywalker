@@ -1,5 +1,6 @@
 #pragma once
 #include "vec.cuh"
+
 struct sample_job {
   uint idx;
   uint node_id;
@@ -203,35 +204,43 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
 struct sample_result {
   uint size;
   uint hop_num;
-  uint *hops;
+  uint *hops = nullptr;
   // uint *hops_acc;
-  uint *addr_offset;
-  uint *data;
-  int *job_sizes;
-  int *job_sizes_h;
-  int *job_sizes_floor;
+  uint *addr_offset = nullptr;
+  uint *data = nullptr;
+  int *job_sizes = nullptr;
+  int *job_sizes_h = nullptr;
+  int *job_sizes_floor = nullptr;
   uint capacity;
 
   Vector_gmem<uint> *high_degrees;
 
   // uint current_itr = 0;
   sample_result() {}
+  // void Free()
+  void Free() {
+
+    if (hops != nullptr)
+      H_ERR(cudaFree(hops));
+    if (addr_offset != nullptr)
+      H_ERR(cudaFree(addr_offset));
+    if (data != nullptr)
+      H_ERR(cudaFree(data));
+    if (job_sizes != nullptr)
+      H_ERR(cudaFree(job_sizes));
+    if (job_sizes_floor != nullptr)
+      H_ERR(cudaFree(job_sizes_floor));
+    if (job_sizes_h != nullptr)
+      delete[] job_sizes_h;
+  }
   void init(uint _size, uint _hop_num, uint *_hops, uint *seeds) {
-    // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
+    Free();
     size = _size;
     hop_num = _hop_num;
     // paster(hop_num);
     cudaMalloc(&hops, hop_num * sizeof(uint));
     cudaMemcpy(hops, _hops, hop_num * sizeof(uint), cudaMemcpyHostToDevice);
-
     cudaMalloc(&addr_offset, hop_num * sizeof(uint));
-    // cudaMalloc(&hops_acc, hop_num * sizeof(uint));
-
-    // capacity = size;
-    // for (size_t i = 0; i < _hop_num; i++)
-    // {
-    //   capacity *= _hops[i];
-    // }
     Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
     for (size_t i = 0; i < hop_num; i++) {
       high_degrees_h[i].Allocate(MAX((_size / 5), 4000));
@@ -254,14 +263,8 @@ struct sample_result {
 
     job_sizes_h = new int[hop_num];
     job_sizes_h[0] = size;
-    // for (size_t i = 1; i < hop_num; i++)
-    // {
-    //   job_sizes_h[i] = job_sizes_h[i - 1] * _hops[i];
-    // }
     cudaMalloc(&job_sizes, (hop_num) * sizeof(int));
     cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int));
-    // cudaMemcpy(job_sizes, _hops, hop_num * sizeof(int),
-    // cudaMemcpyHostToDevice);
   }
   __device__ void PrintResult() {
     if (LTID == 0) {

@@ -27,6 +27,7 @@ public:
 
   float *prob_array;
   uint *alias_array;
+  char *end_array;
 
   index_t vtx_num;
   index_t edge_num;
@@ -83,10 +84,10 @@ public:
     // H_ERR(cudaMemcpy(weight_list,ginst->weight,
     // 			weight_sz, cudaMemcpyHostToDevice));
   }
-  void AllocateAliasTable() {
-    H_ERR(cudaMalloc((void **)&prob_array, edge_num * sizeof(float)));
-    H_ERR(cudaMalloc((void **)&alias_array, edge_num * sizeof(uint)));
-  }
+  // void AllocateAliasTable() {
+  //   H_ERR(cudaMalloc((void **)&prob_array, edge_num * sizeof(float)));
+  //   H_ERR(cudaMalloc((void **)&alias_array, edge_num * sizeof(uint)));
+  // }
 };
 
 #endif

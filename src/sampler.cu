@@ -15,11 +15,11 @@
 __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
                                  int node_id, void *buffer) {
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
+  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
   // tables[WARP_PER_BLK];
-  alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
+      (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
+  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
 
   // #ifdef check
   //   if (LID == 0)
@@ -40,10 +40,10 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
 __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
                                   int node_id, void *buffer) {
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *table =
+  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC> tables[1];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *tables =
+      (alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *)buffer;
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *table =
       &tables[0];
 
 #ifdef check
@@ -77,7 +77,7 @@ __global__ void sample_kernel(Sampler *sampler) {
     current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>
+  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>
       table;
   void *buffer = &table;
   // void * buffer=nullptr;
@@ -136,7 +136,7 @@ __global__ void sample_kernel(Sampler *sampler) {
   }
 }
 
-__global__ void init_kernel_ptr(Sampler *sampler) {
+static __global__ void init_kernel_ptr(Sampler *sampler) {
   if (TID == 0) {
     sampler->result.setAddrOffset();
   }
@@ -164,11 +164,11 @@ void Start(Sampler sampler) {
   // -
   //        sizeof(float[WARP_PER_BLK]) - 2 * sizeof(uint) -
   //        sizeof(float[WARP_PER_BLK]));
-  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::WC>) *
+  // paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC>) *
   // WARP_PER_BLK);
-  // paster(sizeof(alias_table_shmem<uint, ExecutionPolicy::BC>));
-  if (sizeof(alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) <
-      sizeof(alias_table_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) *
+  // paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::BC>));
+  if (sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) <
+      sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) *
           WARP_PER_BLK)
     printf("buffer too small\n");
   Sampler *sampler_ptr;

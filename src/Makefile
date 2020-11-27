@@ -1,21 +1,21 @@
-all: main_gbuffer main_spliced  createTable # rw
+all: main_gbuffer   sample # rw main_spliced
 # util sampler main
 
 CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo  -Xptxas -v  #-keep   #-Xptxas -O3,-v   
 debug: CUFLAG +=  -G -g 
-debug: main main_gbuffer main_spliced	
+debug: main_gbuffer sample	
 
 # main: main.cu util.cu sampler.cu
 # 	nvcc main.cu util.cu sampler.cu  $(CUFLAG) -o main
 
-main_spliced: main.cu util.cu sampler_spliced.cu
-	nvcc main.cu util.cu sampler_spliced.cu  $(CUFLAG) -o main_spliced
+main_spliced: main.cu util.cu sampler_spliced.cu kernel.cu
+	nvcc main.cu util.cu sampler_spliced.cu kernel.cu $(CUFLAG) -o main_spliced
 
-main_gbuffer: main.cu util.cu sampler_gbuffer.cu
-	nvcc main.cu util.cu sampler_gbuffer.cu  $(CUFLAG) -o main_gbuffer
+main_gbuffer: main.cu util.cu sampler_gbuffer.cu kernel.cu
+	nvcc main.cu util.cu sampler_gbuffer.cu kernel.cu $(CUFLAG) -o main_gbuffer
 
-createTable: entry.cu util.cu createTable.cu
-	nvcc entry.cu util.cu createTable.cu  $(CUFLAG) -o createTable
+sample: entry.cu util.cu createTable.cu sample.cu kernel.cu vec.cu
+	nvcc entry.cu util.cu createTable.cu sample.cu kernel.cu vec.cu $(CUFLAG) -o sample
 
 rw: walker.cu util.cu rw.cu kernel.cu
 	nvcc walker.cu util.cu kernel.cu rw.cu  $(CUFLAG) -o rw

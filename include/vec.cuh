@@ -37,7 +37,10 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size, false> {
   buf<T, _size> data;
 
   __device__ uint Size() { return size; }
-  __device__ void Clean() { size = 0; }
+  __device__ void Clean() {
+    if (LID == 0)
+      size = 0;
+  }
   __device__ bool Empty() {
     if (size == 0)
       return true;
@@ -73,7 +76,10 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
   buf<T, _size> data;
 
   __device__ long long Size() { return size; }
-  __device__ void Clean() { size = 0; }
+  __device__ void Clean() {
+    if (LID == 0)
+      size = 0;
+  }
   __device__ bool Empty() {
     if (size <= 0)
       return true;
@@ -144,7 +150,10 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
   T *gbuf_data;
 
   __device__ long long Size() { return size; }
-  __device__ void Clean() { size = 0; }
+  __device__ void Clean() {
+    if (LTID == 0)
+      size = 0;
+  }
   __device__ bool Empty() {
     if (size <= 0)
       return true;
@@ -221,6 +230,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
 // template <typename T> void myMemset(T *ptr, size_t size){
 
 // }
+// enum class MyClass { };
 
 template <typename T> class Vector_gmem {
 public:
@@ -231,6 +241,12 @@ public:
   // T data[VECTOR_SHMEM_SIZE];
 
   __host__ Vector_gmem() {}
+  __device__ Vector_gmem<T> &operator=(Vector_gmem<T> &old) {
+    size = old.size;
+    floor = old.floor;
+    capacity = old.capacity;
+    data = old.data;
+  }
   __host__ void Free() {
     if (data != nullptr)
       cudaFree(data);
@@ -255,10 +271,17 @@ public:
     *size = _size;
     *floor = 0;
   }
+
   __device__ void Clean() {
     if (LTID == 0) {
       *size = 0;
       *floor = 0;
+    }
+  }
+  __device__ void CleanWC() {
+    if (LID == 0) {
+      *size = 0;
+      *floor = 0; //oor
     }
   }
   __device__ void CleanData() {
@@ -266,6 +289,29 @@ public:
       data[i] = 0;
     }
   }
+  __device__ void CleanDataWC() {
+    // if (LID==0)
+    // {
+    //   printf("%x\n",data ); //misalignment
+    //   printf("size %llu\t", *size);
+    // }
+    
+    for (size_t i = LID; i < *size; i += 32) {
+      data[i] = 0;
+    }
+  }
+  // template <ExecutionPolicy policy = ExecutionPolicy::BC>
+  // __device__ void CleanData();
+  // template <> __device__ void CleanData<ExecutionPolicy::WC>() {
+  //   for (size_t i = LTID; i < *size; i += blockDim.x) {
+  //     data[i] = 0;
+  //   }
+  // }
+  // template <> __device__ void CleanData<ExecutionPolicy::BC>() {
+  //   for (size_t i = LTID; i < *size; i += blockDim.x) {
+  //     data[i] = 0;
+  //   }
+  // }
   __host__ __device__ u64 Size() { return *size; }
   __host__ __device__ void SetSize(size_t s) { *size = s; }
   // __host__ __device__ u64 &SizeRef() { return *size; }
@@ -285,13 +331,6 @@ public:
     } else
       printf("already full %d\n", old);
   }
-  // __device__ T Consume() {
-  //   u64 old = atomicAdd(floor, 1);
-  //   if (old < *size){
-  //     return
-  //   }
-  // }
-  // __device__ void clean() { *size = 0; }
   __device__ bool Empty() {
     if (*size == 0)
       return true;
@@ -301,7 +340,8 @@ public:
     if (id < *size)
       return data[id];
     else
-      printf("%s\t:%d Vector_gmem overflow\n", __FILE__, __LINE__);
+      printf("%s\t:%d Vector_gmem overflow, size: %llu idx: %llu\n", __FILE__,
+             __LINE__, *size, id);
   }
   __device__ T Get(size_t id) {
     // if (id < *size)
@@ -310,15 +350,21 @@ public:
     //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
     //   __FILE__, __LINE__, *capacity, *size, (u64)id);
   }
-  // __device__ T &Get(long long id)
-  // {
-  //   if (id < *size && id >= 0)
-  //     return data[id];
-  //   else
-  //     printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
-  //     __FILE__, __LINE__, *capacity, *size, (u64)id);
-  // }
 };
+// template <>
+// template <>
+// __device__ void Vector_gmem<char>::CleanData<ExecutionPolicy::WC>() {
+//   for (size_t i = LTID; i < *size; i += blockDim.x) {
+//     data[i] = 0;
+//   }
+// }
+// template <>
+// template <>
+// __device__ void Vector_gmem<char>::CleanData<ExecutionPolicy::BC>() {
+//   for (size_t i = LTID; i < *size; i += blockDim.x) {
+//     data[i] = 0;
+//   }
+// }
 
 template <typename T> class Vector_virtual {
 public:
@@ -401,6 +447,15 @@ template <typename T> struct Vector_pack2 {
     small.Allocate(size);
     // alias.Allocate(size);
     // prob.Allocate(size);
+    selected.Allocate(size);
+  }
+};
+
+template <typename T> struct Vector_pack_short {
+  Vector_gmem<unsigned short int> selected;
+  int size = 0;
+  void Allocate(int size) {
+    this->size = size;
     selected.Allocate(size);
   }
 };

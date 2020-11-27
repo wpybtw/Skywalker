@@ -49,9 +49,10 @@ int main(int argc, char *argv[]) {
     hops[i] = NeighborSize;
   }
 
-  Sampler.SetSeed(SampleSize, Depth + 1, hops);
+  Sampler.InitFullForConstruction();
   ConstructTable(Sampler);
 
-
+  Sampler.SetSeed(SampleSize, Depth + 1, hops);
+  JustSample(Sampler);
   return 0;
 }

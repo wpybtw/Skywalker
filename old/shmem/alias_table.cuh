@@ -34,7 +34,7 @@ __device__ void AddTillSize(T *array, uint32_t *size, T t, u64 target_size) {
     printf("wtf vector overflow");
 }
 
-template <typename T> struct alias_table_shmem {
+template <typename T> struct alias_table_constructor_shmem {
 
   // u64 degree;
   u64 size;

@@ -2,7 +2,7 @@
 #include "result.cuh"
 #include "util.cuh"
 #include "vec.cuh"
-// #include "sampler.cuh"
+#include "kernel.cuh"
 #define verbose
 
 // template <typename T>
@@ -63,10 +63,10 @@ enum class BufferType { SHMEM, SPLICED, GMEM };
 
 template <typename T, ExecutionPolicy policy,
           BufferType btype = BufferType::SHMEM> //
-struct alias_table_shmem;
+struct alias_table_constructor_shmem;
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
   uint size;
   float weight_sum;
   T *ids;
@@ -342,7 +342,7 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM> {
   uint size;
   float weight_sum;
   T *ids;
@@ -603,7 +603,7 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM> {
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED> {
   uint size;
   float weight_sum;
   T *ids;
@@ -876,7 +876,7 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED> {
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM> {
   uint size;
   float weight_sum;
   T *ids;

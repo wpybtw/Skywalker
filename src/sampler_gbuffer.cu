@@ -1,18 +1,19 @@
 #include "alias_table.cuh"
 #include "sampler.cuh"
 #include "util.cuh"
+#include "kernel.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
 __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
                                  int node_id, void *buffer) {
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::WC>
+  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
   // tables[WARP_PER_BLK];
   // if (LID == 0)
   //   printf("----%s %d\n", __FUNCTION__, __LINE__);
-  alias_table_shmem<uint, ExecutionPolicy::WC> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
+      (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
+  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
 
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
@@ -30,10 +31,10 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   Vector_pack<uint> *vector_packs) {
   // if (LTID == 0)
   //   printf("----%s %d\n", __FUNCTION__, __LINE__);
-  // __shared__ alias_table_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *tables =
-      (alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *)buffer;
-  alias_table_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *table =
+  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC> tables[1];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *tables =
+      (alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *)buffer;
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *table =
       &tables[0];
 
 #ifdef check
@@ -69,7 +70,7 @@ __global__ void sample_kernel(Sampler *sampler,
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack<uint> *vector_packs = &vector_pack[BID];
-  __shared__ alias_table_shmem<uint, ExecutionPolicy::WC> table[WARP_PER_BLK];
+  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC> table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;
   curand_init(TID, 0, 0, &state);
@@ -144,14 +145,14 @@ __global__ void sample_kernel(Sampler *sampler,
   }
 }
 
-__global__ void init_kernel_ptr(Sampler *sampler) {
-  if (TID == 0) {
-    sampler->result.setAddrOffset();
-    for (size_t i = 0; i < sampler->result.hop_num; i++) {
-      sampler->result.high_degrees[i].Init();
-    }
-  }
-}
+// __global__ void init_kernel_ptr(Sampler *sampler) {
+//   if (TID == 0) {
+//     sampler->result.setAddrOffset();
+//     for (size_t i = 0; i < sampler->result.hop_num; i++) {
+//       sampler->result.high_degrees[i].Init();
+//     }
+//   }
+// }
 __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }

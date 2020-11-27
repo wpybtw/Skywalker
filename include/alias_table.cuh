@@ -1,4 +1,5 @@
 #include "gpu_graph.cuh"
+#include "kernel.cuh"
 #include "sampler_result.cuh"
 #include "util.cuh"
 #include "vec.cuh"
@@ -29,15 +30,15 @@ inline __device__ char char_atomicCAS(char *addr, char cmp, char val) {
 }
 
 // template <typename T>
-__device__ bool AddTillSize(uint *size,
-                            size_t target_size) // T *array,       T t,
-{
-  uint old = atomicAdd(size, 1);
-  if (old < target_size) {
-    return true;
-  }
-  return false;
-}
+// __device__ bool AddTillSize(uint *size,
+//                             size_t target_size) // T *array,       T t,
+// {
+//   uint old = atomicAdd(size, 1);
+//   if (old < target_size) {
+//     return true;
+//   }
+//   return false;
+// }
 struct Buffer_pointer {
   uint *b0, *b1, *b2;
   float *b3;
@@ -65,11 +66,11 @@ enum class AliasTableStorePolicy { NONE, STORE };
 template <typename T, ExecutionPolicy policy,
           BufferType btype = BufferType::SHMEM,
           AliasTableStorePolicy tableStore = AliasTableStorePolicy::NONE>
-struct alias_table_shmem;
+struct alias_table_constructor_shmem;
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
-                         AliasTableStorePolicy::STORE> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
+                                     AliasTableStorePolicy::STORE> {
   uint size;
   float weight_sum;
   T *ids;
@@ -302,7 +303,7 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
   uint size;
   float weight_sum;
   T *ids;
@@ -531,7 +532,8 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
+                                     BufferType::SHMEM> {
   uint size;
   float weight_sum;
   T *ids;
@@ -599,13 +601,13 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM> {
     __syncthreads();
   }
   __device__ void Clean() {
-    if (LTID == 0) {
-      large.Clean();
-      small.Clean();
-      alias.Clean();
-      prob.Clean();
-      selected.Clean();
-    }
+    // if (LTID == 0) {
+    large.Clean();
+    small.Clean();
+    alias.Clean();
+    prob.Clean();
+    selected.Clean();
+    // }
     __syncthreads();
   }
   __device__ void roll_atomic(T *array, int target_size, curandState *state,
@@ -741,7 +743,8 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SHMEM> {
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
+                                     BufferType::SPLICED> {
   uint size;
   float weight_sum;
   T *ids;
@@ -821,13 +824,13 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED> {
     __syncthreads();
   }
   __device__ void Clean() {
-    if (LTID == 0) {
-      large.Clean();
-      small.Clean();
-      alias.Clean();
-      prob.Clean();
-      selected.Clean();
-    }
+    // if (LTID == 0) {
+    large.Clean();
+    small.Clean();
+    alias.Clean();
+    prob.Clean();
+    selected.Clean();
+    // }
     __syncthreads();
   }
   __device__ void roll_atomic(T *array, int target_size, curandState *state,
@@ -958,8 +961,8 @@ struct alias_table_shmem<T, ExecutionPolicy::BC, BufferType::SPLICED> {
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
-                         AliasTableStorePolicy::STORE> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
+                                     AliasTableStorePolicy::STORE> {
   uint size;
   float weight_sum;
   T *ids;
@@ -1026,13 +1029,13 @@ struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
     }
   }
   __device__ void Clean() {
-    if (LID == 0) {
-      large.Clean();
-      small.Clean();
-      alias.Clean();
-      prob.Clean();
-      selected.Clean();
-    }
+    // if (LID == 0) {
+    large.Clean();
+    small.Clean();
+    alias.Clean();
+    prob.Clean();
+    selected.Clean();
+    // }
   }
   __device__ void roll_atomic(T *array, curandState *state,
                               sample_result result) {
@@ -1151,7 +1154,8 @@ struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
 };
 
 template <typename T>
-struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM> {
+struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
+                                     BufferType::SHMEM> {
   uint size;
   float weight_sum;
   T *ids;
@@ -1196,10 +1200,11 @@ struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM> {
   }
   __device__ bool SaveAliasTable(gpu_graph *graph) {
     size_t start = graph->beg_pos[src_id];
-    for (size_t i = LID; i < graph->getDegree((uint)src_id); i++) {
+    uint len = graph->getDegree((uint)src_id);
+    for (size_t i = LID; i < len; i++) {
       graph->alias_array[start + i] = alias[i];
     }
-    for (size_t i = LID; i < graph->getDegree((uint)src_id); i++) {
+    for (size_t i = LID; i < len; i++) {
       graph->prob_array[start + i] = prob[i];
     }
   }
@@ -1217,13 +1222,13 @@ struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM> {
     }
   }
   __device__ void Clean() {
-    if (LID == 0) {
-      large.Clean();
-      small.Clean();
-      alias.Clean();
-      prob.Clean();
-      selected.Clean();
-    }
+    // if (LID == 0) {
+    large.Clean();
+    small.Clean();
+    alias.Clean();
+    prob.Clean();
+    selected.Clean();
+    // }
   }
   __device__ void roll_atomic(T *array, curandState *state,
                               sample_result result) {
@@ -1333,5 +1338,117 @@ struct alias_table_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM> {
         itr++;
       __syncwarp(0xffffffff);
     }
+  }
+};
+
+template <typename T, ExecutionPolicy policy> struct alias_table_roller_shmem;
+
+template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::WC> {
+  uint size;
+  // float weight_sum;
+  // T *ids;
+  // float *weights;
+  uint current_itr;
+  gpu_graph *ggraph;
+  int src_id;
+
+  Vector_virtual<T> alias;
+  Vector_virtual<float> prob;
+  Vector_shmem<unsigned short int, ExecutionPolicy::WC, ELE_PER_WARP, false>
+      selected;
+  Vector_gmem<unsigned short int> selected_high_degree;
+
+  __device__ bool loadGlobalBuffer(Vector_pack_short<T> *pack) {
+    if (LID == 0) {
+      selected_high_degree = pack->selected;
+    }
+  }
+
+  __device__ bool SetVirtualVector(gpu_graph *graph) {
+    alias.Construt(graph->alias_array + graph->beg_pos[src_id],
+                   graph->getDegree((uint)src_id));
+    prob.Construt(graph->prob_array + graph->beg_pos[src_id],
+                  graph->getDegree((uint)src_id));
+  }
+
+  __host__ __device__ uint Size() { return size; }
+  __device__ void loadFromGraph(T *_ids, gpu_graph *graph, int _size,
+                                uint _current_itr, int _src_id) {
+    if (LID == 0) {
+      ggraph = graph;
+      current_itr = _current_itr;
+      size = _size;
+      // ids = _ids;
+      src_id = _src_id;
+      // weights = _weights;
+      SetVirtualVector(graph);
+      Init(graph->getDegree((uint)_src_id));
+    }
+    __syncwarp(0xffffffff);
+  }
+  __device__ void Init(uint sz) {
+    alias.Init(sz);
+    prob.Init(sz);
+    selected.Init(sz);
+    selected_high_degree.Init(sz);
+  }
+  __device__ void Clean() {
+    // if (LID == 0) {
+    // alias.Clean();
+    // prob.Clean();
+    selected.Clean();
+    // }
+    selected_high_degree.CleanWC();
+    selected_high_degree.CleanDataWC();  //!todo using GMEM per warp
+  }
+  __device__ void roll_atomic(T *array, curandState *state,
+                              sample_result result) {
+    // curandState state;
+    // paster(current_itr);
+    uint target_size = result.hops[current_itr + 1];
+    if ((target_size > 0) && (target_size < ggraph->getDegree(src_id))) {
+      int itr = 0;
+      __shared__ uint sizes[WARP_PER_BLK];
+      uint *local_size = sizes + WID;
+      if (LID == 0)
+        *local_size = 0;
+      __syncwarp(0xffffffff);
+      while (*local_size < target_size) {
+        for (size_t i = *local_size + LID; i < 32 * (target_size / 32 + 1);
+             i += 32) {
+          roll_once(array, local_size, state, target_size, result);
+        }
+        itr++;
+        if (itr > 10) {
+          break;
+        }
+      }
+      __syncwarp(0xffffffff);
+    } else if (target_size >= ggraph->getDegree(src_id)) {
+      for (size_t i = LID; i < ggraph->getDegree(src_id); i += 32) {
+        result.AddActive(current_itr, array, ggraph->getOutNode(src_id, i));
+      }
+    }
+  }
+  __device__ bool roll_once(T *array, uint *local_size,
+                            curandState *local_state, size_t target_size,
+                            sample_result result) {
+    int col = (int)floor(curand_uniform(local_state) * size);
+    float p = curand_uniform(local_state);
+    uint candidate;
+    if (p < prob[col])
+      candidate = col;
+    else
+      candidate = alias[col];
+    unsigned short int updated = atomicCAS(
+        &selected[candidate], (unsigned short int)0, (unsigned short int)1);
+    if (!updated) {
+      if (AddTillSize(local_size, target_size)) {
+        result.AddActive(current_itr, array,
+                         ggraph->getOutNode(src_id, candidate));
+      }
+      return true;
+    } else
+      return false;
   }
 };
