@@ -71,8 +71,10 @@
 //         Vector_virtual<float> prob;
 //         uint src_id = result.results[i].data[current_itr];
 //         uint src_degree = graph->getDegree((uint)src_id);
-//         alias.Construt(graph->alias_array + graph->beg_pos[src_id], src_degree);
-//         prob.Construt(graph->prob_array + graph->beg_pos[src_id], src_degree);
+//         alias.Construt(graph->alias_array + graph->beg_pos[src_id],
+//         src_degree);
+//         prob.Construt(graph->prob_array + graph->beg_pos[src_id],
+//         src_degree);
 //         alias.Init(src_degree);
 //         prob.Init(src_degree);
 //         {
@@ -103,16 +105,14 @@ __global__ void sample_kernel(Walker *walker) {
   gpu_graph *graph = &walker->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-  // for (uint current_itr = 0; current_itr < result.hop_num - 1; current_itr++)
-  // {
-  // }
+
   for (size_t i = TID; i < result.size; i += gridDim.x * blockDim.x) {
-    for (uint current_itr = 0; current_itr < result.hop_num - 1;
-         current_itr++) {
-      if (result.results[i].alive) {
+    if (result.alive[i] != 0) {
+      for (uint current_itr = 0; current_itr < result.hop_num - 1;
+           current_itr++) {
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
-        uint src_id = result.results[i].data[current_itr];
+        uint src_id = result.GetData(current_itr, i);
         uint src_degree = graph->getDegree((uint)src_id);
         alias.Construt(graph->alias_array + graph->beg_pos[src_id], src_degree);
         prob.Construt(graph->prob_array + graph->beg_pos[src_id], src_degree);
@@ -130,11 +130,11 @@ __global__ void sample_kernel(Walker *walker) {
                 candidate = col;
               else
                 candidate = alias[col];
-              result.results[i].data[current_itr + 1] =
+              *result.GetDataPtr(current_itr + 1, i) =
                   graph->getOutNode(src_id, candidate);
             }
           } else if (target_size >= src_degree) {
-            result.results[i].alive = false;
+            result.alive[i] = 0;
           }
         }
       }
