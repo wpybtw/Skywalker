@@ -70,6 +70,12 @@ public:
     for (int i = 0; i < (ginst->vtx_num); i++) {
       outDegree[i] = ginst->beg_pos[i + 1] - ginst->beg_pos[i];
     }
+    u64 high_degree = 0;
+    for (int i = 0; i < (ginst->vtx_num); i++) {
+      if (outDegree[i] > 8000)
+        high_degree++;
+    }
+    printf("high_degree >8000  %llu,  %f\n",high_degree,(high_degree+0.0)/ginst->vtx_num ) ;
     uint maxD = std::distance(outDegree,
                               std::max_element(outDegree, outDegree + vtx_num));
     printf(" %d has max out degree %d\n", maxD, outDegree[maxD]);

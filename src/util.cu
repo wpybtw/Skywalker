@@ -51,7 +51,7 @@ __device__ void active_size(int n = 0)
 {
   coalesced_group active = coalesced_threads();
   if (active.thread_rank() == 0)
-    printf("WID: %d coalesced_group %llu at line %d\n", WID, active.size(), n);
+    printf("TBID: %d WID: %d coalesced_group %llu at line %d\n", BID, WID, active.size(), n);
 }
 __device__ int active_size2(char *txt, int n = 0)
 {

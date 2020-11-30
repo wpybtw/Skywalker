@@ -1,7 +1,7 @@
 #pragma once
 #include "util.cuh"
 
-enum class ExecutionPolicy { WC = 0, BC = 1 };
+enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2 };
 
 template <typename T> class Vector_itf {
 public:
@@ -281,7 +281,7 @@ public:
   __device__ void CleanWC() {
     if (LID == 0) {
       *size = 0;
-      *floor = 0; //oor
+      *floor = 0; // oor
     }
   }
   __device__ void CleanData() {
@@ -295,7 +295,7 @@ public:
     //   printf("%x\n",data ); //misalignment
     //   printf("size %llu\t", *size);
     // }
-    
+
     for (size_t i = LID; i < *size; i += 32) {
       data[i] = 0;
     }
@@ -409,11 +409,13 @@ public:
       return true;
     return false;
   }
-  __device__ T &operator[](size_t id) {
+  inline __device__ T &operator[](size_t id) {
     if (id < size)
       return data[id];
     else
-      printf("%s\t:%d Vector_gmem overflow\n", __FILE__, __LINE__);
+      return data[size-1];
+      // printf("%s\t:%d Vector_gmem overflow to %llu size %llu\n", __FILE__,
+      //        __LINE__, id, size);
   }
   __device__ T Get(size_t id) { return data[id]; }
 };
