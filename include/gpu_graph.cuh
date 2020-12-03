@@ -18,6 +18,7 @@ typedef unsigned char bit_t;
 
 enum class BiasType { Weight, Degree = 0 };
 
+// template<BiasType bias=BiasType::Weight>
 class gpu_graph {
 public:
   vtx_t *adj_list;
@@ -58,9 +59,12 @@ public:
   __device__ index_t getDegree(index_t idx) {
     return beg_pos[idx + 1] - beg_pos[idx];
   }
-  __host__ index_t getDegree_h(index_t idx) { return outDegree[idx]; }
+  // __host__ index_t getDegree_h(index_t idx) { return outDegree[idx]; }
 
-  __device__ float getBias(index_t idx) {
+  // __device__ float getBias(index_t idx) {
+  //   return beg_pos[idx + 1] - beg_pos[idx];
+  // }
+  friend  __device__ float getBias(index_t idx) {
     return beg_pos[idx + 1] - beg_pos[idx];
   }
 
