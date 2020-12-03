@@ -1,13 +1,6 @@
 #ifndef _GRAPH_CUH
 #define _GRAPH_CUH
 
-// #include "app.cuh"
-// #include "common.cuh"
-// #include "intrinsics.cuh"
-// #include "job.cuh"
-// #include "print.cuh"
-// #include "timer.cuh"
-// #include "worklist.cuh"
 #include "util.cuh"
 #include <cerrno>
 #include <cstring>
@@ -31,6 +24,10 @@ using namespace std;
 // using namespace intrinsics;
 DECLARE_string(input);
 DECLARE_int32(device);
+
+DECLARE_bool(dw);
+DECLARE_bool(randomweight); // randomweight
+DECLARE_int32(weightrange);
 
 template <typename T> void PrintResults(T *results, uint n);
 
@@ -65,7 +62,6 @@ public:
   bool withWeight;
 
   // scheduler-specific
-  uint assigned_sm;
   int device = 0;
   uint64_t gmem_used = 0;
   uint64_t um_used = 0;
@@ -77,6 +73,7 @@ public:
     this->withWeight = false;
     this->device = FLAGS_device;
     ReadGraphGR();
+    Set_Mem_Policy();
   }
   ~Graph() {
     H_ERR(cudaFree(xadj));
@@ -95,9 +92,18 @@ public:
   void Load() { ReadGraphGR(); }
   // void Map();
 
-  void Set_Mem_Policy(cudaStream_t &stream, bool needWeight = false);
-  void gk_fclose(FILE *fp) { fclose(fp); }
+  void Set_Mem_Policy( bool needWeight = false) {
+    H_ERR(cudaMemPrefetchAsync(xadj, (numNode + 1) * sizeof(edge_t),
+                               FLAGS_device, 0));
+    // if (um_used < avail) {
+    H_ERR(cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device,
+                               0));
+    if (needWeight)
+      H_ERR(cudaMemPrefetchAsync(adjwgt, numEdge * sizeof(weight_t),
+                                 FLAGS_device, 0));
+  }
 
+  void gk_fclose(FILE *fp) { fclose(fp); }
   FILE *gk_fopen(const char *fname, const char *mode, const char *msg) {
     FILE *fp;
     char errmsg[8192];
@@ -132,7 +138,7 @@ public:
     // uint *vsize;
     FILE *fpin;
     bool readew;
-    cout << graphFilePath.data() << endl;
+    // cout << graphFilePath.data() << endl;
     fpin = gk_fopen(graphFilePath.data(), "r", "ReadGraphGR: Graph");
     size_t read;
     uint64_t x[4];
@@ -158,10 +164,18 @@ public:
     H_ERR(cudaMallocManaged(&adjwgt, num_Edge * sizeof(weight_t)));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
-    if (!sizeEdgeTy) {
-      // adjwgt = new uint[num_Edge];
+    if (!sizeEdgeTy && !FLAGS_randomweight) {
       for (size_t i = 0; i < num_Edge; i++) {
         adjwgt[i] = 1;
+      }
+      weighted = false;
+    }
+    if (!sizeEdgeTy && FLAGS_randomweight) {
+      srand((unsigned int)0);
+      // srand((unsigned int)time(NULL));
+      for (size_t i = 0; i < num_Edge; i++) {
+        adjwgt[i] = static_cast<float>(rand()) /
+                    (static_cast<float>(RAND_MAX / FLAGS_weightrange));
       }
       weighted = false;
     }

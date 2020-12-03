@@ -4,7 +4,7 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-__device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
+static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
                                  int node_id, void *buffer) {
   // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
@@ -26,7 +26,7 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
   table->Clean();
 }
 
-__device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
+static __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr,
                                   int node_id, void *buffer,
                                   Vector_pack<uint> *vector_packs) {
@@ -155,7 +155,7 @@ __global__ void sample_kernel(Sampler *sampler,
   }
 }
 
-// __global__ void init_kernel_ptr(Sampler *sampler) {
+// static __global__ void init_kernel_ptr(Sampler *sampler) {
 //   if (TID == 0) {
 //     sampler->result.setAddrOffset();
 //     for (size_t i = 0; i < sampler->result.hop_num; i++) {
@@ -168,7 +168,7 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 // void Start_high_degree(Sampler sampler)
-void Start(Sampler sampler) {
+void StartGB(Sampler sampler) {
   // orkut max degree 932101
 
   int device;

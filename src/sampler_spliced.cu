@@ -3,7 +3,7 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-__device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
+static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
                                  int node_id, void *buffer) {
   // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
@@ -22,7 +22,7 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
   table->Clean();
 }
 
-__device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
+static __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
                                   int node_id, void *buffer,
                                   Buffer_pointer *buffer_pointer) {
@@ -136,7 +136,7 @@ __global__ void sample_kernel(Sampler *sampler,
   }
 }
 
-static __global__ void init_kernel_ptr(Sampler *sampler) {
+static __global__ void init_kernel_ptr2(Sampler *sampler) {
   if (TID == 0) {
     sampler->result.setAddrOffset();
   }
@@ -146,7 +146,7 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 // void Start_high_degree(Sampler sampler)
-void Start(Sampler sampler) {
+void StartSP(Sampler sampler) {
   // orkut max degree 932101
 
   int device;
@@ -163,7 +163,7 @@ void Start(Sampler sampler) {
   H_ERR(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                    cudaMemcpyHostToDevice));
   double start_time, total_time;
-  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
+  init_kernel_ptr2<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;

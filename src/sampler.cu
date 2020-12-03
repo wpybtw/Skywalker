@@ -12,7 +12,7 @@
 //   }
 // };
 
-__device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
+static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
                                  int node_id, void *buffer) {
   // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
@@ -37,7 +37,7 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
   table->Clean();
 }
 
-__device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
+static __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   curandState state, int current_itr, int idx,
                                   int node_id, void *buffer) {
   // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC> tables[1];
@@ -136,11 +136,11 @@ __global__ void sample_kernel(Sampler *sampler) {
   }
 }
 
-static __global__ void init_kernel_ptr(Sampler *sampler) {
-  if (TID == 0) {
-    sampler->result.setAddrOffset();
-  }
-}
+// static __global__ void init_kernel_ptr(Sampler *sampler) {
+//   if (TID == 0) {
+//     sampler->result.setAddrOffset();
+//   }
+// }
 static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }

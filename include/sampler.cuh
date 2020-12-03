@@ -135,10 +135,14 @@ public:
   // void Start();
 };
 
+void StartGB(Sampler sampler);
+void StartSP(Sampler sampler);
 void Start(Sampler sampler);
+
 void ConstructTable(Sampler &sampler);
 void Sample(Sampler sampler);
 void JustSample(Sampler &sampler);
 
 // void ConstructTable(Walker &walker);
 void JustSample(Walker &walker);
+void JustWalk2(Walker &walker);

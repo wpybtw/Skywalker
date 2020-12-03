@@ -28,6 +28,11 @@ DEFINE_int32(d, 2, "depth");
 DEFINE_bool(ol, true, "online alias table building");
 DEFINE_bool(rw, false, "Random walk specific");
 
+DEFINE_bool(dw, false, "using degree as weight");
+
+DEFINE_bool(randomweight, false, "generate random weight with range");
+DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
+
 int main(int argc, char *argv[]) {
 
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -48,17 +53,17 @@ int main(int argc, char *argv[]) {
 
   if (FLAGS_ol) {
     Sampler.SetSeed(SampleSize, Depth + 1, hops);
-    Start(Sampler);
+    StartGB(Sampler);
   } else {
     Sampler.InitFullForConstruction();
     ConstructTable(Sampler);
-    if (!FLAGS_rw) {
+    if (!FLAGS_rw) {  //&& FLAGS_k != 1
       Sampler.SetSeed(SampleSize, Depth + 1, hops);
       JustSample(Sampler);
     } else {
       Walker walker(Sampler);
       walker.SetSeed(SampleSize, Depth + 1);
-      JustSample(walker);
+      JustWalk2(walker);
     }
   }
 

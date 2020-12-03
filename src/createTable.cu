@@ -42,7 +42,7 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
                            ggraph->getDegree(node_id), current_itr, node_id);
   __syncthreads();
   if (not_all_zero) {
-    table->construct();
+    table->constructBC();
   } else {
     if (LTID == 0)
       sampler->end_array[node_id] = 1;
