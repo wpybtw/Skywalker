@@ -15,7 +15,6 @@
 #include "graph.cuh"
 #include "sampler.cuh"
 
-
 using namespace std;
 // DECLARE_bool(v);
 // DEFINE_bool(pf, false, "use UM prefetch");

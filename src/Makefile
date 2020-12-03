@@ -1,4 +1,4 @@
-all: main_gbuffer   sample sample_rw  sample_rw2 # rw main_spliced
+all: main_gbuffer   
 # util sampler main
 
 CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo  -Xptxas -v /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags   #-keep   #-Xptxas -O3,-v   

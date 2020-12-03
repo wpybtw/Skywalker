@@ -1,5 +1,6 @@
 C-SAW/*
 alias-method/*
+build/*
 *.o
 *.cubin
 *.fatbin
