@@ -70,29 +70,23 @@ template __global__ void
 initSeed<Result<JobType::RW, uint>>(Result<JobType::RW, uint> *jobs,
                                     uint *seeds, size_t size);
 
-static __global__ void initSeed2(uint *data, uint *seeds, size_t size, uint hop) {
+static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
+                                 uint hop) {
   if (TID < size) {
     data[TID * hop] = seeds[TID];
   }
 }
 
-// template <typename Frontier>
-// __global__ void initFrontier(Frontier *f, size_t size) {
-//   if (TID < size) {
-//     f->data[TID] = TID;
-//     if (TID == 0) {
-//       f->SetSize(size);
-//     }
-//   }
-// }
-// template __global__ void initFrontier<Vector_gmem<Task<JobType::RW, uint>>>(
-//     Vector_gmem<Task<JobType::RW, uint>> *f, size_t size);
-
-// __global__ void init_kernel_ptr(Sampler *sampler) {
-//   if (TID == 0) {
-//     sampler->result.setAddrOffset();
-//   }
-// }
+static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
+                                 uint hop) {
+  if (TID < size) {
+    data[TID] = seeds[TID];
+  }
+  if (TID == 0) {
+    printf("seeds\n");
+    printD(seeds, 10);
+  }
+}
 
 template <JobType job, typename T> struct Jobs_result;
 
@@ -104,19 +98,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   uint *data;
   char *alive;
 
-  // Vector_gmem<task_t> *frontiers;
-  // Vector_gmem<task_t> *high_degrees;
-
-  // Vector_gmem<uint> *high_degrees;
-
-  // Result<JobType::RW, T> *results;
-
   Jobs_result() {}
-  // Jobs_result(sample_result &r1 ) {
-
-  // }
-
-  // void offset
 
   void init(uint _size, uint _hop_num, uint *seeds) {
     size = _size;
@@ -134,84 +116,36 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     cudaMalloc(&seeds_g, size * sizeof(uint));
     cudaMemcpy(seeds_g, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
 
-    // cudaMalloc(&results, size * sizeof(Result<JobType::RW, T>));
-    // Result<JobType::RW, T> *results_h = new Result<JobType::RW, T>[size];
-    // for (size_t i = 0; i < size; i++) {
-    //   results_h[i].Allocate(hop_num);
-    // }
-    // cudaMemcpy(results, results_h, size * sizeof(Result<JobType::RW, T>),
-    //            cudaMemcpyHostToDevice);
     // initSeed<JobType::RW><<<size / 1024 + 1, 1024>>>(results, seeds, size);
-    initSeed2<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
+    // initSeed2<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
+    initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
   }
+
+  // __device__ T *GetDataPtr(size_t itr, size_t idx) {
+  //   return data + itr + idx * hop_num;
+  // }
+  // __device__ T GetData(size_t itr, size_t idx) {
+  //   return data[itr + idx * hop_num];
+  // }
   __device__ void PrintResult() {
     if (LTID == 0) {
-      printf("job_sizes \n");
-      // printD(job_sizes, hop_num);
-      // for (size_t i = 0; i < hop_num; i++) {
-      //   printf("%u \t", results[0].data[i]);
-      // }
-      for (size_t i = 0; i < hop_num; i++) {
-        printf("%u \t", data[i]);
+      printf("seeds \n");
+      for (size_t i = 0; i < 10; i++) {
+        printf("%u \t", GetData(0, i));
       }
+      printf("\nfirst path \n");
+      for (size_t i = 0; i < hop_num; i++) {
+        printf("%u \t", GetData(i, 0));
+      }
+      printf("\n");
     }
   }
   __device__ T *GetDataPtr(size_t itr, size_t idx) {
-    return data + itr + idx * hop_num;
+    return data + itr * size + idx;
   }
   __device__ T GetData(size_t itr, size_t idx) {
-    return data[itr + idx * hop_num];
+    return data[itr * size + idx];
   }
-  // __device__ uint *getNextAddr(uint hop, uint job_idx) {
-  //   return &results[job_idx].data[hop + 1];
-  // }
-  // __device__ uint getHopSize(uint hop) { return 1; }
-  // __device__ void AddHighDegree(uint current_itr, uint node_id) {
-  //   task_t task = (node_id, current_itr);
-  //   high_degrees[current_itr].Add(task);
-  // }
-  // __device__ struct Job<JobType::RW, T>
-  // requireOneHighDegreeJob(uint current_itr) {
-  //   Job<JobType::RW, T> job;
-  //   // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
-  //   job.val = false;
-  //   int old = atomicAdd(high_degrees[current_itr].floor, 1);
-  //   if (old < high_degrees[current_itr].Size()) {
-  //     // printf("poping wl ele idx %d\n", old);
-  //     // job.idx = (uint)0;
-  //     job.task = high_degrees[current_itr].Get(old);
-  //     job.val = true;
-  //   }
-  //   return job;
-  // }
-  // __device__ struct Job<JobType::RW, T>
-  // requireOneJob(uint current_itr) // uint hop
-  // {
-  //   Job<JobType::RW, T> job;
-  //   // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
-  //   int old = atomicAdd(frontiers[current_itr].floor, 1);
-  //   if (old < frontiers[current_itr].Size()) {
-
-  //     // job.idx = (uint)old;
-  //     job.node_id = frontiers[current_itr].Get(old);
-  //     // printf("poping wl ele node_id %d\n", job.node_id);
-  //     job.val = true;
-  //   } else {
-  //     int old = atomicSub(frontiers[current_itr].floor, 1);
-  //     printf("no job \n");
-  //     // job.val = false;
-  //   }
-  //   return job;
-  // } __device__ void AddActive(uint current_itr, uint job_idx, uint candidate)
-  // {
-
-  //   results[job_idx].data[current_itr + 1] = candidate;
-  //   results[job_idx].depth += 1;
-  //   frontiers[current_itr].Add(job_idx, current_itr + 1);
-  //   // int old = atomicAdd(&job_sizes[current_itr + 1], 1);
-  //   // array[old] = candidate;
-  //   // printf("Add new ele %u to %d\n", candidate, old);
-  // }
 };
 
 struct sample_result {
@@ -254,20 +188,20 @@ struct sample_result {
     cudaMemcpy(hops, _hops, hop_num * sizeof(uint), cudaMemcpyHostToDevice);
     cudaMalloc(&addr_offset, hop_num * sizeof(uint));
     Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
-    for (size_t i = 0; i < hop_num; i++) {
-      high_degrees_h[i].Allocate(MAX((_size / 5), 4000));
-    }
-    cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>));
-    cudaMemcpy(high_degrees, high_degrees_h,
-               hop_num * sizeof(Vector_gmem<uint>), cudaMemcpyHostToDevice);
-
+    // for (size_t i = 0; i < hop_num; i++) {
+      
+    // }
     uint64_t offset = 0;
     uint64_t cum = size;
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
+      high_degrees_h[i].Allocate(MAX((cum / 5), 40000));
       offset += cum;
     }
     capacity = offset;
+    cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>));
+    cudaMemcpy(high_degrees, high_degrees_h,
+               hop_num * sizeof(Vector_gmem<uint>), cudaMemcpyHostToDevice);
 
     // paster(capacity);
     cudaMalloc(&data, capacity * sizeof(uint));

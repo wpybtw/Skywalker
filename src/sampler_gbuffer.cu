@@ -1,7 +1,7 @@
 #include "alias_table.cuh"
+#include "kernel.cuh"
 #include "sampler.cuh"
 #include "util.cuh"
-#include "kernel.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
 __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
@@ -13,7 +13,8 @@ __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
   //   printf("----%s %d\n", __FUNCTION__, __LINE__);
   alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
+      &tables[WID];
 
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
@@ -31,11 +32,13 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                                   Vector_pack<uint> *vector_packs) {
   // if (LTID == 0)
   //   printf("----%s %d\n", __FUNCTION__, __LINE__);
-  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *tables =
-      (alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM> *table =
-      &tables[0];
+  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC>
+  // tables[1];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
+      *tables = (alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
+                                               BufferType::GMEM> *)buffer;
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
+      *table = &tables[0];
 
 #ifdef check
   if (LTID == 0)
@@ -56,7 +59,7 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
         MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
     table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
                        result);
-  } 
+  }
   // else {
   //   if (LTID == 0)
   //     paster(not_all_zero);
@@ -70,7 +73,8 @@ __global__ void sample_kernel(Sampler *sampler,
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack<uint> *vector_packs = &vector_pack[BID];
-  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC> table[WARP_PER_BLK];
+  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
+      table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;
   curand_init(TID, 0, 0, &state);
@@ -81,11 +85,12 @@ __global__ void sample_kernel(Sampler *sampler,
   __syncthreads();
 
   // __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 32> high_degree_vec;
-  Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[0];
+  
 
   // thread_block tb = this_thread_block();
   for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
   {
+    Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[current_itr];
     sample_job job;
     __threadfence_block();
     if (LID == 0)
@@ -139,8 +144,13 @@ __global__ void sample_kernel(Sampler *sampler,
       __syncthreads();
     }
     __syncthreads();
-    if (threadIdx.x == 0)
+    // if (BID == 0) {
+      if(TID==0) printf("high size %llu\n",high_degrees->Size() );
+    //   high_degrees->Clean();
+    // }
+    if (threadIdx.x == 0) {
       result.NextItr(current_itr);
+    }
     __syncthreads();
   }
 }

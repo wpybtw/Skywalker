@@ -320,7 +320,7 @@ public:
     if (old < *capacity)
       data[old] = t;
     else
-      printf("%s\t:%d Vector_gmem overflow to %llu\n", __FILE__, __LINE__, old);
+      printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__, old, *capacity);
     // printf("gvector overflow %d\n", old);
   }
   __device__ void AddTillSize(T t, u64 target_size) {

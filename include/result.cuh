@@ -137,7 +137,7 @@ public:
     Vector_gmem<task_t> *frontier_h = new Vector_gmem<task_t>[hop_num];
     Vector_gmem<task_t> *high_degrees_h = new Vector_gmem<task_t>[hop_num];
     for (size_t i = 0; i < hop_num; i++) {
-      high_degrees_h[i].Allocate(size / 10);
+      high_degrees_h[i].Allocate(size / 5);
       frontier_h[i].Allocate(size);
     }
     cudaMalloc(&frontiers, hop_num * sizeof(Vector_gmem<task_t>));

@@ -121,13 +121,14 @@ public:
     std::uniform_int_distribution<> dis(1, 10000); // ggraph.vtx_num);
     uint *seeds = new uint[num_seed];
     for (int n = 0; n < num_seed; ++n) {
-#ifdef check
-      // seeds[n] = n;
-      seeds[n] = 1;
-#else
+      // #ifdef check
+      //       // seeds[n] = n;
+      //       seeds[n] = 1;
+      // #else
+      //       seeds[n] = n;
+      // // seeds[n] = dis(gen);
+      // #endif // check
       seeds[n] = n;
-// seeds[n] = dis(gen);
-#endif // check
     }
     result.init(num_seed, _hop_num, seeds);
   }

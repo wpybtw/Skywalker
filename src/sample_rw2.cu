@@ -4,143 +4,97 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-// __global__ void sample_kernel(Walker *walker) {
-//   Jobs_result<JobType::RW, uint> &result = walker->result;
-//   gpu_graph *graph = &walker->ggraph;
-//   curandState state;
-//   curand_init(TID, 0, 0, &state);
-
-//   __shared__ uint current_itr;
-//   if (threadIdx.x == 0)
-//     current_itr = 0;
-//   __syncthreads();
-//   // loop over itr
-//   for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
-//   {
-//     for (size_t i = TID; i < result.size; i += gridDim.x * blockDim.x) {
-//       if (result.results[i].alive) {
-//         Vector_virtual<uint> alias;
-//         Vector_virtual<float> prob;
-//         uint src_id = result.results[i].data[current_itr];
-//         uint src_degree = graph->getDegree((uint)src_id);
-//         alias.Construt(graph->alias_array + graph->beg_pos[src_id],
-//         src_degree);
-//         prob.Construt(graph->prob_array + graph->beg_pos[src_id],
-//         src_degree);
-//         alias.Init(src_degree);
-//         prob.Init(src_degree);
-//         {
-//           const uint target_size = 1;
-//           if ((target_size > 0) && (target_size < src_degree)) {
-//             //   int itr = 0;
-//             for (size_t i = 0; i < target_size; i++) {
-//               int col = (int)floor(curand_uniform(&state) * src_degree);
-//               float p = curand_uniform(&state);
-//               uint candidate;
-//               if (p < prob[col])
-//                 candidate = col;
-//               else
-//                 candidate = alias[col];
-//               result.results[i].data[current_itr + 1] =
-//                   graph->getOutNode(src_id, candidate);
-//             }
-//           } else if (target_size >= src_degree) {
-//             result.results[i].alive=false;
-//           }
-//         }
-//       }
-//     }
-//     __syncthreads();
-//     if (threadIdx.x == 0)
-//       result.NextItr(current_itr);
-//     __syncthreads();
-//   }
-// }
-
-// __global__ void sample_kernel(Walker *walker) {
-//   Jobs_result<JobType::RW, uint> &result = walker->result;
-//   gpu_graph *graph = &walker->ggraph;
-//   curandState state;
-//   curand_init(TID, 0, 0, &state);
-//   for (uint current_itr = 0; current_itr < result.hop_num - 1;
-//        current_itr++) // for 2-hop, hop_num=3
-//   {
-//     for (size_t i = TID; i < result.size; i += gridDim.x * blockDim.x) {
-//       if (result.results[i].alive) {
-//         Vector_virtual<uint> alias;
-//         Vector_virtual<float> prob;
-//         uint src_id = result.results[i].data[current_itr];
-//         uint src_degree = graph->getDegree((uint)src_id);
-//         alias.Construt(graph->alias_array + graph->beg_pos[src_id],
-//         src_degree);
-//         prob.Construt(graph->prob_array + graph->beg_pos[src_id],
-//         src_degree);
-//         alias.Init(src_degree);
-//         prob.Init(src_degree);
-//         {
-//           const uint target_size = 1;
-//           if ((target_size > 0) && (target_size < src_degree)) {
-//             //   int itr = 0;
-//             for (size_t i = 0; i < target_size; i++) {
-//               int col = (int)floor(curand_uniform(&state) * src_degree);
-//               float p = curand_uniform(&state);
-//               uint candidate;
-//               if (p < prob[col])
-//                 candidate = col;
-//               else
-//                 candidate = alias[col];
-//               result.results[i].data[current_itr + 1] =
-//                   graph->getOutNode(src_id, candidate);
-//             }
-//           } else if (target_size >= src_degree) {
-//             result.results[i].alive = false;
-//           }
-//         }
-//       }
-//     }
-//   }
-// }
 __global__ void sample_kernel(Walker *walker) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
   gpu_graph *graph = &walker->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
 
-  for (size_t i = TID; i < result.size; i += gridDim.x * blockDim.x) {
-    if (result.alive[i] != 0) {
+  for (size_t idx_i = TID; idx_i < result.size;
+       idx_i += gridDim.x * blockDim.x) {
+    if (result.alive[idx_i] != 0) {
       for (uint current_itr = 0; current_itr < result.hop_num - 1;
            current_itr++) {
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
-        uint src_id = result.GetData(current_itr, i);
+        uint src_id = result.GetData(current_itr, idx_i);
         uint src_degree = graph->getDegree((uint)src_id);
         alias.Construt(graph->alias_array + graph->beg_pos[src_id], src_degree);
         prob.Construt(graph->prob_array + graph->beg_pos[src_id], src_degree);
         alias.Init(src_degree);
         prob.Init(src_degree);
-        {
-          const uint target_size = 1;
-          if ((target_size > 0) && (target_size < src_degree)) {
-            //   int itr = 0;
-            for (size_t i = 0; i < target_size; i++) {
-              int col = (int)floor(curand_uniform(&state) * src_degree);
-              float p = curand_uniform(&state);
-              uint candidate;
-              if (p < prob[col])
-                candidate = col;
-              else
-                candidate = alias[col];
-              *result.GetDataPtr(current_itr + 1, i) =
-                  graph->getOutNode(src_id, candidate);
-            }
-          } else if (target_size >= src_degree) {
-            result.alive[i] = 0;
+
+        const uint target_size = 1;
+        if (target_size < src_degree) {
+          //   int itr = 0;
+          for (size_t i = 0; i < target_size; i++) {
+            int col = (int)floor(curand_uniform(&state) * src_degree);
+            float p = curand_uniform(&state);
+            uint candidate;
+            if (p < prob[col])
+              candidate = col;
+            else
+              candidate = alias[col];
+            *result.GetDataPtr(current_itr + 1, idx_i) =
+                graph->getOutNode(src_id, candidate);
           }
+        } else if (src_degree == 0) {
+          result.alive[idx_i] = 0;
+        } else {
+          *result.GetDataPtr(current_itr + 1, idx_i) =
+              graph->getOutNode(src_id, 0);
         }
       }
     }
   }
 }
+
+// __global__ void sample_kernel(Walker *walker) {
+//   Jobs_result<JobType::RW, uint> &result = walker->result;
+//   gpu_graph *graph = &walker->ggraph;
+//   curandState state;
+//   curand_init(TID, 0, 0, &state);
+
+//   for (uint current_itr = 0; current_itr < result.hop_num - 1; current_itr++)
+//   {
+//     for (size_t idx_i = TID; idx_i < result.size;
+//          idx_i += gridDim.x * blockDim.x) {
+//       if (result.alive[idx_i] != 0) {
+//         Vector_virtual<uint> alias;
+//         Vector_virtual<float> prob;
+//         uint src_id = result.GetData(current_itr, idx_i);
+//         uint src_degree = graph->getDegree((uint)src_id);
+//         alias.Construt(graph->alias_array + graph->beg_pos[src_id],
+//         src_degree);
+//         prob.Construt(graph->prob_array + graph->beg_pos[src_id],
+//         src_degree);
+//         alias.Init(src_degree);
+//         prob.Init(src_degree);
+
+//         const uint target_size = 1;
+//         if (target_size < src_degree) {
+//           //   int itr = 0;
+//           for (size_t i = 0; i < target_size; i++) {
+//             int col = (int)floor(curand_uniform(&state) * src_degree);
+//             float p = curand_uniform(&state);
+//             uint candidate;
+//             if (p < prob[col])
+//               candidate = col;
+//             else
+//               candidate = alias[col];
+//             *result.GetDataPtr(current_itr + 1, idx_i) =
+//                 graph->getOutNode(src_id, candidate);
+//           }
+//         } else if (src_degree == 0) {
+//           result.alive[idx_i] = 0;
+//         } else {
+//           *result.GetDataPtr(current_itr + 1, idx_i) =
+//               graph->getOutNode(src_id, 0);
+//         }
+//       }
+//     }
+//   }
+// }
 
 __global__ void print_result(Walker *walker) { walker->result.PrintResult(); }
 
