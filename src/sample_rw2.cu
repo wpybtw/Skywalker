@@ -96,7 +96,7 @@ __global__ void sample_kernel(Walker *walker) {
 //   }
 // }
 
-__global__ void print_result(Walker *walker) { walker->result.PrintResult(); }
+static __global__ void print_result(Walker *walker) { walker->result.PrintResult(); }
 
 void JustSample(Walker &walker) {
 

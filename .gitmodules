@@ -1,3 +1,6 @@
 [submodule "others/C-SAW"]
 	path = others/C-SAW
 	url = https://github.com/concept-inversion/C-SAW
+[submodule "deps/gflags"]
+	path = deps/gflags
+	url = https://github.com/gflags/gflags

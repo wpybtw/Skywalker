@@ -103,7 +103,7 @@ __global__ void sample_kernel(Sampler *sampler) {
   }
 }
 
-__global__ void print_result(Sampler *sampler) {
+static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 

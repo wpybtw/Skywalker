@@ -1,18 +1,18 @@
 all: main_gbuffer   sample sample_rw  sample_rw2 # rw main_spliced
 # util sampler main
 
-CUFLAG= -I../include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo  -Xptxas -v  #-keep   #-Xptxas -O3,-v   
+CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo  -Xptxas -v /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags   #-keep   #-Xptxas -O3,-v   
 debug: CUFLAG +=  -G -g 
 debug: main_gbuffer sample	sample_rw  sample_rw2
 
 # main: main.cu util.cu sampler.cu
 # 	nvcc main.cu util.cu sampler.cu  $(CUFLAG) -o main
 
-main_spliced: main.cu util.cu sampler_spliced.cu kernel.cu
-	nvcc main.cu util.cu sampler_spliced.cu kernel.cu $(CUFLAG) -o main_spliced
+# main_spliced: main.cu util.cu sampler_spliced.cu kernel.cu
+# 	nvcc main.cu util.cu sampler_spliced.cu kernel.cu $(CUFLAG) -o main_spliced
 
-main_gbuffer: main.cu util.cu sampler_gbuffer.cu kernel.cu
-	nvcc main.cu util.cu sampler_gbuffer.cu kernel.cu $(CUFLAG) -o main_gbuffer
+main_gbuffer: main.cu util.cu sampler_gbuffer.cu kernel.cu createTable.cu sample_rw.cu sample_rw2.cu
+	nvcc main.cu util.cu sampler_gbuffer.cu kernel.cu createTable.cu sample_rw.cu sample_rw2.cu $(CUFLAG) -o main_gbuffer
 
 sample: entry.cu util.cu createTable.cu sample.cu kernel.cu vec.cu
 	nvcc entry.cu util.cu createTable.cu sample.cu kernel.cu vec.cu $(CUFLAG) -o sample

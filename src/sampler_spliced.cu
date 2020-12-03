@@ -141,7 +141,7 @@ static __global__ void init_kernel_ptr(Sampler *sampler) {
     sampler->result.setAddrOffset();
   }
 }
-__global__ void print_result(Sampler *sampler) {
+static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 

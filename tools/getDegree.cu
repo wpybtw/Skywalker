@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "gpu_graph.cuh"
-#include "graph.h"
+// #include "graph.h"
 // #include "sampler.cuh"
 
 using namespace std;
@@ -40,8 +40,8 @@ int main(int argc, char *argv[]) {
   const char *weight_file = argv[3];
   int node = atoi(argv[4]);
 
-  graph<long, long, long, vertex_t, index_t, weight_t> *ginst =
-      new graph<long, long, long, vertex_t, index_t, weight_t>(
+  graph<long, long, long, vtx_t, index_t, weight_t> *ginst =
+      new graph<long, long, long, vtx_t, index_t, weight_t>(
           beg_file, csr_file, weight_file);
   gpu_graph ggraph(ginst);
   printf("node %d has degree %d\n", node, ggraph.getDegree_h(node));

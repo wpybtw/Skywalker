@@ -108,7 +108,7 @@ __global__ void sample_kernel(Sampler *sampler, vector_pack_t *vector_pack) {
   }
 }
 
-__global__ void print_result(Sampler *sampler) {
+static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 

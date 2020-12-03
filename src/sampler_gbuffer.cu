@@ -54,7 +54,7 @@ __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
   __syncthreads();
   if (not_all_zero) {
-    table->construct();
+    table->constructBC();
     uint target_size =
         MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
     table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
@@ -145,7 +145,7 @@ __global__ void sample_kernel(Sampler *sampler,
     }
     __syncthreads();
     // if (BID == 0) {
-      if(TID==0) printf("high size %llu\n",high_degrees->Size() );
+      // if(TID==0) printf("high size %llu\n",high_degrees->Size() );
     //   high_degrees->Clean();
     // }
     if (threadIdx.x == 0) {
@@ -163,7 +163,7 @@ __global__ void sample_kernel(Sampler *sampler,
 //     }
 //   }
 // }
-__global__ void print_result(Sampler *sampler) {
+static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 

@@ -1,7 +1,7 @@
 // #ifndef HEADER_H
 // #define HEADER_H
-// typedef int index_t;
-// typedef unsigned int vertex_t;
+// typedef uint index_t;
+// typedef unsigned int vtx_t;
 // typedef int feature_t;
 // typedef int weight_t;
 // typedef unsigned char bit_t;
