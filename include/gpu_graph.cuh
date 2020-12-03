@@ -16,6 +16,8 @@ typedef unsigned char bit_t;
 #define INFTY (int)-1
 #define BIN_SZ 64
 
+enum class BiasType { Weight, Degree = 0 };
+
 class gpu_graph {
 public:
   vtx_t *adj_list;
@@ -32,6 +34,8 @@ public:
   index_t edge_num;
   index_t avg_degree;
 
+  // float (gpu_graph::*getBias)(uint);
+
 public:
   gpu_graph() {}
   gpu_graph(Graph *ginst) {
@@ -47,13 +51,27 @@ public:
 
     adj_list = ginst->adjncy;
     beg_pos = ginst->xadj;
+    // getBias= &gpu_graph::getBiasImpl;
+    // (graph->*(graph->getBias))
   }
   __device__ __host__ ~gpu_graph() {}
   __device__ index_t getDegree(index_t idx) {
     return beg_pos[idx + 1] - beg_pos[idx];
   }
   __host__ index_t getDegree_h(index_t idx) { return outDegree[idx]; }
-  __device__ index_t getBias(index_t idx) {
+
+  __device__ float getBias(index_t idx) {
+    return beg_pos[idx + 1] - beg_pos[idx];
+  }
+
+  // template <BiasType bias = BiasType::Degree>
+  // __device__ float getBiasImpl(index_t idx);
+
+  // __device__ index_t getBias(index_t idx) {
+  //   return getBiasImpl<static_cast<BiasType>(FLAGS_dw)>(idx);
+  // }
+
+  __device__ float getBiasImpl(index_t idx){
     return beg_pos[idx + 1] - beg_pos[idx];
   }
   __device__ index_t getOutNode(index_t idx, index_t offset) {
