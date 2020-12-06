@@ -1,3 +1,11 @@
+/*
+ * @Description: degree limited
+ * @Date: 2020-11-20 20:38:55
+ * @LastEditors: PengyuWang
+ * @LastEditTime: 2020-12-06 16:57:34
+ * @FilePath: /sampling/src/sampler.cu
+ */
+
 #include "alias_table.cuh"
 #include "sampler.cuh"
 #include "util.cuh"
