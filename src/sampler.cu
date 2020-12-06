@@ -4,30 +4,15 @@
 DECLARE_bool(v);
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-// struct id_pair {
-//   uint idx, node_id;
-//   __device__ id_pair &operator=(uint idx) {
-//     idx = 0;
-//     node_id = 0;
-//     return *this;
-//   }
-// };
 
-static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
-                                 curandState state, int current_itr, int idx,
-                                 int node_id, void *buffer) {
-  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
-  // tables[WARP_PER_BLK];
+static __device__ void SampleWarpCentic(sample_result &result,
+                                        gpu_graph *ggraph, curandState state,
+                                        int current_itr, int idx, int node_id,
+                                        void *buffer) {
   alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
-
-  // #ifdef check
-  //   if (LID == 0)
-  //     printf("GWID %d itr %d got one job idx %u node_id %u with degree %d
-  //     \n",
-  //            GWID, current_itr, idx, node_id, ggraph->getDegree(node_id));
-  // #endif
+  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
+      &tables[WID];
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
@@ -38,20 +23,15 @@ static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph
   table->Clean();
 }
 
-static __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
-                                  curandState state, int current_itr, int idx,
-                                  int node_id, void *buffer) {
-  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *tables =
-      (alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM> *table =
-      &tables[0];
-
-#ifdef check
-  if (LTID == 0)
-    printf("GWID %d itr %d got one job idx %u node_id %u with degree %d \n",
-           GWID, current_itr, idx, node_id, ggraph->getDegree(node_id));
-#endif
+static __device__ void SampleBlockCentic(sample_result &result,
+                                         gpu_graph *ggraph, curandState state,
+                                         int current_itr, int idx, int node_id,
+                                         void *buffer) {
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>
+      *tables = (alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
+                                               BufferType::SHMEM> *)buffer;
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>
+      *table = &tables[0];
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
                            ggraph->getDegree(node_id), current_itr, node_id);
@@ -78,7 +58,8 @@ __global__ void sample_kernel(Sampler *sampler) {
     current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
-  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>
+  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
+                                           BufferType::SHMEM>
       table;
   void *buffer = &table;
   // void * buffer=nullptr;
@@ -86,13 +67,9 @@ __global__ void sample_kernel(Sampler *sampler) {
 
   for (; current_itr < result.hop_num - 1;) // 3 2
   {
-    // TODO
     high_degree_vec.Init(0);
-
     id_pair high_degree;
-
     sample_job job;
-
     if (LID == 0)
       job = result.requireOneJob(current_itr);
     __syncwarp(0xffffffff);
@@ -122,14 +99,12 @@ __global__ void sample_kernel(Sampler *sampler) {
       job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
     }
     __syncthreads();
-
     for (size_t i = 0; i < high_degree_vec.Size(); i++) {
       SampleBlockCentic(result, ggraph, state, current_itr,
                         high_degree_vec[i].idx, high_degree_vec[i].node_id,
                         buffer);
     }
     __syncthreads();
-    // TODO switch to BC
     if (threadIdx.x == 0) {
       result.NextItr(current_itr);
     }
@@ -137,19 +112,13 @@ __global__ void sample_kernel(Sampler *sampler) {
   }
 }
 
-// static __global__ void init_kernel_ptr(Sampler *sampler) {
-//   if (TID == 0) {
-//     sampler->result.setAddrOffset();
-//   }
-// }
 static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 void Start(Sampler sampler) {
-  // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
-  // printf("ELE_PER_WARP %d\n ", ELE_PER_WARP);
-
-  // orkut max degree 932101
+  // allow cache
+  if (FLAGS_cache)
+    sampler.AllocateAliasTable();
 
   int device;
   cudaDeviceProp prop;
@@ -168,8 +137,10 @@ void Start(Sampler sampler) {
   // paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC>) *
   // WARP_PER_BLK);
   // paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::BC>));
-  if (sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SHMEM>) <
-      sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC, BufferType::SHMEM>) *
+  if (sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
+                                           BufferType::SHMEM>) <
+      sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC,
+                                           BufferType::SHMEM>) *
           WARP_PER_BLK)
     printf("buffer too small\n");
   Sampler *sampler_ptr;
@@ -190,6 +161,6 @@ void Start(Sampler sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:\t%.6f\n", total_time);
-  if(FLAGS_v)
-  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  if (FLAGS_v)
+    print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 }

@@ -30,7 +30,7 @@ public:
 
   float *prob_array;
   uint *alias_array;
-  char *end_array;
+  char *valid;
 
 public:
   Sampler(gpu_graph graph) {
@@ -41,8 +41,8 @@ public:
   void AllocateAliasTable() {
     H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
     H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
-    H_ERR(cudaMalloc((void **)&end_array, ggraph.vtx_num * sizeof(char)));
-    ggraph.end_array = end_array;
+    H_ERR(cudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
+    ggraph.valid = valid;
     ggraph.prob_array = prob_array;
     ggraph.alias_array = alias_array;
     H_ERR(cudaMemset(prob_array, 0, ggraph.vtx_num * sizeof(float)));
@@ -91,7 +91,7 @@ public:
 
   float *prob_array;
   uint *alias_array;
-  char *end_array;
+  char *valid;
 
 public:
   Walker(gpu_graph graph) {
@@ -100,7 +100,7 @@ public:
   }
   Walker(Sampler &sampler) {
     ggraph = sampler.ggraph;
-    end_array = ggraph.end_array;
+    valid = ggraph.valid;
     prob_array = ggraph.prob_array;
     alias_array = ggraph.alias_array;
   }
@@ -108,8 +108,9 @@ public:
   void AllocateAliasTable() {
     H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
     H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
-    H_ERR(cudaMalloc((void **)&end_array, ggraph.vtx_num * sizeof(char)));
-    ggraph.end_array = end_array;
+    H_ERR(cudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
+    H_ERR(cudaMemset(valid, 0, ggraph.vtx_num * sizeof(char)));
+    ggraph.valid = valid;
     ggraph.prob_array = prob_array;
     ggraph.alias_array = alias_array;
     H_ERR(cudaMemset(prob_array, 0, ggraph.vtx_num * sizeof(float)));

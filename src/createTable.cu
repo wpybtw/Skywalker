@@ -20,10 +20,9 @@ __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
   if (not_all_zero) {
     table->construct();
     table->SaveAliasTable(ggraph);
-  } else {
     if (LID == 0)
-      sampler->end_array[node_id] = 1;
-  }
+      sampler->valid[node_id] = 1;
+  } 
   table->Clean();
 }
 
@@ -43,10 +42,9 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
   __syncthreads();
   if (not_all_zero) {
     table->constructBC();
-  } else {
     if (LTID == 0)
-      sampler->end_array[node_id] = 1;
-  }
+      sampler->valid[node_id] = 1;
+  } 
   __syncthreads();
   table->Clean();
 }

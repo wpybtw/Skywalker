@@ -19,7 +19,7 @@
 //   // alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
 //   //     &tables[WID];
 
-//   if (graph->end_array[node_id] != 1) {
+//   if (graph->valid[node_id] == 1) {
 //     coalesced_group active = coalesced_threads();
 //     active.sync();
 //     active_size(__LINE__);
@@ -55,12 +55,7 @@ static __global__ void sample_kernel(Sampler *sampler) {
     __threadfence_block();
     // if (LID == 0)
     job = result.requireOneJob(current_itr);
-    while (job.val) {
-      // if (true) { // graph->getDegree(job.node_id) < ELE_PER_WARP
-      //   SampleWarpCentic(result, graph, state, current_itr, job.idx,
-      //                    job.node_id, roller);
-      // }
-      // alias_table_roller_shmem<uint, ExecutionPolicy::TC> roller;
+    while (job.val&&graph->valid[job.node_id] ) {
       uint src_id = job.node_id;
       Vector_virtual<uint> alias;
       Vector_virtual<float> prob;
@@ -69,8 +64,6 @@ static __global__ void sample_kernel(Sampler *sampler) {
       prob.Construt(graph->prob_array + graph->beg_pos[src_id], src_degree);
       alias.Init(src_degree);
       prob.Init(src_degree);
-      // if (src_degree == 0)
-      //   printf("zero at %d\n", current_itr);
       {
         uint target_size = result.hops[current_itr + 1];
         if ((target_size > 0) && (target_size < src_degree)) {

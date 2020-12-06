@@ -29,7 +29,7 @@ public:
 
   float *prob_array;
   uint *alias_array;
-  char *end_array;
+  char *valid;
 
   index_t vtx_num;
   index_t edge_num;
