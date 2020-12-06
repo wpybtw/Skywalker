@@ -2,6 +2,7 @@
 #include "roller.cuh"
 #include "sampler.cuh"
 #include "util.cuh"
+DECLARE_bool(v);
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
 __global__ void sample_kernel(Walker *walker) {
@@ -126,7 +127,8 @@ void JustWalk2(Walker &walker) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:%.6f\n", total_time);
+  printf("SamplingTime:\t%.6f\n", total_time);
+  if(FLAGS_v)
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

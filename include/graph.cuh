@@ -29,6 +29,7 @@ DECLARE_bool(dw);
 DECLARE_bool(randomweight); // randomweight
 DECLARE_int32(weightrange);
 
+DECLARE_bool(v);
 template <typename T> void PrintResults(T *results, uint n);
 
 class Graph {
@@ -73,7 +74,7 @@ public:
     this->withWeight = false;
     this->device = FLAGS_device;
     ReadGraphGR();
-    Set_Mem_Policy();
+    Set_Mem_Policy(FLAGS_randomweight);
   }
   ~Graph() {
     H_ERR(cudaFree(xadj));
@@ -92,12 +93,12 @@ public:
   void Load() { ReadGraphGR(); }
   // void Map();
 
-  void Set_Mem_Policy( bool needWeight = false) {
+  void Set_Mem_Policy(bool needWeight = false) {
     H_ERR(cudaMemPrefetchAsync(xadj, (numNode + 1) * sizeof(edge_t),
                                FLAGS_device, 0));
     // if (um_used < avail) {
-    H_ERR(cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device,
-                               0));
+    H_ERR(
+        cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device, 0));
     if (needWeight)
       H_ERR(cudaMemPrefetchAsync(adjwgt, numEdge * sizeof(weight_t),
                                  FLAGS_device, 0));
@@ -151,9 +152,12 @@ public:
     // uint64_t sizeEdgeTy = le64toh(x[1]);
     uint64_t num_Node = x[2];
     uint64_t num_Edge = x[3];
-    cout << graphFilePath + " has " << num_Node << " nodes and " << num_Edge
-         << "  edges\n";
-
+    if (FLAGS_v)
+      cout << graphFilePath + " has " << num_Node << " nodes and " << num_Edge
+           << "  edges\n";
+    else{
+      cout <<"--------- "<< graphFilePath<<" ---------\n";
+    }
     // H_ERR(cudaMallocHost(&xadj, (num_Node + 1) * sizeof(uint)));
     // H_ERR(cudaMallocHost(&adjncy, num_Edge * sizeof(uint)));
     H_ERR(cudaMallocManaged(&xadj, (num_Node + 1) * sizeof(edge_t)));
@@ -164,13 +168,8 @@ public:
     H_ERR(cudaMallocManaged(&adjwgt, num_Edge * sizeof(weight_t)));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
-    if (!sizeEdgeTy && !FLAGS_randomweight) {
-      for (size_t i = 0; i < num_Edge; i++) {
-        adjwgt[i] = 1;
-      }
-      weighted = false;
-    }
-    if (!sizeEdgeTy && FLAGS_randomweight) {
+    if (!sizeEdgeTy || FLAGS_randomweight) {
+      printf("generating random weight\n");
       srand((unsigned int)0);
       // srand((unsigned int)time(NULL));
       for (size_t i = 0; i < num_Edge; i++) {
@@ -214,8 +213,9 @@ public:
     }
     uint maxD = std::distance(
         outDegree, std::max_element(outDegree, outDegree + num_Node));
-    printf("%d has max out degree %d\n", maxD, outDegree[maxD]);
-    if (sizeEdgeTy) {
+    if (FLAGS_v)
+      printf("%d has max out degree %d\n", maxD, outDegree[maxD]);
+    if (sizeEdgeTy && !FLAGS_randomweight) {
       if (num_Edge % 2)
         if (fseek(fpin, 4, SEEK_CUR) != 0) // skip
           printf("Error when seeking\n");

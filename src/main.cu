@@ -14,6 +14,7 @@
 #include "gpu_graph.cuh"
 #include "graph.cuh"
 #include "sampler.cuh"
+#include "sampler_result.cuh"
 
 using namespace std;
 // DECLARE_bool(v);
@@ -25,6 +26,8 @@ DEFINE_int32(n, 4000, "sample size");
 DEFINE_int32(k, 2, "neightbor");
 DEFINE_int32(d, 2, "depth");
 
+DEFINE_int32(hd, 4, "high degree ratio");
+
 DEFINE_bool(ol, true, "online alias table building");
 DEFINE_bool(rw, false, "Random walk specific");
 
@@ -33,6 +36,9 @@ DEFINE_bool(dw, false, "using degree as weight");
 DEFINE_bool(randomweight, false, "generate random weight with range");
 DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
 
+DEFINE_bool(cache, false, "cache alias table for online");
+
+DEFINE_bool(v, false, "verbose");
 int main(int argc, char *argv[]) {
 
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -54,10 +60,15 @@ int main(int argc, char *argv[]) {
   if (FLAGS_ol) {
     Sampler.SetSeed(SampleSize, Depth + 1, hops);
     StartGB(Sampler);
+    // if (!FLAGS_cache) {
+      
+    // } else {
+    //   StartGBCached(Sampler);
+    // }
   } else {
     Sampler.InitFullForConstruction();
     ConstructTable(Sampler);
-    if (!FLAGS_rw) {  //&& FLAGS_k != 1
+    if (!FLAGS_rw) { //&& FLAGS_k != 1
       Sampler.SetSeed(SampleSize, Depth + 1, hops);
       JustSample(Sampler);
     } else {

@@ -1,4 +1,4 @@
-all: main   
+all: main main_degree
 # util sampler main
 
 
@@ -8,10 +8,18 @@ SRC_DIR:= .
 OBJ_DIR:= .
 SRC_FILES := $(wildcard $(SRC_DIR)/*.cu)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(SRC_FILES))
-LDFLAGS := /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags
-CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11 -res-usage  -lineinfo  -Xptxas -v    #-keep   #-Xptxas -O3,-v   
+LDFLAGS := /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags -gencode=arch=compute_75,code=sm_75
+CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11  -lineinfo  -Xptxas -v    #-keep   #-Xptxas -O3,-v   
 
-main: $(OBJ_FILES)
+OBJ_FILES1 := $(filter-out $(SRC_DIR)/bias.o, $(OBJ_FILES))
+OBJ_FILES2 := $(filter-out $(SRC_DIR)/bias_degree.o, $(OBJ_FILES))
+
+
+
+main_degree: $(OBJ_FILES1)
+	nvcc $(LDFLAGS) -o $@ $^
+
+main: $(OBJ_FILES2)
 	nvcc $(LDFLAGS) -o $@ $^
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu

@@ -154,6 +154,7 @@ void ConstructTable(Sampler &sampler) {
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   int gbuff_size = 932101;
+  
   LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
 
   Vector_pack2<uint> *vector_pack_h = new Vector_pack2<uint>[block_num];
@@ -179,7 +180,7 @@ void ConstructTable(Sampler &sampler) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Construct table time:%.6f\n", total_time);
+  printf("Construct table time:\t%.6f\n", total_time);
   // PrintTable<<<1, 32, 0, 0>>>(sampler_ptr);
   // H_ERR(cudaDeviceSynchronize());
 

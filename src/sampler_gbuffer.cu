@@ -3,7 +3,7 @@
 #include "sampler.cuh"
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
-
+DECLARE_bool(v);
 static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
                                  curandState state, int current_itr, int idx,
                                  int node_id, void *buffer) {
@@ -211,7 +211,8 @@ void StartGB(Sampler sampler) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:%.6f\n", total_time);
+  printf("SamplingTime:\t%.6f\n", total_time);
+  if(FLAGS_v)
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

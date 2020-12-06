@@ -1,5 +1,7 @@
 #pragma once
 #include "vec.cuh"
+#include "gflags/gflags.h"
+DECLARE_int32(hd);
 
 struct sample_job {
   uint idx;
@@ -82,10 +84,10 @@ static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
   if (TID < size) {
     data[TID] = seeds[TID];
   }
-  if (TID == 0) {
-    printf("seeds\n");
-    printD(seeds, 10);
-  }
+  // if (TID == 0) {
+  //   printf("seeds\n");
+  //   printD(seeds, 10);
+  // }
 }
 
 template <JobType job, typename T> struct Jobs_result;
@@ -195,7 +197,7 @@ struct sample_result {
     uint64_t cum = size;
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
-      high_degrees_h[i].Allocate(MAX((cum / 5), 40000));
+      high_degrees_h[i].Allocate(MAX((cum / FLAGS_hd), 4000));
       offset += cum;
     }
     capacity = offset;
@@ -216,10 +218,16 @@ struct sample_result {
     if (LTID == 0) {
       printf("job_sizes \n");
       printD(job_sizes, hop_num);
-      printf("job_sizes_floor \n");
-      printD(job_sizes_floor, hop_num);
-      printf("result: \n");
-      printD(data, MIN(capacity, 30));
+      uint total=0;
+      for (size_t i = 0; i < hop_num; i++)
+      {
+        total+=job_sizes[total];
+      }
+      printf("total sampled %u \n", total);
+      // printf("job_sizes_floor \n");
+      // printD(job_sizes_floor, hop_num);
+      // printf("result: \n");
+      // printD(data, MIN(capacity, 30));
     }
   }
   __device__ void setAddrOffset() {

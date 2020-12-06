@@ -1,3 +1,4 @@
+#include "gpu_graph.cuh"
 #include "kernel.cuh"
 
 // __global__ void initSeed(ResultBase<uint> *results, uint *seeds, size_t size)
@@ -6,6 +7,7 @@
 //     results[TID].data[0] = seeds[TID];
 //   }
 // }
+
 
 __global__ void init_kernel_ptr(Sampler *sampler) {
   if (TID == 0) {

@@ -1,6 +1,7 @@
 #include "alias_table.cuh"
 #include "sampler.cuh"
 #include "util.cuh"
+DECLARE_bool(v);
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
 // struct id_pair {
@@ -188,6 +189,7 @@ void Start(Sampler sampler) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:%.6f\n", total_time);
+  printf("SamplingTime:\t%.6f\n", total_time);
+  if(FLAGS_v)
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 }
