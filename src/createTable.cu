@@ -114,15 +114,6 @@ __global__ void ConstructAliasTableKernel(Sampler *sampler,
     __syncthreads();
   }
 }
-
-// static __global__ void init_kernel_ptr(Sampler *sampler) {
-//   if (TID == 0) {
-//     sampler->result.setAddrOffset();
-//     for (size_t i = 0; i < sampler->result.hop_num; i++) {
-//       sampler->result.high_degrees[i].Init();
-//     }
-//   }
-// }
 __global__ void PrintTable(Sampler *sampler) {
   if (TID == 0) {
     printf("\nprob:\n");
@@ -133,7 +124,8 @@ __global__ void PrintTable(Sampler *sampler) {
 }
 
 void ConstructTable(Sampler &sampler) {
-
+  if (FLAGS_v)
+    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);
@@ -179,13 +171,4 @@ void ConstructTable(Sampler &sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Construct table time:\t%.6f\n", total_time);
-  // PrintTable<<<1, 32, 0, 0>>>(sampler_ptr);
-  // H_ERR(cudaDeviceSynchronize());
-
-  // Sampler *sampler_ptr2;
-  // cudaMalloc(&sampler_ptr2, sizeof(Sampler));
-  // H_ERR(cudaMemcpy(sampler_ptr2, &sampler, sizeof(Sampler),
-  //                  cudaMemcpyHostToDevice));
-  // PrintTable<<<1, 32, 0, 0>>>(sampler_ptr2);
-  // H_ERR(cudaDeviceSynchronize());
 }

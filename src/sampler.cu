@@ -2,7 +2,7 @@
  * @Description: degree limited
  * @Date: 2020-11-20 20:38:55
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-06 16:57:34
+ * @LastEditTime: 2020-12-06 17:09:18
  * @FilePath: /sampling/src/sampler.cu
  */
 
@@ -125,8 +125,8 @@ static __global__ void print_result(Sampler *sampler) {
 }
 void Start(Sampler sampler) {
   // allow cache
-  if (FLAGS_cache)
-    sampler.AllocateAliasTable();
+  // if (FLAGS_cache)
+  //   sampler.AllocateAliasTable();
 
   int device;
   cudaDeviceProp prop;

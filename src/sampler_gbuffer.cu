@@ -122,9 +122,10 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 // void Start_high_degree(Sampler sampler)
-void StartGB(Sampler sampler) {
+void OnlineGBSample(Sampler sampler) {
   // orkut max degree 932101
-
+  if (FLAGS_v)
+    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);

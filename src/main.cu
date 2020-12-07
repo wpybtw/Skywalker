@@ -1,3 +1,10 @@
+/*
+ * @Description:
+ * @Date: 2020-11-17 13:28:27
+ * @LastEditors: PengyuWang
+ * @LastEditTime: 2020-12-07 10:40:05
+ * @FilePath: /sampling/src/main.cu
+ */
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -38,7 +45,10 @@ DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
 
 DEFINE_bool(cache, false, "cache alias table for online");
 
+DEFINE_bool(bias, true, "biased or unbiased sampling");
+
 DEFINE_bool(v, false, "verbose");
+
 int main(int argc, char *argv[]) {
 
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -55,26 +65,36 @@ int main(int argc, char *argv[]) {
 
   Graph *ginst = new Graph();
   gpu_graph ggraph(ginst);
-  Sampler Sampler(ggraph);
+  Sampler sampler(ggraph);
 
-  if (FLAGS_ol) {
-    Sampler.SetSeed(SampleSize, Depth + 1, hops);
-    StartGB(Sampler);
-    // if (!FLAGS_cache) {
-      
-    // } else {
-    //   StartGBCached(Sampler);
-    // }
-  } else {
-    Sampler.InitFullForConstruction();
-    ConstructTable(Sampler);
-    if (!FLAGS_rw) { //&& FLAGS_k != 1
-      Sampler.SetSeed(SampleSize, Depth + 1, hops);
-      JustSample(Sampler);
+  if (!FLAGS_bias) {
+    if (!FLAGS_rw) {
+      sampler.SetSeed(SampleSize, Depth + 1, hops);
+      // UnbiasedSample(sampler);
     } else {
-      Walker walker(Sampler);
+      Walker walker(sampler);
       walker.SetSeed(SampleSize, Depth + 1);
-      JustWalk2(walker);
+      UnbiasedWalk(walker);
+    }
+  } else {
+    if (FLAGS_ol) {
+      sampler.SetSeed(SampleSize, Depth + 1, hops);
+      if (!FLAGS_rw) {
+        OnlineGBSample(sampler);
+      } else {
+        OnlineGBWalk(sampler);  //result not printable
+      }
+    } else {
+      sampler.InitFullForConstruction();
+      ConstructTable(sampler);
+      if (!FLAGS_rw) { //&& FLAGS_k != 1
+        sampler.SetSeed(SampleSize, Depth + 1, hops);
+        OfflineSample(sampler);
+      } else {
+        Walker walker(sampler);
+        walker.SetSeed(SampleSize, Depth + 1);
+        OfflineWalk(walker);
+      }
     }
   }
 

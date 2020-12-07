@@ -100,8 +100,9 @@ static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 
-void JustSample(Sampler &sampler) {
-
+void OfflineSample(Sampler &sampler) {
+  if (FLAGS_v)
+    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);

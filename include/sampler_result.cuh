@@ -1,6 +1,6 @@
 #pragma once
-#include "vec.cuh"
 #include "gflags/gflags.h"
+#include "vec.cuh"
 DECLARE_int32(hd);
 
 struct sample_job {
@@ -84,10 +84,6 @@ static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
   if (TID < size) {
     data[TID] = seeds[TID];
   }
-  // if (TID == 0) {
-  //   printf("seeds\n");
-  //   printD(seeds, 10);
-  // }
 }
 
 template <JobType job, typename T> struct Jobs_result;
@@ -105,30 +101,24 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   void init(uint _size, uint _hop_num, uint *seeds) {
     size = _size;
     hop_num = _hop_num;
-
     cudaMalloc(&data, size * hop_num * sizeof(uint));
-    // cudaMemcpy(data, seeds, size * hop_num * sizeof(uint),
-    //            cudaMemcpyHostToDevice);
-
     cudaMalloc(&alive, size * sizeof(char));
     cudaMemset(alive, 1, size * sizeof(char));
 
     // copy seeds
+    // if layout1, oor
+    // cudaMemcpy(data, seeds, size * hop_num * sizeof(uint),
+    //            cudaMemcpyHostToDevice);
+
     uint *seeds_g;
     cudaMalloc(&seeds_g, size * sizeof(uint));
     cudaMemcpy(seeds_g, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
-
+    // layout 2
     // initSeed<JobType::RW><<<size / 1024 + 1, 1024>>>(results, seeds, size);
     // initSeed2<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
+    // layout 3
     initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
   }
-
-  // __device__ T *GetDataPtr(size_t itr, size_t idx) {
-  //   return data + itr + idx * hop_num;
-  // }
-  // __device__ T GetData(size_t itr, size_t idx) {
-  //   return data[itr + idx * hop_num];
-  // }
   __device__ void PrintResult() {
     if (LTID == 0) {
       printf("seeds \n");
@@ -191,7 +181,7 @@ struct sample_result {
     cudaMalloc(&addr_offset, hop_num * sizeof(uint));
     Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
     // for (size_t i = 0; i < hop_num; i++) {
-      
+
     // }
     uint64_t offset = 0;
     uint64_t cum = size;
@@ -218,10 +208,9 @@ struct sample_result {
     if (LTID == 0) {
       printf("job_sizes \n");
       printD(job_sizes, hop_num);
-      uint total=0;
-      for (size_t i = 0; i < hop_num; i++)
-      {
-        total+=job_sizes[total];
+      uint total = 0;
+      for (size_t i = 0; i < hop_num; i++) {
+        total += job_sizes[total];
       }
       printf("total sampled %u \n", total);
       // printf("job_sizes_floor \n");
@@ -312,15 +301,3 @@ struct sample_result {
     // printf("start itr %d at block %d \n", current_itr, blockIdx.x);
   }
 };
-// __device__ uint *getAddr(uint idx, uint hop)
-//   {
-//     // uint64_t offset = 0;
-//     // uint64_t cum = size;
-//     // for (size_t i = 0; i < hop; i++)
-//     // {
-//     //   cum *= hops[i];
-//     //   offset += cum;
-//     // }
-//     uint offset = addr_offset[hop] ;// + hops[hop] * idx;
-//     return &data[offset];
-//   }

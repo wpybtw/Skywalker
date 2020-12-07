@@ -135,15 +135,18 @@ public:
   }
   // void Start();
 };
+void UnbiasedSample(Sampler sampler);
+void UnbiasedWalk(Walker &walker);
 
-void StartGB(Sampler sampler);
+void OnlineGBWalk(Sampler sampler);
+void OnlineGBSample(Sampler sampler);
 void StartSP(Sampler sampler);
 void Start(Sampler sampler);
 
 void ConstructTable(Sampler &sampler);
-void Sample(Sampler sampler);
-void JustSample(Sampler &sampler);
+// void Sample(Sampler sampler);
+void OfflineSample(Sampler &sampler);
 
 // void ConstructTable(Walker &walker);
-void JustSample(Walker &walker);
-void JustWalk2(Walker &walker);
+// void OfflineSample(Walker &walker);
+void OfflineWalk(Walker &walker);

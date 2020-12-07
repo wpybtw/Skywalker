@@ -3,16 +3,16 @@ all: main main_degree
 
 
 debug: CUFLAG +=  -G -g 
-debug: main 
+debug: main  main_degree
 SRC_DIR:= .
-OBJ_DIR:= .
+OBJ_DIR:= obj
 SRC_FILES := $(wildcard $(SRC_DIR)/*.cu)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(SRC_FILES))
 LDFLAGS := /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags -gencode=arch=compute_75,code=sm_75
 CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11  -lineinfo  -Xptxas -v    #-keep   #-Xptxas -O3,-v   
 
-OBJ_FILES1 := $(filter-out $(SRC_DIR)/bias.o, $(OBJ_FILES))
-OBJ_FILES2 := $(filter-out $(SRC_DIR)/bias_degree.o, $(OBJ_FILES))
+OBJ_FILES1 := $(filter-out $(OBJ_DIR)/bias.o, $(OBJ_FILES))
+OBJ_FILES2 := $(filter-out $(OBJ_DIR)/bias_degree.o, $(OBJ_FILES))
 
 
 
