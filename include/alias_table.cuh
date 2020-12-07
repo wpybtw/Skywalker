@@ -382,8 +382,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
   }
   __host__ __device__ uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
-                                uint _current_itr, int _src_id) {
+                                uint _current_itr, int _src_id,
+                                uint _idx = 0) {
     if (LTID == 0) {
+      // printf("%s:%d %s for %d\n", __FILE__, __LINE__, __FUNCTION__,_src_id);
       ggraph = graph;
       current_itr = _current_itr;
       size = _size;
@@ -396,7 +398,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
     float local_sum = 0.0, tmp;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
-      local_sum += graph->getBias(ids[i]);
+      local_sum += graph->getBias(ids[i], _src_id,  _idx);
     }
     tmp = blockReduce<float>(local_sum);
     __syncthreads();
@@ -406,7 +408,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
     }
     __syncthreads();
     if (weight_sum != 0.0) {
-      normalize_from_graph(graph);
+      normalize_from_graph(graph, _src_id,  _idx);
       return true;
     } else
       return false;
@@ -419,11 +421,12 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
     selected.Init(sz);
     // paster(Size());
   }
-  __device__ void normalize_from_graph(gpu_graph *graph) {
+  __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
+                                       uint _idx = 0) {
     float scale = size / weight_sum;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {                                                // size //TODO
-      prob.data[i] = graph->getBias(ids[i]) * scale;
+      prob.data[i] = graph->getBias(ids[i], _src_id,  _idx) * scale;
     }
     __syncthreads();
   }
@@ -1272,7 +1275,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
   float *weights;
   uint current_itr;
   gpu_graph *ggraph;
-  int src_id;
+  uint src_id;
 
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> large;
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> small;
@@ -1283,8 +1286,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
 
   __host__ __device__ uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
-                                uint _current_itr, int _src_id) {
+                                uint _current_itr, uint _src_id,
+                                uint _idx = 0) {
     if (LID == 0) {
+      // printf("%s:%d %s for %d\n", __FILE__, __LINE__, __FUNCTION__,_src_id);
       ggraph = graph;
       current_itr = _current_itr;
       size = _size;
@@ -1294,7 +1299,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
     for (size_t i = LID; i < size; i += 32) {
-      local_sum += graph->getBias(ids[i]);
+      local_sum += graph->getBias(ids[i], _src_id,  _idx);
     }
     tmp = warpReduce<float>(local_sum);
 
@@ -1303,7 +1308,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     }
     __syncwarp(0xffffffff);
     if (weight_sum != 0.0) {
-      normalize_from_graph(graph);
+      normalize_from_graph(graph, _src_id,  _idx);
       return true;
     } else
       return false;
@@ -1325,10 +1330,12 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     prob.Init(sz);
     selected.Init(sz);
   }
-  __device__ void normalize_from_graph(gpu_graph *graph) {
+  __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
+                                       uint _idx = 0) {
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32) {
-      prob[i] = graph->getBias(ids[i]) * scale; // gdb error
+      prob[i] =
+          graph->getBias(ids[i], _src_id, _idx) * scale; // gdb error
     }
   }
   __device__ void Clean() {

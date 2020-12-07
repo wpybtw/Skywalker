@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-07 14:22:10
+ * @LastEditTime: 2020-12-07 17:39:37
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -44,7 +44,7 @@ DEFINE_bool(randomweight, false, "generate random weight with range");
 DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
 
 DEFINE_bool(cache, false, "cache alias table for online");
-
+DEFINE_bool(debug, false, "debug");
 DEFINE_bool(bias, true, "biased or unbiased sampling");
 DEFINE_bool(full, false, "sample over all node");
 DEFINE_bool(v, false, "verbose");
@@ -84,7 +84,9 @@ int main(int argc, char *argv[]) {
       if (!FLAGS_rw) {
         OnlineGBSample(sampler);
       } else {
-        OnlineGBWalk(sampler); // result not printable
+        Walker walker(sampler);
+        walker.SetSeed(SampleSize, Depth + 1);
+        OnlineGBWalk(walker); 
       }
     } else {
       sampler.InitFullForConstruction();

@@ -11,8 +11,12 @@ OBJ_FILES := $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(SRC_FILES))
 LDFLAGS := /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags -gencode=arch=compute_75,code=sm_75
 CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11  -lineinfo  -Xptxas -v    #-keep   #-Xptxas -O3,-v   
 
-OBJ_FILES1 := $(filter-out $(OBJ_DIR)/bias.o, $(OBJ_FILES))
+OBJ_FILES1 := $(filter-out $(OBJ_DIR)/bias_static.o, $(OBJ_FILES))
+OBJ_FILES1 := $(filter-out $(OBJ_DIR)/bias_node2vec.o, $(OBJ_FILES1))
+
 OBJ_FILES2 := $(filter-out $(OBJ_DIR)/bias_degree.o, $(OBJ_FILES))
+OBJ_FILES2 := $(filter-out $(OBJ_DIR)/bias_node2vec.o, $(OBJ_FILES2))
+
 
 
 

@@ -105,6 +105,7 @@ public:
     alias_array = ggraph.alias_array;
   }
   ~Walker() {}
+  __device__ void BindResult() { ggraph.result = &result; }
   void AllocateAliasTable() {
     H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
     H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
@@ -135,11 +136,15 @@ public:
   }
   // void Start();
 };
+
+
+
 void UnbiasedSample(Sampler sampler);
 void UnbiasedWalk(Walker &walker);
 
-void OnlineGBWalk(Sampler sampler);
+void OnlineGBWalk(Walker &walker);
 void OnlineGBSample(Sampler sampler);
+
 void StartSP(Sampler sampler);
 void Start(Sampler sampler);
 

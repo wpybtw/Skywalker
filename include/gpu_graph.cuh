@@ -4,6 +4,7 @@
 #define _GPU_GRAPH_H_
 #include "graph.cuh"
 #include "header.h"
+#include "sampler_result.cuh"
 #include "util.h"
 #include <algorithm>
 #include <iostream>
@@ -34,7 +35,10 @@ public:
   index_t vtx_num;
   index_t edge_num;
   index_t avg_degree;
+  uint MaxDegree;
 
+  Jobs_result<JobType::RW, uint> *result;
+  // sample_result *result2;
   // BiasType bias;
 
   // float (gpu_graph::*getBias)(uint);
@@ -54,8 +58,8 @@ public:
 
     adj_list = ginst->adjncy;
     beg_pos = ginst->xadj;
-    weight_list=ginst->adjwgt;
-
+    weight_list = ginst->adjwgt;
+    MaxDegree = ginst->MaxDegree;
     // bias = static_cast<BiasType>(FLAGS_dw);
     // getBias= &gpu_graph::getBiasImpl;
     // (graph->*(graph->getBias))
@@ -65,8 +69,12 @@ public:
     return beg_pos[idx + 1] - beg_pos[idx];
   }
   // __host__ index_t getDegree_h(index_t idx) { return outDegree[idx]; }
-
-  __device__ float getBias(index_t idx);
+  // __device__ float getBias(index_t id);
+  __device__ float getBias(index_t dst, uint src = 0, uint idx = 0);
+  //  __device__ float getBias(index_t idx);
+  // __device__ float getBias(index_t idx, Jobs_result<JobType::RW, uint>
+  // result);
+  // __device__ float getBias(index_t idx, sample_result result);
   //  {
   //   return beg_pos[idx + 1] - beg_pos[idx];
   // }

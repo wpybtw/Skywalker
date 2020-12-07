@@ -143,7 +143,7 @@ void ConstructTable(Sampler &sampler) {
 
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
-  int gbuff_size = 932101;
+  int gbuff_size = sampler.ggraph.MaxDegree;
   
   LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
 

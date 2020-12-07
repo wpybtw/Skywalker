@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-07 14:13:12
+ * @LastEditTime: 2020-12-07 14:55:16
  * @FilePath: /sampling/src/offline_walk.cu
  */
 #include "kernel.cuh"
@@ -79,7 +79,7 @@ void OfflineWalk(Walker &walker) {
       cudaMemcpy(sampler_ptr, &walker, sizeof(Walker), cudaMemcpyHostToDevice));
   double start_time, total_time;
   // init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
-
+  BindResultKernel<<<1, 32, 0, 0>>>(sampler_ptr);
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   H_ERR(cudaDeviceSynchronize());

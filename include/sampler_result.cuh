@@ -65,9 +65,7 @@ template <typename T> struct Frontier {
     size_t old = atomicAdd(&size[itr % 3], 1);
     data[capacity * (itr % 3) + old] = idx;
   }
-  __device__ void Reset(uint itr) {
-    size[itr % 3] = 0;
-  }
+  __device__ void Reset(uint itr) { size[itr % 3] = 0; }
   __device__ u64 Size(uint itr) { return size[itr % 3]; }
   __device__ T Get(uint itr, uint idx) {
     return data[capacity * (itr % 3) + idx];
@@ -77,6 +75,7 @@ static __global__ void setFrontierSize(u64 *data, uint size) {
   if (TID == 0)
     data[0] = size;
 }
+
 template <typename T> struct Jobs_result<JobType::RW, T> {
   // using task_t = Task<JobType::RW, T>;
   u64 size;
@@ -87,6 +86,11 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   uint *length;
   // uint *frontier;
   Frontier<T> frontier;
+  Vector_gmem<uint> *high_degrees;
+  int *job_sizes_floor = nullptr;
+  int *job_sizes = nullptr;
+
+  uint *data2;
 
   Jobs_result() {}
   void init(uint _size, uint _hop_num, uint *seeds) {
@@ -96,6 +100,21 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     cudaMalloc(&alive, size * sizeof(char));
     cudaMemset(alive, 1, size * sizeof(char));
     cudaMalloc(&length, size * sizeof(uint));
+
+    {
+      cudaMalloc(&data2, size * hop_num * sizeof(uint));
+      cudaMemcpy(data2, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
+
+      Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
+      for (size_t i = 0; i < hop_num; i++) {
+        high_degrees_h[i].Allocate(MAX((size / FLAGS_hd), 4000));
+      }
+      cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>));
+      cudaMemcpy(high_degrees, high_degrees_h,
+                 hop_num * sizeof(Vector_gmem<uint>), cudaMemcpyHostToDevice);
+      cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int));
+      cudaMalloc(&job_sizes, (hop_num) * sizeof(int));
+    }
 
     if (FLAGS_dynamic) {
       frontier.Allocate(size);
@@ -110,15 +129,45 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     cudaMemcpy(seeds_g, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
     initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
   }
+  __device__ void AddHighDegree(uint current_itr, uint node_id) {
+    high_degrees[current_itr].Add(node_id);
+  }
+  __device__ void setAddrOffset() {
+    // printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+    paster(size);
+    job_sizes[0] = size;
+    // uint64_t offset = 0;
+    // uint64_t cum = size;
+    // hops_acc[0]=1;
+    for (size_t i = 0; i < hop_num; i++) {
+      // if (i!=0) hops_acc[i]
+      // addr_offset[i] = offset;
+      // cum *= hops[i];
+      // offset += cum;
+      job_sizes_floor[i] = 0;
+    }
+  }
+  __device__ struct sample_job requireOneHighDegreeJob(uint current_itr) {
+    sample_job job;
+    job.val = false;
+    int old = atomicAdd(high_degrees[current_itr].floor, 1);
+    if (old < high_degrees[current_itr].Size()) {
+      job.node_id = high_degrees[current_itr].Get(old);
+      job.val = true;
+    } else {
+      int old = atomicAdd(high_degrees[current_itr].floor, -1);
+    }
+    return job;
+  }
   __device__ void PrintResult() {
     if (LTID == 0) {
       printf("seeds \n");
       for (size_t i = 0; i < 10; i++) {
         printf("%u \t", GetData(0, i));
       }
-      for (int j = 0; j < 1; j++) {
-        printf("\n%drd path \n", j);
-        for (size_t i = 0; i < length[j]; i++) {
+      for (int j = 0; j < MIN(5, size); j++) {
+        printf("\n%drd path len %u \n", j, length[j]);
+        for (size_t i = 0; i < MIN(length[j], hop_num); i++) {
           printf("%u \t", GetData(i, j));
         }
         printf("\n");
@@ -130,6 +179,48 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   }
   __device__ T GetData(size_t itr, size_t idx) {
     return data[itr * size + idx];
+  }
+  __device__ uint getNodeId(uint idx, uint hop) {
+    // paster(addr_offset[hop]);
+    return data[hop * size + idx];
+  }
+  __device__ uint getNodeId2(uint idx, uint hop) {
+    // paster(addr_offset[hop]);
+    return data2[hop * size + idx];
+  }
+  __device__ struct sample_job requireOneJob(uint current_itr) // uint hop
+  {
+    sample_job job;
+    // printf("requireOneJob for itr %u\n", current_itr);
+    // paster(job_sizes[current_itr]);
+    // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
+    int old = atomicAdd(&job_sizes_floor[current_itr], 1);
+    if (old < job_sizes[current_itr]) {
+      // printf("poping wl ele idx %d\n", old);
+      job.idx = (uint)old;
+      job.node_id = getNodeId2(old, current_itr);
+      job.val = true;
+      // printf("poping wl ele node_id %d\n", job.node_id);
+    } else {
+      int old = atomicSub(&job_sizes_floor[current_itr], 1);
+      // printf("no job \n");
+      // job.val = false;
+    }
+    return job;
+  }
+  __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
+
+    int old = atomicAdd(&job_sizes[current_itr + 1], 1);
+    array[old] = candidate;
+    // printf("Add new ele %u with degree %d\n", candidate,  );
+  }
+  __device__ void NextItr(uint &current_itr) {
+    current_itr++;
+    // printf("start itr %d at block %d \n", current_itr, blockIdx.x);
+  }
+  __device__ uint *getNextAddr(uint hop) {
+    // uint offset =  ;// + hops[hop] * idx;
+    return &data2[(hop + 1) * size];
   }
 };
 
