@@ -211,6 +211,9 @@ public:
     for (size_t i = 0; i < num_Node; i++) {
       outDegree[i] = xadj[i + 1] - xadj[i];
     }
+    // int tmp=277096;
+    // if (FLAGS_v)
+    //   printf("%d has max out degree %d\n", tmp, outDegree[tmp]);
     uint maxD = std::distance(
         outDegree, std::max_element(outDegree, outDegree + num_Node));
     if (FLAGS_v)

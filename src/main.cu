@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-07 10:40:05
+ * @LastEditTime: 2020-12-07 14:22:10
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -46,13 +46,14 @@ DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
 DEFINE_bool(cache, false, "cache alias table for online");
 
 DEFINE_bool(bias, true, "biased or unbiased sampling");
-
+DEFINE_bool(full, false, "sample over all node");
 DEFINE_bool(v, false, "verbose");
 
 int main(int argc, char *argv[]) {
 
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   int SampleSize = FLAGS_n;
+
   int NeighborSize = FLAGS_k;
   int Depth = FLAGS_d;
 
@@ -66,7 +67,8 @@ int main(int argc, char *argv[]) {
   Graph *ginst = new Graph();
   gpu_graph ggraph(ginst);
   Sampler sampler(ggraph);
-
+  if (FLAGS_full)
+    SampleSize = ggraph.vtx_num;
   if (!FLAGS_bias) {
     if (!FLAGS_rw) {
       sampler.SetSeed(SampleSize, Depth + 1, hops);
@@ -82,7 +84,7 @@ int main(int argc, char *argv[]) {
       if (!FLAGS_rw) {
         OnlineGBSample(sampler);
       } else {
-        OnlineGBWalk(sampler);  //result not printable
+        OnlineGBWalk(sampler); // result not printable
       }
     } else {
       sampler.InitFullForConstruction();

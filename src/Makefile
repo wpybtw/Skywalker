@@ -53,4 +53,5 @@ lj: main
 
 
 clean:
-	rm *.o  main *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx
+	rm $(OBJ_DIR)/*.o  main 
+	# *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx

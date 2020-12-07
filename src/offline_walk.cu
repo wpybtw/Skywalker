@@ -2,8 +2,8 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-06 17:17:31
- * @FilePath: /sampling/src/sample_rw.cu
+ * @LastEditTime: 2020-12-07 14:13:12
+ * @FilePath: /sampling/src/offline_walk.cu
  */
 #include "kernel.cuh"
 #include "roller.cuh"
@@ -20,9 +20,10 @@ __global__ void sample_kernel(Walker *walker) {
 
   for (size_t idx_i = TID; idx_i < result.size;
        idx_i += gridDim.x * blockDim.x) {
-    if (result.alive[idx_i] != 0) {
-      for (uint current_itr = 0; current_itr < result.hop_num - 1;
-           current_itr++) {
+    result.length[idx_i] = result.hop_num - 1;
+    for (uint current_itr = 0; current_itr < result.hop_num - 1;
+         current_itr++) {
+      if (result.alive[idx_i] != 0) {
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
         uint src_id = result.GetData(current_itr, idx_i);
@@ -48,6 +49,8 @@ __global__ void sample_kernel(Walker *walker) {
           }
         } else if (src_degree == 0) {
           result.alive[idx_i] = 0;
+          result.length[idx_i] = current_itr;
+          break;
         } else {
           *result.GetDataPtr(current_itr + 1, idx_i) =
               graph->getOutNode(src_id, 0);
