@@ -165,7 +165,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
       for (size_t i = 0; i < 10; i++) {
         printf("%u \t", GetData(0, i));
       }
-      for (int j = 0; j < MIN(5, size); j++) {
+      for (int j = 0; j < MIN(2, size); j++) {
         printf("\n%drd path len %u \n", j, length[j]);
         for (size_t i = 0; i < MIN(length[j], hop_num); i++) {
           printf("%u \t", GetData(i, j));

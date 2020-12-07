@@ -1,3 +1,10 @@
+/*
+ * @Description: online walk. note that using job.node_id as sample instance id.
+ * @Date: 2020-12-06 17:29:39
+ * @LastEditors: PengyuWang
+ * @LastEditTime: 2020-12-07 23:07:18
+ * @FilePath: /sampling/src/online_walk.cu
+ */
 #include "alias_table.cuh"
 #include "kernel.cuh"
 #include "sampler.cuh"
@@ -18,7 +25,6 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                            current_itr, node_id, sid);
   if (not_all_zero) {
     table->construct();
-    // table->walk(result.getNextAddr(current_itr), &state, result);
     if (LID == 0) {
       int col = (int)floor(curand_uniform(&state) * table->size);
       float p = curand_uniform(&state);
@@ -28,12 +34,8 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
       else
         candidate = table->alias.Get(col);
       result.AddActive(current_itr, result.getNextAddr(current_itr), sid);
-      // result.data[(current_itr + 1) * table->size + sid] =
-      //     ggraph->getOutNode(node_id, candidate);
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
-      // printf("selected %d to %d\n", ggraph->getOutNode(node_id, candidate),
-      //        sid);
     };
   } else {
     if (LID == 0)
@@ -68,12 +70,8 @@ SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
       else
         candidate = table->alias.Get(col);
       result.AddActive(current_itr, result.getNextAddr(current_itr), sid);
-      // result.data[(current_itr + 1) * table->size + sid] =
-      //     ggraph->getOutNode(node_id, candidate);
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
-      // printf("BCselected %d to %d\n", ggraph->getOutNode(node_id, candidate),
-      //        sid);
     };
   } else {
     if (LTID == 0)
@@ -98,34 +96,21 @@ __global__ void OnlineWalkKernel(Walker *sampler,
   if (threadIdx.x == 0)
     current_itr = 0;
   __syncthreads();
-  // if (TID == 0)
-  //   paster(result.hop_num - 1);
-  for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
-  {
+  for (; current_itr < result.hop_num - 1;) {
     Vector_gmem<uint> *high_degrees =
         &sampler->result.high_degrees[current_itr];
     sample_job job;
     __threadfence_block();
     if (LID == 0) {
       job = result.requireOneJob(current_itr);
-      // if (job.val)
-      //   printf("current_itr %u idx %u\t", current_itr, job.node_id);
     }
-    // if(LTID==0)printD(result.data2,6);
     __syncwarp(0xffffffff);
-    // job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    // uint node_id = result.getNodeId2(current_itr, job.node_id);
-    // uint node_id = result.data[current_itr * result.size, job.node_id];
-    // uint sid = job.node_id;
     __syncwarp(0xffffffff);
     while (job.val) {
-      // uint node_id = result.data[current_itr * result.size, job.node_id];
       uint node_id = result.GetData(current_itr, job.node_id);
       uint sid = job.node_id;
-      // if (LID == 0)
-      //   printf("current_itr %d nodeid %u sid %u\t", current_itr, node_id, sid);
       if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
         SampleWarpCentic(result, ggraph, state, current_itr, job.idx, node_id,
                          buffer, sid);
@@ -136,10 +121,8 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       __syncwarp(0xffffffff);
       if (LID == 0)
         job = result.requireOneJob(current_itr);
-      // job.idx = __shfl_sync(0xffffffff, job.idx, 0);
       job.val = __shfl_sync(0xffffffff, job.val, 0);
       job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-      // node_id = result.getNodeId2(current_itr, job.node_id);
     }
     __syncthreads();
     __shared__ sample_job high_degree_job;
@@ -149,16 +132,12 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       high_degree_job.val = job.val;
       if (job.val) {
         sid2 = job.node_id;
-        high_degree_job.node_id =
-            result.data[current_itr * result.size, sid2];
+        high_degree_job.node_id = result.data[current_itr * result.size, sid2];
         // uint node_id = result.data[current_itr * result.size, job.node_id];
       }
     }
     __syncthreads();
     while (high_degree_job.val) {
-      // if (LTID == 0)
-      //   printf("BC current_itr %d nodeid %u sid2 %u\t", current_itr,
-      //          high_degree_job.node_id, sid2);
       SampleBlockCentic(result, ggraph, state, current_itr,
                         high_degree_job.node_id, buffer, vector_packs,
                         sid2); // buffer_pointer
@@ -170,17 +149,13 @@ __global__ void OnlineWalkKernel(Walker *sampler,
           sid2 = job.node_id;
           high_degree_job.node_id =
               result.data[current_itr * result.size, sid2];
-          // uint node_id = result.data[current_itr * result.size, job.node_id];
-          
         }
       }
       __syncthreads();
     }
-
     __syncthreads();
     if (threadIdx.x == 0) {
       result.NextItr(current_itr);
-      // printf("\n---------------enw itr %u\n", current_itr);
     }
     __syncthreads();
   }
