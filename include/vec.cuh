@@ -15,7 +15,7 @@ public:
   virtual T &operator[](size_t id) {}
 };
 
-template <typename T, int size> struct buf { T data[size]; };
+template <typename T, int size> struct buf { T data[size];  };
 
 // <typename T, int _size>
 // struct Simple_vector;
@@ -191,16 +191,16 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
       }
     }
   }
-  // __device__ T &operator[](size_t idx)
-  // {
-  //   if (idx < capacity)
-  //     return data.data[idx];
-  //   else
-  //   {
-  //     // if(TID==0) printf("accessing idx %d\n",idx);
-  //     global_buffer[idx - capacity];
-  //   }
-  // }
+  __device__ T &operator[](size_t idx)
+  {
+    if (idx < capacity)
+      return data.data[idx];
+    // else
+    // {
+    //   // if(TID==0) printf("accessing idx %d\n",idx);
+    //   global_buffer[idx - capacity];
+    // }
+  }
   __forceinline__ __device__ T Get(size_t idx) {
     if (idx < capacity)
       return data.data[idx];

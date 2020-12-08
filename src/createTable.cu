@@ -42,6 +42,7 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
   __syncthreads();
   if (not_all_zero) {
     table->constructBC();
+    table->SaveAliasTable(ggraph);
     if (LTID == 0)
       sampler->valid[node_id] = 1;
   } 

@@ -134,7 +134,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   }
   __device__ void setAddrOffset() {
     // printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
-    paster(size);
+    // paster(size);
     job_sizes[0] = size;
     // uint64_t offset = 0;
     // uint64_t cum = size;

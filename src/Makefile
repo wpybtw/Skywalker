@@ -1,47 +1,41 @@
-all: main main_degree
+all: main main_degree node2vec
 # util sampler main
 
 
 debug: CUFLAG +=  -G -g 
-debug: main  main_degree
+debug: main  main_degree node2vec
 SRC_DIR:= .
 OBJ_DIR:= obj
+
+
 SRC_FILES := $(wildcard $(SRC_DIR)/*.cu)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(SRC_FILES))
+
+# SRC_FILES += $(wildcard $(SRC_DIR)/example/*.cu)
+API_SRC_DIR:= example
+API_OBJ_DIR:= obj/example
+API_SRC_FILES := $(wildcard $(API_SRC_DIR)/*.cu)
+API_OBJ_FILES := $(patsubst $(API_SRC_DIR)/%.cu,$(API_OBJ_DIR)/%.o,$(API_SRC_FILES))
+
 LDFLAGS := /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags -gencode=arch=compute_75,code=sm_75
 CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11  -lineinfo  -Xptxas -v    #-keep   #-Xptxas -O3,-v   
 
-OBJ_FILES1 := $(filter-out $(OBJ_DIR)/bias_static.o, $(OBJ_FILES))
-OBJ_FILES1 := $(filter-out $(OBJ_DIR)/bias_node2vec.o, $(OBJ_FILES1))
-
-OBJ_FILES2 := $(filter-out $(OBJ_DIR)/bias_degree.o, $(OBJ_FILES))
-OBJ_FILES2 := $(filter-out $(OBJ_DIR)/bias_node2vec.o, $(OBJ_FILES2))
-
-
-
-
-main_degree: $(OBJ_FILES1)
+main_degree: $(OBJ_FILES)  $(API_OBJ_DIR)/bias_degree.o
 	nvcc $(LDFLAGS) -o $@ $^
 
-main: $(OBJ_FILES2)
+main: $(OBJ_FILES)  $(API_OBJ_DIR)/bias_static.o
 	nvcc $(LDFLAGS) -o $@ $^
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
+node2vec: $(OBJ_FILES) $(API_OBJ_DIR)/bias_node2vec.o
+	nvcc $(LDFLAGS) -o $@ $^
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu 
 	nvcc  $(CUFLAG) -c -o $@ $<
 
-# main_gbuffer: main.cu util.cu sampler_gbuffer.cu kernel.cu createTable.cu sample_rw.cu sample_rw2.cu
-# 	nvcc main.cu util.cu sampler_gbuffer.cu kernel.cu createTable.cu sample_rw.cu sample_rw2.cu $(CUFLAG) -o main_gbuffer
-
-# sample: entry.cu util.cu createTable.cu sample.cu kernel.cu vec.cu
-# 	nvcc entry.cu util.cu createTable.cu sample.cu kernel.cu vec.cu $(CUFLAG) -o sample
-
-# sample_rw: entry.cu util.cu createTable.cu sample_rw.cu kernel.cu vec.cu
-# 	nvcc entry.cu util.cu createTable.cu sample_rw.cu kernel.cu vec.cu $(CUFLAG) -o sample_rw
-
-# sample_rw2: entry_rw.cu util.cu createTable.cu sample_rw2.cu kernel.cu vec.cu
-# 	nvcc entry_rw.cu util.cu createTable.cu sample_rw2.cu kernel.cu vec.cu $(CUFLAG) -o sample_rw2
-
-
+$(API_OBJ_DIR)/%.o: $(API_SRC_DIR)/%.cu 
+	@mkdir -p $(API_OBJ_DIR)
+	nvcc  $(CUFLAG) -c -o $@ $<
+	
 test: main
 	#Multidimensional random walk
 	./main wg ../others/C-SAW/non-stream/WG/beg.bin ../others/C-SAW/non-stream/WG/csr.bin 315 32 4000 2000 1 2000 1
@@ -49,13 +43,6 @@ test: main
 lj: main
 	./main lj ~/data/soc-LiveJournal1.txt_beg_pos.bin  ~/data/soc-LiveJournal1.txt_csr.bin   100 32 4000 2 1 1 1
 
-# alias_table: ../include/alias_table.cuh alias_table.cu
-# 	nvcc alias_table.cu  $(CUFLAG)   -c 
-
-# alias: tmp.cu util.o alias_table.o #-arch=sm_75
-# 	nvcc tmp.cu util.o alias_table.o $(CUFLAG)  -o alias
-
-
 clean:
-	rm $(OBJ_DIR)/*.o  main 
-	# *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx
+	rm $(OBJ_DIR)/*.o $(API_OBJ_DIR)/%.o main 
+	# rm *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx

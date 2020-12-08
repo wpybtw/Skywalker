@@ -1,8 +1,8 @@
 /*
  * @Description:
  * @Date: 2020-11-17 13:28:27
- * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-07 17:39:37
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2020-12-08 10:00:01
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
       } else {
         Walker walker(sampler);
         walker.SetSeed(SampleSize, Depth + 1);
-        OnlineGBWalk(walker); 
+        OnlineGBWalk(walker);
       }
     } else {
       sampler.InitFullForConstruction();
