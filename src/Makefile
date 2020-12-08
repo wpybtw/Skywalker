@@ -3,6 +3,7 @@ all: main main_degree node2vec
 
 
 debug: CUFLAG +=  -G -g 
+debug: LDFLAGS +=  -G -g 
 debug: main  main_degree node2vec
 SRC_DIR:= .
 OBJ_DIR:= obj
@@ -11,9 +12,9 @@ OBJ_DIR:= obj
 SRC_FILES := $(wildcard $(SRC_DIR)/*.cu)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(SRC_FILES))
 
-# SRC_FILES += $(wildcard $(SRC_DIR)/example/*.cu)
-API_SRC_DIR:= example
-API_OBJ_DIR:= obj/example
+# SRC_FILES += $(wildcard $(SRC_DIR)/api/*.cu)
+API_SRC_DIR:= api
+API_OBJ_DIR:= obj/api
 API_SRC_FILES := $(wildcard $(API_SRC_DIR)/*.cu)
 API_OBJ_FILES := $(patsubst $(API_SRC_DIR)/%.cu,$(API_OBJ_DIR)/%.o,$(API_SRC_FILES))
 
@@ -44,5 +45,5 @@ lj: main
 	./main lj ~/data/soc-LiveJournal1.txt_beg_pos.bin  ~/data/soc-LiveJournal1.txt_csr.bin   100 32 4000 2 1 1 1
 
 clean:
-	rm $(OBJ_DIR)/*.o $(API_OBJ_DIR)/%.o main 
+	rm $(OBJ_DIR)/*.o  $(API_OBJ_DIR)/*.o  main 
 	# rm *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx

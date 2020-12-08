@@ -3,6 +3,10 @@
 #include "vec.cuh"
 DECLARE_int32(hd);
 DECLARE_bool(dynamic);
+DECLARE_bool(node2vec);
+DECLARE_double(p);
+DECLARE_double(q);
+
 struct sample_job {
   uint idx;
   uint node_id;
@@ -22,14 +26,7 @@ enum class JobType {
   NS, // neighbour sampling
   LS, // layer sampling
   RW, // random walk
-};
-template <JobType job, typename T> struct SamplerState;
-
-template <typename T> struct SamplerState<JobType::RW, T> {
-  T *data;
-  uint depth = 0;
-  bool alive = true;
-  void Allocate(uint size) { H_ERR(cudaMalloc(&data, size * sizeof(T))); }
+  NODE2VEC
 };
 
 static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
@@ -46,9 +43,11 @@ static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
   }
 }
 
-template <JobType job, typename T>
-static __global__ void initStateSeed(SamplerState<job, T> *states, uint *seeds,
-                                     size_t size);
+// template <JobType job, typename T>
+// static __global__ void initStateSeed(SamplerState<job, T> *states, uint
+// *seeds,
+//                                      size_t size);
+
 template <JobType job, typename T> struct Jobs_result;
 
 template <typename T> struct Frontier {
@@ -76,6 +75,19 @@ static __global__ void setFrontierSize(u64 *data, uint size) {
     data[0] = size;
 }
 
+template <JobType job, typename T> struct SamplerState;
+
+template <typename T> struct SamplerState<JobType::NODE2VEC, T> {
+  T last = 0;
+  // bool alive = true;
+};
+// template <typename T> struct SamplerState<JobType::NODE2VEC, uint> {
+//   // T *data;
+//   uint depth = 0;
+//   bool alive = true;
+//   // void Allocate(uint size) { H_ERR(cudaMalloc(&data, size * sizeof(T))); }
+// };
+
 template <typename T> struct Jobs_result<JobType::RW, T> {
   // using task_t = Task<JobType::RW, T>;
   u64 size;
@@ -89,8 +101,10 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   Vector_gmem<uint> *high_degrees;
   int *job_sizes_floor = nullptr;
   int *job_sizes = nullptr;
-
   uint *data2;
+
+  SamplerState<JobType::NODE2VEC, T> *state;
+  float p = 2.0, q = 0.5;
 
   Jobs_result() {}
   void init(uint _size, uint _hop_num, uint *seeds) {
@@ -100,6 +114,12 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     cudaMalloc(&alive, size * sizeof(char));
     cudaMemset(alive, 1, size * sizeof(char));
     cudaMalloc(&length, size * sizeof(uint));
+
+    if (FLAGS_node2vec) {
+      cudaMalloc(&state, size * sizeof(SamplerState<JobType::NODE2VEC, T>));
+      p = FLAGS_p;
+      q = FLAGS_q;
+    }
 
     {
       cudaMalloc(&data2, size * hop_num * sizeof(uint));
@@ -162,7 +182,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   __device__ void PrintResult() {
     if (LTID == 0) {
       printf("seeds \n");
-      for (size_t i = 0; i < 10; i++) {
+      for (size_t i = 0; i < MIN(5, size); i++) {
         printf("%u \t", GetData(0, i));
       }
       for (int j = 0; j < MIN(2, size); j++) {

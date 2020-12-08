@@ -31,7 +31,7 @@ public:
   float *prob_array;
   uint *alias_array;
   char *valid;
-  float *avg_bias;
+  // float *avg_bias;
 
 public:
   Sampler(gpu_graph graph) {
@@ -43,8 +43,8 @@ public:
     H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
     H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
     H_ERR(cudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
-    if (!FLAGS_ol)
-      H_ERR(cudaMalloc((void **)&avg_bias, ggraph.vtx_num * sizeof(float)));
+    // if (!FLAGS_ol)
+    //   H_ERR(cudaMalloc((void **)&avg_bias, ggraph.vtx_num * sizeof(float)));
     ggraph.valid = valid;
     ggraph.prob_array = prob_array;
     ggraph.alias_array = alias_array;

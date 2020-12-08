@@ -240,6 +240,12 @@ public:
                "Not implemented"); /* need to convert sizes when reading */
       }
     }
+    // for (size_t i = 0; i < 10; i++) {
+    //   printf("\n");
+    //   for (size_t j = 0; j < outDegree[i]; j++) {
+    //     printf("%d\t", adjncy[xadj[i] +j] );
+    //   }
+    // }
     numNode = num_Node;
     numEdge = num_Edge;
     gk_fclose(fpin);

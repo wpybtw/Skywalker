@@ -71,26 +71,45 @@ public:
   // __host__ index_t getDegree_h(index_t idx) { return outDegree[idx]; }
   // __device__ float getBias(index_t id);
   __device__ float getBias(index_t dst, uint src = 0, uint idx = 0);
-  //  __device__ float getBias(index_t idx);
-  // __device__ float getBias(index_t idx, Jobs_result<JobType::RW, uint>
-  // result);
-  // __device__ float getBias(index_t idx, sample_result result);
-  //  {
-  //   return beg_pos[idx + 1] - beg_pos[idx];
-  // }
-  // template <BiasType bias>
-  // friend  __device__ float getBias(gpu_graph *g, index_t idx);
-  //  {
-  //   return g->beg_pos[idx + 1] - g->beg_pos[idx];
-  // }
 
-  // template <BiasType bias = BiasType::Degree>
-  // __device__ float getBiasImpl(index_t idx);
-
-  // __device__ index_t getBias(index_t idx) {
-  //   return getBiasImpl<static_cast<BiasType>(FLAGS_dw)>(idx);
-  // }
-
+  // degree 2 [0 ,1 ]
+  // < 1 [1]
+  // 1
+  __device__ bool BinarySearch(uint *ptr, uint size, int target) {
+    uint tmp_size = size;
+    uint *tmp_ptr = ptr;
+    // printf("checking %d\t", target);
+    uint itr = 0;
+    while (itr < 50) {
+      // printf("%u %u.\t",tmp_ptr[tmp_size / 2],target );
+      if (tmp_ptr[tmp_size / 2] == target) {
+        return true;
+      } else if (tmp_ptr[tmp_size / 2] < target) {
+        tmp_ptr += tmp_size / 2;
+        if (tmp_size == 1) {
+          return false;
+        }
+        tmp_size = tmp_size - tmp_size / 2;
+      } else {
+        tmp_size = tmp_size / 2;
+      }
+      if (tmp_size == 0) {
+        return false;
+      }
+      itr++;
+    }
+    return false;
+  }
+  __device__ bool CheckConnect(int src, int dst) {
+    // uint degree = getDegree(src);
+    if (BinarySearch(adj_list + beg_pos[src], getDegree(src), dst)) {
+      // paster()
+      // printf("Connect %d %d \n", src, dst);
+      return true;
+    }
+    // printf("not Connect %d %d \n", src, dst);
+    return false;
+  }
   __device__ float getBiasImpl(index_t idx) {
     return beg_pos[idx + 1] - beg_pos[idx];
   }
@@ -103,3 +122,30 @@ public:
 };
 
 #endif
+//  __device__ float getBias(index_t idx);
+// __device__ float getBias(index_t idx, Jobs_result<JobType::RW, uint>
+// result);
+// __device__ float getBias(index_t idx, sample_result result);
+//  {
+//   return beg_pos[idx + 1] - beg_pos[idx];
+// }
+// template <BiasType bias>
+// friend  __device__ float getBias(gpu_graph *g, index_t idx);
+//  {
+//   return g->beg_pos[idx + 1] - g->beg_pos[idx];
+// }
+
+// template <BiasType bias = BiasType::Degree>
+// __device__ float getBiasImpl(index_t idx);
+
+// __device__ index_t getBias(index_t idx) {
+//   return getBiasImpl<static_cast<BiasType>(FLAGS_dw)>(idx);
+// }
+// __device__ bool CheckConnect(int src, int dst) {
+//   uint degree = getDegree(src);
+//   for (size_t i = 0; i < degree; i++) {
+//     if (getOutNode(src, i) == dst)
+//       return true;
+//   }
+//   return false;
+// }

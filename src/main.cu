@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2020-12-08 10:00:01
+ * @LastEditTime: 2020-12-08 19:47:31
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -42,6 +42,9 @@ DEFINE_bool(dw, false, "using degree as weight");
 
 DEFINE_bool(randomweight, false, "generate random weight with range");
 DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
+DEFINE_bool(node2vec, false, "node2vec");
+DEFINE_double(p, 2.0, "hyper-parameter p for node2vec");
+DEFINE_double(q, 0.5, "hyper-parameter q for node2vec");
 
 DEFINE_bool(cache, false, "cache alias table for online");
 DEFINE_bool(debug, false, "debug");

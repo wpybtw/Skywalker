@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-07 23:32:44
+ * @LastEditTime: 2020-12-08 22:38:19
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -36,6 +36,8 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
       result.AddActive(current_itr, result.getNextAddr(current_itr), sid);
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
+      result.state[sid].last = node_id;
+      // printf("\nlast %u\n",node_id);
     };
   } else {
     if (LID == 0)
@@ -72,6 +74,7 @@ SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
       result.AddActive(current_itr, result.getNextAddr(current_itr), sid);
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
+      result.state[sid].last = node_id;
     };
   } else {
     if (LTID == 0)
