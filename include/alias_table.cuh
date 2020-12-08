@@ -73,7 +73,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
   uint current_itr;
   gpu_graph *ggraph;
   int src_id;
-  float avg_bias;
 
   Vector_gmem<T> large;
   Vector_gmem<T> small;
@@ -96,7 +95,16 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
                     graph->getDegree((uint)src_id));
     }
   }
-
+  __device__ bool SaveAliasTable(gpu_graph *graph) {
+    size_t start = graph->beg_pos[src_id];
+    uint len = graph->getDegree((uint)src_id);
+    for (size_t i = LTID; i < len; i += blockDim.x) {
+      graph->alias_array[start + i] = alias[i];
+    }
+    for (size_t i = LTID; i < len; i += blockDim.x) {
+      graph->prob_array[start + i] = prob[i];
+    }
+  }
   __host__ __device__ uint Size() { return size; }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
                                 uint _current_itr, int _src_id) {
@@ -114,17 +122,15 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i]);
-      prob.data[i] = graph->getBias(ids[i]);
     }
     tmp = blockReduce<float>(local_sum);
     __syncthreads();
     if (LTID == 0) {
       weight_sum = tmp;
-      avg_bias = weight_sum / size;
     }
     __syncthreads();
     if (weight_sum != 0.0) {
-      // normalize_from_graph(graph);
+      normalize_from_graph(graph);
       return true;
     } else
       return false;
@@ -137,24 +143,14 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
     selected.Init(sz);
     // paster(Size());
   }
-  __device__ bool SaveAliasTable(gpu_graph *graph) {
-    size_t start = graph->beg_pos[src_id];
-    uint len = graph->getDegree((uint)src_id);
-    for (size_t i = LTID; i < len; i += blockDim.x) {
-      graph->alias_array[start + i] = alias[i];
+  __device__ void normalize_from_graph(gpu_graph *graph) {
+    float scale = size / weight_sum;
+    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    {                                                // size //TODO
+      prob.data[i] = graph->getBias(ids[i]) * scale;
     }
-    for (size_t i = LTID; i < len; i += blockDim.x) {
-      graph->prob_array[start + i] = prob[i];
-    }
+    __syncthreads();
   }
-  // __device__ void normalize_from_graph(gpu_graph *graph) {
-  //   float scale = size / weight_sum;
-  //   for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-  //   {                                                // size //TODO
-  //     prob.data[i] = graph->getBias(ids[i]) * scale;
-  //   }
-  //   __syncthreads();
-  // }
   __device__ void Clean() {
     large.Clean();
     small.Clean();
@@ -217,7 +213,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
       smallsize = 0;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
-      if (prob.Get(i) > avg_bias )
+      if (prob.Get(i) > 1)
         large.Add(i);
       else {
         small.Add(i);
@@ -265,23 +261,23 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
       __syncthreads();
       float old;
       if (holder)
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
+        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
       __syncthreads();
       if (!holder && act)
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
+        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
       __syncthreads();
 
       if (act) {
-        if (old + prob.Get(smallV) - avg_bias  < 0) {
+        if (old + prob.Get(smallV) - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob.data[largeV], avg_bias - prob.Get(smallV));
+          atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
           alias.data[smallV] = largeV;
           if (holder) {
-            if (prob.Get(largeV) < avg_bias ) {
+            if (prob.Get(largeV) < 1.0) {
               small.Add(largeV);
-            } else if (prob.Get(largeV) > avg_bias ) {
+            } else if (prob.Get(largeV) > 1.0) {
               large.Add(largeV);
             }
           }
@@ -300,11 +296,11 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
       smallsize = 0;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
-      if (prob.Get(i) > avg_bias)
+      if (prob.Get(i) > 1)
         large.Add(i);
       else {
         small.Add(i);
-        atomicAdd(&smallsize, avg_bias);
+        atomicAdd(&smallsize, 1);
       }
     }
     __syncthreads();
@@ -341,21 +337,21 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
         }
         float old;
         if (holder)
-          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
+          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
         if (!holder)
-          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
+          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
 
-        if (old + prob.Get(smallV) - avg_bias  < 0) {
+        if (old + prob.Get(smallV) - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob.data[largeV], avg_bias - prob.Get(smallV));
+          atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
           alias.data[smallV] = largeV;
           if (holder) {
-            if (prob.Get(largeV) < avg_bias ) {
+            if (prob.Get(largeV) < 1.0) {
               small.Add(largeV);
 
-            } else if (prob.Get(largeV) > avg_bias ) {
+            } else if (prob.Get(largeV) > 1.0) {
               large.Add(largeV);
             }
           }
@@ -377,7 +373,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
   uint current_itr;
   gpu_graph *ggraph;
   int src_id;
-  float avg_bias;
 
   Vector_gmem<T> large;
   Vector_gmem<T> small;
@@ -412,18 +407,16 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i], _src_id, _idx);
-      prob.data[i] = graph->getBias(ids[i]);
     }
     tmp = blockReduce<float>(local_sum);
     __syncthreads();
     if (LTID == 0) {
       weight_sum = tmp;
-      avg_bias = weight_sum / size;
       // printf("weight_sum %f\n", weight_sum);
     }
     __syncthreads();
     if (weight_sum != 0.0) {
-      // normalize_from_graph(graph, _src_id,  _idx);
+      normalize_from_graph(graph, _src_id, _idx);
       return true;
     } else
       return false;
@@ -436,15 +429,15 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
     selected.Init(sz);
     // paster(Size());
   }
-  // __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
-  //                                      uint _idx = 0) {
-  //   float scale = size / weight_sum;
-  //   for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-  //   {                                                // size //TODO
-  //     prob.data[i] = graph->getBias(ids[i], _src_id,  _idx) * scale;
-  //   }
-  //   __syncthreads();
-  // }
+  __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
+                                       uint _idx = 0) {
+    float scale = size / weight_sum;
+    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    {                                                // size //TODO
+      prob.data[i] = graph->getBias(ids[i], _src_id, _idx) * scale;
+    }
+    __syncthreads();
+  }
   __device__ void Clean() {
     large.Clean();
     small.Clean();
@@ -520,7 +513,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       smallsize = 0;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
-      if (prob.Get(i) > avg_bias)
+      if (prob.Get(i) > 1)
         large.Add(i);
       else {
         small.Add(i);
@@ -566,23 +559,23 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       __syncthreads();
       float old;
       if (holder)
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
+        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
       __syncthreads();
       if (!holder && act)
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
+        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
       __syncthreads();
 
       if (act) {
-        if (old + prob.Get(smallV) - avg_bias  < 0) {
+        if (old + prob.Get(smallV) - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob.data[largeV], avg_bias - prob.Get(smallV));
+          atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
           alias.data[smallV] = largeV;
           if (holder) {
-            if (prob.Get(largeV) < avg_bias ) {
+            if (prob.Get(largeV) < 1.0) {
               small.Add(largeV);
-            } else if (prob.Get(largeV) > avg_bias ) {
+            } else if (prob.Get(largeV) > 1.0) {
               large.Add(largeV);
             }
           }
@@ -602,7 +595,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       smallsize = 0;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
-      if (prob.Get(i) > avg_bias)
+      if (prob.Get(i) > 1)
         large.Add(i);
       else {
         small.Add(i);
@@ -641,20 +634,20 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
         }
         float old;
         if (holder)
-          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
+          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
         if (!holder)
-          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - avg_bias );
-        if (old + prob.Get(smallV) - avg_bias  < 0) {
+          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+        if (old + prob.Get(smallV) - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob.data[largeV], avg_bias - prob.Get(smallV));
+          atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
           alias.data[smallV] = largeV;
           if (holder) {
-            if (prob.Get(largeV) < avg_bias ) {
+            if (prob.Get(largeV) < 1.0) {
               small.Add(largeV);
 
-            } else if (prob.Get(largeV) > avg_bias ) {
+            } else if (prob.Get(largeV) > 1.0) {
               large.Add(largeV);
             }
           }
@@ -677,7 +670,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
   uint current_itr;
   gpu_graph *ggraph;
   int src_id;
-  float avg_bias;
 
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, false> large;
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, false> small;
@@ -705,20 +697,18 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i]);
-      prob[i] = graph->getBias(ids[i]);
     }
 
     tmp = blockReduce<float>(local_sum);
     __syncthreads();
     if (LTID == 0) {
       weight_sum = tmp;
-      avg_bias = weight_sum / size;
       // printf("weight_sum %f\n", weight_sum);
     }
     __syncthreads();
 
     if (weight_sum != 0.0) {
-      // normalize_from_graph(graph);
+      normalize_from_graph(graph);
       return true;
     } else
       return false;
@@ -731,14 +721,14 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
     selected.Init(sz);
     // paster(Size());
   }
-  // __device__ void normalize_from_graph(gpu_graph *graph) {
-  //   float scale = size / weight_sum;
-  //   for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-  //   {                                                // size //TODO
-  //     prob.Get(i) = graph->getBias(ids[i]) * scale;
-  //   }
-  //   __syncthreads();
-  // }
+  __device__ void normalize_from_graph(gpu_graph *graph) {
+    float scale = size / weight_sum;
+    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    {                                                // size //TODO
+      prob.Get(i) = graph->getBias(ids[i]) * scale;
+    }
+    __syncthreads();
+  }
   __device__ void Clean() {
     // if (LTID == 0) {
     large.Clean();
@@ -812,7 +802,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
       smallsize = 0;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
-      if (prob.Get(i) > avg_bias)
+      if (prob.Get(i) > 1)
         large.Add(i);
       else {
         small.Add(i);
@@ -850,22 +840,22 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
         }
         float old;
         if (holder)
-          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - avg_bias );
+          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
         if (!holder)
-          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - avg_bias );
+          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
 
-        if (old + prob.Get(smallV) - avg_bias  < 0) {
+        if (old + prob.Get(smallV) - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob.Get(largeV), avg_bias - prob.Get(smallV));
+          atomicAdd(&prob.Get(largeV), 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
 
           alias.Get(smallV) = largeV;
           if (holder) {
-            if (prob.Get(largeV) < avg_bias ) {
+            if (prob.Get(largeV) < 1.0) {
               small.Add(largeV);
 
-            } else if (prob.Get(largeV) > avg_bias ) {
+            } else if (prob.Get(largeV) > 1.0) {
               large.Add(largeV);
             }
           }
@@ -887,7 +877,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
   uint current_itr;
   gpu_graph *ggraph;
   int src_id;
-  float avg_bias;
 
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> large;
   Vector_shmem<T, ExecutionPolicy::BC, ELE_PER_BLOCK, true> small;
@@ -927,20 +916,18 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i]);
-      prob[i] = graph->getBias(ids[i]);
     }
 
     tmp = blockReduce<float>(local_sum);
     __syncthreads();
     if (LTID == 0) {
       weight_sum = tmp;
-      avg_bias = weight_sum / size;
       // printf("weight_sum %f\n", weight_sum);
     }
     __syncthreads();
 
     if (weight_sum != 0.0) {
-      // normalize_from_graph(graph);
+      normalize_from_graph(graph);
       return true;
     } else
       return false;
@@ -953,14 +940,14 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
     selected.Init(sz);
     // paster(Size());
   }
-  // __device__ void normalize_from_graph(gpu_graph *graph) {
-  //   float scale = size / weight_sum;
-  //   for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-  //   {                                                // size //TODO
-  //     *prob.GetPtr(i) = graph->getBias(ids[i]) * scale;
-  //   }
-  //   __syncthreads();
-  // }
+  __device__ void normalize_from_graph(gpu_graph *graph) {
+    float scale = size / weight_sum;
+    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    {                                                // size //TODO
+      *prob.GetPtr(i) = graph->getBias(ids[i]) * scale;
+    }
+    __syncthreads();
+  }
   __device__ void Clean() {
     // if (LTID == 0) {
     large.Clean();
@@ -1032,7 +1019,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
       smallsize = 0;
     for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
     {
-      if (prob.Get(i) > avg_bias)
+      if (prob.Get(i) > 1)
         large.Add(i);
       else {
         small.Add(i);
@@ -1070,20 +1057,20 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
         }
         float old;
         if (holder)
-          old = atomicAdd(prob.GetPtr(largeV), prob.Get(smallV) - avg_bias );
+          old = atomicAdd(prob.GetPtr(largeV), prob.Get(smallV) - 1.0);
         if (!holder)
-          old = atomicAdd(prob.GetPtr(largeV), prob.Get(smallV) - avg_bias );
-        if (old + prob.Get(smallV) - avg_bias  < 0) {
+          old = atomicAdd(prob.GetPtr(largeV), prob.Get(smallV) - 1.0);
+        if (old + prob.Get(smallV) - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(prob.GetPtr(largeV), avg_bias - prob.Get(smallV));
+          atomicAdd(prob.GetPtr(largeV), 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
 
           *alias.GetPtr(smallV) = largeV;
           if (holder) {
-            if (prob.Get(largeV) < avg_bias ) {
+            if (prob.Get(largeV) < 1.0) {
               small.Add(largeV);
-            } else if (prob.Get(largeV) > avg_bias ) {
+            } else if (prob.Get(largeV) > 1.0) {
               large.Add(largeV);
             }
           }
@@ -1106,7 +1093,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
   uint current_itr;
   gpu_graph *ggraph;
   int src_id;
-  float avg_bias;
 
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> large;
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> small;
@@ -1138,17 +1124,15 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
     float local_sum = 0.0, tmp;
     for (size_t i = LID; i < size; i += 32) {
       local_sum += graph->getBias(ids[i]);
-      prob.data[i] = graph->getBias(ids[i]);
     }
     tmp = warpReduce<float>(local_sum);
 
     if (LID == 0) {
       weight_sum = tmp;
-      avg_bias = weight_sum / size;
     }
     __syncwarp(0xffffffff);
     if (weight_sum != 0.0) {
-      // normalize_from_graph(graph);
+      normalize_from_graph(graph);
       return true;
     } else
       return false;
@@ -1161,12 +1145,12 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
     selected.Init(sz);
     // paster(Size());
   }
-  // __device__ void normalize_from_graph(gpu_graph *graph) {
-  //   float scale = size / weight_sum;
-  //   for (size_t i = LID; i < size; i += 32) {
-  //     prob[i] = graph->getBias(ids[i]) * scale; // gdb error
-  //   }
-  // }
+  __device__ void normalize_from_graph(gpu_graph *graph) {
+    float scale = size / weight_sum;
+    for (size_t i = LID; i < size; i += 32) {
+      prob[i] = graph->getBias(ids[i]) * scale; // gdb error
+    }
+  }
   __device__ void Clean() {
     // if (LID == 0) {
     large.Clean();
@@ -1230,7 +1214,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
 
   __device__ void construct() {
     for (size_t i = LID; i < size; i += 32) {
-      if (prob[i] > avg_bias)
+      if (prob[i] > 1)
         large.Add(i);
       else
         small.Add(i);
@@ -1264,20 +1248,20 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
         }
         float old;
         if (holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - avg_bias );
+          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (!holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - avg_bias );
-        if (old + prob[smallV] - avg_bias  < 0) {
+          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        if (old + prob[smallV] - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob[largeV], avg_bias - prob[smallV]);
+          atomicAdd(&prob[largeV], 1 - prob[smallV]);
           small.Add(smallV);
         } else {
 
           alias[smallV] = largeV;
           if (holder) {
-            if (prob[largeV] < avg_bias) {
+            if (prob[largeV] < 1) {
               small.Add(largeV);
-            } else if (prob[largeV] > avg_bias) {
+            } else if (prob[largeV] > 1) {
               large.Add(largeV);
             }
           }
@@ -1300,7 +1284,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
   uint current_itr;
   gpu_graph *ggraph;
   uint src_id;
-  float avg_bias;
 
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> large;
   Vector_shmem<T, ExecutionPolicy::WC, ELE_PER_WARP, false> small;
@@ -1325,17 +1308,15 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     float local_sum = 0.0, tmp;
     for (size_t i = LID; i < size; i += 32) {
       local_sum += graph->getBias(ids[i], _src_id, _idx);
-      prob[i] = graph->getBias(ids[i]);
     }
     tmp = warpReduce<float>(local_sum);
 
     if (LID == 0) {
       weight_sum = tmp;
-      avg_bias = weight_sum / size;
     }
     __syncwarp(0xffffffff);
     if (weight_sum != 0.0) {
-      // normalize_from_graph(graph, _src_id,  _idx);
+      normalize_from_graph(graph, _src_id, _idx);
       return true;
     } else
       return false;
@@ -1343,10 +1324,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
   __device__ bool SaveAliasTable(gpu_graph *graph) {
     size_t start = graph->beg_pos[src_id];
     uint len = graph->getDegree((uint)src_id);
-    for (size_t i = LID; i < len; i += 32) {
+    for (size_t i = LID; i < len; i++) {
       graph->alias_array[start + i] = alias[i];
     }
-    for (size_t i = LID; i < len; i += 32) {
+    for (size_t i = LID; i < len; i++) {
       graph->prob_array[start + i] = prob[i];
     }
   }
@@ -1357,14 +1338,13 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     prob.Init(sz);
     selected.Init(sz);
   }
-  // __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
-  //                                      uint _idx = 0) {
-  //   float scale = size / weight_sum;
-  //   for (size_t i = LID; i < size; i += 32) {
-  //     prob[i] =
-  //         graph->getBias(ids[i], _src_id, _idx) * scale; // gdb error
-  //   }
-  // }
+  __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
+                                       uint _idx = 0) {
+    float scale = size / weight_sum;
+    for (size_t i = LID; i < size; i += 32) {
+      prob[i] = graph->getBias(ids[i], _src_id, _idx) * scale; // gdb error
+    }
+  }
   __device__ void Clean() {
     // if (LID == 0) {
     large.Clean();
@@ -1439,7 +1419,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
 
   __device__ void construct() {
     for (size_t i = LID; i < size; i += 32) {
-      if (prob[i] > avg_bias)
+      if (prob[i] > 1)
         large.Add(i);
       else
         small.Add(i);
@@ -1473,19 +1453,19 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
         }
         float old;
         if (holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - avg_bias );
+          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (!holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - avg_bias );
-        if (old + prob[smallV] - avg_bias  < 0) {
+          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        if (old + prob[smallV] - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob[largeV], avg_bias - prob[smallV]);
+          atomicAdd(&prob[largeV], 1 - prob[smallV]);
           small.Add(smallV);
         } else {
           alias[smallV] = largeV;
           if (holder) {
-            if (prob[largeV] < avg_bias) {
+            if (prob[largeV] < 1) {
               small.Add(largeV);
-            } else if (prob[largeV] > avg_bias) {
+            } else if (prob[largeV] > 1) {
               large.Add(largeV);
             }
           }
