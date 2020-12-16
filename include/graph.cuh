@@ -24,7 +24,8 @@ using namespace std;
 // using namespace intrinsics;
 DECLARE_string(input);
 DECLARE_int32(device);
-
+DECLARE_bool(umbuf);
+DECLARE_bool(bias);
 DECLARE_bool(dw);
 DECLARE_bool(randomweight); // randomweight
 DECLARE_int32(weightrange);
@@ -95,14 +96,22 @@ public:
   // void Map();
 
   void Set_Mem_Policy(bool needWeight = false) {
+    H_ERR(cudaMemAdvise(xadj, (numNode + 1) * sizeof(edge_t),
+                        cudaMemAdviseSetAccessedBy, FLAGS_device));
+    H_ERR(cudaMemAdvise(adjncy, numEdge * sizeof(vtx_t),
+                        cudaMemAdviseSetAccessedBy, FLAGS_device));
+
     H_ERR(cudaMemPrefetchAsync(xadj, (numNode + 1) * sizeof(edge_t),
                                FLAGS_device, 0));
-    // if (um_used < avail) {
     H_ERR(
         cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device, 0));
-    if (needWeight)
+
+    if (needWeight && FLAGS_bias) {
+      H_ERR(cudaMemAdvise(adjwgt, numEdge * sizeof(weight_t),
+                          cudaMemAdviseSetAccessedBy, FLAGS_device));
       H_ERR(cudaMemPrefetchAsync(adjwgt, numEdge * sizeof(weight_t),
                                  FLAGS_device, 0));
+    }
   }
 
   void gk_fclose(FILE *fp) { fclose(fp); }
@@ -166,10 +175,11 @@ public:
     um_used += (num_Node + 1) * sizeof(vtx_t) + num_Edge * sizeof(vtx_t);
 
     adjwgt = nullptr;
-    H_ERR(cudaMallocManaged(&adjwgt, num_Edge * sizeof(weight_t)));
+    if (FLAGS_bias)
+      H_ERR(cudaMallocManaged(&adjwgt, num_Edge * sizeof(weight_t)));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
-    if (!sizeEdgeTy || FLAGS_randomweight) {
+    if ((!sizeEdgeTy || FLAGS_randomweight) && FLAGS_bias) {
       printf("generating random weight\n");
       srand((unsigned int)0);
       // srand((unsigned int)time(NULL));
@@ -212,9 +222,15 @@ public:
     for (size_t i = 0; i < num_Node; i++) {
       outDegree[i] = xadj[i + 1] - xadj[i];
     }
-    // int tmp = 3037297;
+    // int tmp = 25729;
     // if (FLAGS_v)
     //   printf("%d has  out degree %d\n", tmp, outDegree[tmp]);
+    // for (size_t i = 0; i < outDegree[tmp]; i++)
+    // {
+    //   printf("%u \t",adjncy[xadj[tmp]+i ] );
+    // }
+    // printf("%d has  out degree %d\n", tmp, outDegree[tmp]);
+
     // tmp = 3025271;
     // if (FLAGS_v)
     //   printf("%d has  out degree %d\n", tmp, outDegree[tmp]);
@@ -223,7 +239,7 @@ public:
     if (FLAGS_v)
       printf("%d has max out degree %d\n", maxD, outDegree[maxD]);
     MaxDegree = outDegree[maxD];
-    if (sizeEdgeTy && !FLAGS_randomweight) {
+    if (sizeEdgeTy && !FLAGS_randomweight && FLAGS_bias) {
       if (num_Edge % 2)
         if (fseek(fpin, 4, SEEK_CUR) != 0) // skip
           printf("Error when seeking\n");

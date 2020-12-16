@@ -1,6 +1,9 @@
 #pragma once
+#include "gflags/gflags.h"
 #include "util.cuh"
 
+DECLARE_bool(umbuf);
+DECLARE_int32(device);
 enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2 };
 
 template <typename T> class Vector_itf {
@@ -15,7 +18,7 @@ public:
   virtual T &operator[](size_t id) {}
 };
 
-template <typename T, int size> struct buf { T data[size];  };
+template <typename T, int size> struct buf { T data[size]; };
 
 // <typename T, int _size>
 // struct Simple_vector;
@@ -191,8 +194,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
       }
     }
   }
-  __device__ T &operator[](size_t idx)
-  {
+  __device__ T &operator[](size_t idx) {
     if (idx < capacity)
       return data.data[idx];
     // else
@@ -262,10 +264,17 @@ public:
     H_ERR(cudaMemcpy(floor, &floor_h, sizeof(u64), cudaMemcpyHostToDevice));
     H_ERR(cudaMemcpy(size, &size_h, sizeof(u64), cudaMemcpyHostToDevice));
 
+    // paster(_capacity);
     H_ERR(
         cudaMemcpy(capacity, &capacity_h, sizeof(u64), cudaMemcpyHostToDevice));
 
-    H_ERR(cudaMalloc(&data, _capacity * sizeof(T)));
+    if (!FLAGS_umbuf) {
+      H_ERR(cudaMalloc(&data, _capacity * sizeof(T)));
+    } else {
+      H_ERR(cudaMallocManaged(&data, _capacity * sizeof(T)));
+      H_ERR(cudaMemAdvise(data, _capacity * sizeof(T),
+                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+    }
   }
   __device__ void Init(int _size = 0) {
     *size = _size;
@@ -320,7 +329,8 @@ public:
     if (old < *capacity)
       data[old] = t;
     else
-      printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__, old, *capacity);
+      printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__,
+             old, *capacity);
     // printf("gvector overflow %d\n", old);
   }
   __device__ void AddTillSize(T t, u64 target_size) {
@@ -413,9 +423,9 @@ public:
     if (id < size)
       return data[id];
     else
-      return data[size-1];
-      // printf("%s\t:%d Vector_gmem overflow to %llu size %llu\n", __FILE__,
-      //        __LINE__, id, size);
+      return data[size - 1];
+    // printf("%s\t:%d Vector_gmem overflow to %llu size %llu\n", __FILE__,
+    //        __LINE__, id, size);
   }
   __device__ T Get(size_t id) { return data[id]; }
 };

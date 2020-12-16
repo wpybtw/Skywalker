@@ -1,8 +1,8 @@
 /*
  * @Description:
  * @Date: 2020-11-17 13:28:27
- * @LastEditors: Please set LastEditors
- * @LastEditTime: 2020-12-08 19:47:31
+ * @LastEditors: PengyuWang
+ * @LastEditTime: 2020-12-09 20:05:45
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -33,7 +33,7 @@ DEFINE_int32(n, 4000, "sample size");
 DEFINE_int32(k, 2, "neightbor");
 DEFINE_int32(d, 2, "depth");
 
-DEFINE_int32(hd, 4, "high degree ratio");
+DEFINE_int32(hd, 2, "high degree ratio");
 
 DEFINE_bool(ol, true, "online alias table building");
 DEFINE_bool(rw, false, "Random walk specific");
@@ -42,10 +42,16 @@ DEFINE_bool(dw, false, "using degree as weight");
 
 DEFINE_bool(randomweight, false, "generate random weight with range");
 DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
+
+DEFINE_bool(sage, false, "GraphSage");
+DEFINE_bool(deepwalk, false, "deepwalk");
 DEFINE_bool(node2vec, false, "node2vec");
 DEFINE_double(p, 2.0, "hyper-parameter p for node2vec");
 DEFINE_double(q, 0.5, "hyper-parameter q for node2vec");
 
+DEFINE_bool(um, false, "using UM for alias table");
+DEFINE_bool(umresult, false, "using UM for result");
+DEFINE_bool(umbuf, false, "using UM for global buffer");
 DEFINE_bool(cache, false, "cache alias table for online");
 DEFINE_bool(debug, false, "debug");
 DEFINE_bool(bias, true, "biased or unbiased sampling");
@@ -55,8 +61,24 @@ DEFINE_bool(v, false, "verbose");
 int main(int argc, char *argv[]) {
 
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  int SampleSize = FLAGS_n;
+  // override flag
+  if (FLAGS_node2vec) {
+    FLAGS_ol = true;
+    FLAGS_rw = true;
+    FLAGS_k = 1;
+  }
+  if (FLAGS_deepwalk) {
+    // FLAGS_ol=true;
+    FLAGS_rw = true;
+    FLAGS_k = 1;
+  }
+  if (FLAGS_sage) {
+    // FLAGS_ol=true;
+    FLAGS_rw = false;
+    FLAGS_d = 2;
+  }
 
+  int SampleSize = FLAGS_n;
   int NeighborSize = FLAGS_k;
   int Depth = FLAGS_d;
 
@@ -66,12 +88,28 @@ int main(int argc, char *argv[]) {
   for (size_t i = 1; i < Depth + 1; i++) {
     hops[i] = NeighborSize;
   }
-
+  if (FLAGS_sage) {
+    hops[1] = 25;
+    hops[1] = 10;
+  }
   Graph *ginst = new Graph();
   gpu_graph ggraph(ginst);
-  Sampler sampler(ggraph);
-  if (FLAGS_full)
+  if (ginst->numEdge > 1000000000) {
+    FLAGS_um = 1;
+    if (FLAGS_v)
+      LOG("overriding um for alias table\n");
+  }
+  if (ginst->MaxDegree > 500000) {
+    FLAGS_umbuf = 1;
+    if (FLAGS_v)
+      LOG("overriding um buffer\n");
+  }
+  if (FLAGS_full) {
     SampleSize = ggraph.vtx_num;
+    FLAGS_n = ggraph.vtx_num;
+  }
+  Sampler sampler(ggraph);
+
   if (!FLAGS_bias) {
     if (!FLAGS_rw) {
       sampler.SetSeed(SampleSize, Depth + 1, hops);
@@ -85,8 +123,10 @@ int main(int argc, char *argv[]) {
     if (FLAGS_ol) {
       sampler.SetSeed(SampleSize, Depth + 1, hops);
       if (!FLAGS_rw) {
+        // printf("OnlineGBSample\n");
         OnlineGBSample(sampler);
       } else {
+        // printf("OnlineGBWalk\n");
         Walker walker(sampler);
         walker.SetSeed(SampleSize, Depth + 1);
         OnlineGBWalk(walker);

@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-08 22:38:19
+ * @LastEditTime: 2020-12-09 19:53:37
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -36,8 +36,10 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
       result.AddActive(current_itr, result.getNextAddr(current_itr), sid);
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
-      result.state[sid].last = node_id;
-      // printf("\nlast %u\n",node_id);
+      ggraph->UpdateWalkerState(sid, node_id);
+      // if (sid == 0)
+      //   printf("from %uto %u candidate %u\t", node_id,
+      //          ggraph->getOutNode(node_id, candidate), candidate);
     };
   } else {
     if (LID == 0)
@@ -63,6 +65,7 @@ SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
   __syncthreads();
   if (not_all_zero) {
     table->constructBC();
+    __syncthreads();
     if (LTID == 0) {
       int col = (int)floor(curand_uniform(&state) * table->size);
       float p = curand_uniform(&state);
@@ -74,7 +77,13 @@ SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
       result.AddActive(current_itr, result.getNextAddr(current_itr), sid);
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
-      result.state[sid].last = node_id;
+      ggraph->UpdateWalkerState(sid, node_id);
+      // result.state[sid].last = node_id;
+      // if (sid == 0) {
+      //   printf("seting last %u \t", node_id);
+      //   printf("BCfrom %uto %u \n", node_id,
+      //          ggraph->getOutNode(node_id, candidate));
+      // }
     };
   } else {
     if (LTID == 0)
@@ -135,7 +144,9 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       high_degree_job.val = job.val;
       if (job.val) {
         sid2 = job.node_id;
-        high_degree_job.node_id = result.data[current_itr * result.size, sid2];
+        high_degree_job.node_id = result.GetData(current_itr, sid2);
+        // high_degree_job.node_id = result.data[current_itr * result.size,
+        // sid2];
         // uint node_id = result.data[current_itr * result.size, job.node_id];
       }
     }
@@ -150,8 +161,7 @@ __global__ void OnlineWalkKernel(Walker *sampler,
         high_degree_job.val = job.val;
         if (job.val) {
           sid2 = job.node_id;
-          high_degree_job.node_id =
-              result.data[current_itr * result.size, sid2];
+          high_degree_job.node_id = result.GetData(current_itr, sid2);
         }
       }
       __syncthreads();

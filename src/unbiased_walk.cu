@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-07 14:08:41
+ * @LastEditTime: 2020-12-09 17:44:44
  * @FilePath: /sampling/src/unbiased_walk.cu
  */
 #include "kernel.cuh"
@@ -52,7 +52,6 @@ __global__ void UnbiasedWalkKernel(Walker *walker) {
   gpu_graph *graph = &walker->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-
   for (size_t idx_i = TID; idx_i < result.size;
        idx_i += gridDim.x * blockDim.x) {
     result.length[idx_i] = result.hop_num - 1;

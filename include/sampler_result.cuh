@@ -1,11 +1,13 @@
 #pragma once
 #include "gflags/gflags.h"
 #include "vec.cuh"
+DECLARE_int32(device);
 DECLARE_int32(hd);
 DECLARE_bool(dynamic);
 DECLARE_bool(node2vec);
 DECLARE_double(p);
 DECLARE_double(q);
+DECLARE_bool(umresult);
 
 struct sample_job {
   uint idx;
@@ -29,12 +31,12 @@ enum class JobType {
   NODE2VEC
 };
 
-static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
-                                 uint hop) {
-  if (TID < size) {
-    data[TID * hop] = seeds[TID];
-  }
-}
+// static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
+//                                  uint hop) {
+//   if (TID < size) {
+//     data[TID * hop] = seeds[TID];
+//   }
+// }
 
 static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
                                  uint hop) {
@@ -110,43 +112,61 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   void init(uint _size, uint _hop_num, uint *seeds) {
     size = _size;
     hop_num = _hop_num;
-    cudaMalloc(&data, size * hop_num * sizeof(uint));
-    cudaMalloc(&alive, size * sizeof(char));
-    cudaMemset(alive, 1, size * sizeof(char));
-    cudaMalloc(&length, size * sizeof(uint));
+    if (size * hop_num > 400000000)
+      FLAGS_umresult = true;
+    if (!FLAGS_umresult) {
+      H_ERR(cudaMalloc(&data, size * hop_num * sizeof(uint)));
+    } else {
+      H_ERR(cudaMallocManaged(&data, size * hop_num * sizeof(uint)));
+      H_ERR(cudaMemAdvise(data, size * hop_num * sizeof(uint),
+                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+    }
+    H_ERR(cudaMalloc(&alive, size * sizeof(char)));
+    H_ERR(cudaMemset(alive, 1, size * sizeof(char)));
+    H_ERR(cudaMalloc(&length, size * sizeof(uint)));
 
     if (FLAGS_node2vec) {
-      cudaMalloc(&state, size * sizeof(SamplerState<JobType::NODE2VEC, T>));
+      H_ERR(cudaMalloc(&state,
+                       size * sizeof(SamplerState<JobType::NODE2VEC, T>)));
       p = FLAGS_p;
       q = FLAGS_q;
     }
 
     {
-      cudaMalloc(&data2, size * hop_num * sizeof(uint));
-      cudaMemcpy(data2, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
+      if (!FLAGS_umresult) {
+        H_ERR(cudaMalloc(&data2, size * hop_num * sizeof(uint)));
+      } else {
+        H_ERR(cudaMallocManaged(&data2, size * hop_num * sizeof(uint)));
+        H_ERR(cudaMemAdvise(data2, size * hop_num * sizeof(uint),
+                            cudaMemAdviseSetAccessedBy, FLAGS_device));
+      }
+      H_ERR(cudaMemcpy(data2, seeds, size * sizeof(uint),
+                       cudaMemcpyHostToDevice));
 
       Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
       for (size_t i = 0; i < hop_num; i++) {
         high_degrees_h[i].Allocate(MAX((size / FLAGS_hd), 4000));
       }
-      cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>));
-      cudaMemcpy(high_degrees, high_degrees_h,
-                 hop_num * sizeof(Vector_gmem<uint>), cudaMemcpyHostToDevice);
-      cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int));
-      cudaMalloc(&job_sizes, (hop_num) * sizeof(int));
+      H_ERR(cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+      H_ERR(cudaMemcpy(high_degrees, high_degrees_h,
+                       hop_num * sizeof(Vector_gmem<uint>),
+                       cudaMemcpyHostToDevice));
+      H_ERR(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
+      H_ERR(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
     }
 
     if (FLAGS_dynamic) {
       frontier.Allocate(size);
       // copy seeds
       // if layout1, oor
-      cudaMemcpy(frontier.data, seeds, size * sizeof(uint),
-                 cudaMemcpyHostToDevice);
+      H_ERR(cudaMemcpy(frontier.data, seeds, size * sizeof(uint),
+                       cudaMemcpyHostToDevice));
       setFrontierSize<<<1, 32>>>(frontier.size, size);
     }
     uint *seeds_g;
-    cudaMalloc(&seeds_g, size * sizeof(uint));
-    cudaMemcpy(seeds_g, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
+    H_ERR(cudaMalloc(&seeds_g, size * sizeof(uint)));
+    H_ERR(cudaMemcpy(seeds_g, seeds, size * sizeof(uint),
+                     cudaMemcpyHostToDevice));
     initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
   }
   __device__ void AddHighDegree(uint current_itr, uint node_id) {

@@ -45,5 +45,5 @@ lj: main
 	./main lj ~/data/soc-LiveJournal1.txt_beg_pos.bin  ~/data/soc-LiveJournal1.txt_csr.bin   100 32 4000 2 1 1 1
 
 clean:
-	rm $(OBJ_DIR)/*.o  $(API_OBJ_DIR)/*.o  main 
+	rm $(OBJ_DIR)/*.o  $(API_OBJ_DIR)/*.o  main  main_degree node2vec
 	# rm *.cubin *.fatbin *.fatbin.*  *.reg.cu *.ii *.gpu *.stub.c *.module_id *.cudafe1.* *.reg.c *.ptx

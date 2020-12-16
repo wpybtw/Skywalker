@@ -4,6 +4,7 @@
 // #include "alias_table.cuh"
 #include <random>
 DECLARE_bool(ol);
+DECLARE_bool(um);
 // struct sample_result;
 // class Sampler;
 
@@ -40,9 +41,24 @@ public:
   }
   ~Sampler() {}
   void AllocateAliasTable() {
-    H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
-    H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
-    H_ERR(cudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
+    if (!FLAGS_um) {
+      H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
+      H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
+      H_ERR(cudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
+    } else {
+      H_ERR(cudaMallocManaged((void **)&prob_array,
+                              ggraph.edge_num * sizeof(float)));
+      H_ERR(cudaMallocManaged((void **)&alias_array,
+                              ggraph.edge_num * sizeof(uint)));
+      H_ERR(cudaMallocManaged((void **)&valid, ggraph.vtx_num * sizeof(char)));
+
+      H_ERR(cudaMemAdvise(prob_array, ggraph.edge_num * sizeof(float),
+                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+      H_ERR(cudaMemAdvise(alias_array, ggraph.edge_num * sizeof(uint),
+                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+      H_ERR(cudaMemAdvise(valid, ggraph.vtx_num * sizeof(char),
+                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+    }
     // if (!FLAGS_ol)
     //   H_ERR(cudaMalloc((void **)&avg_bias, ggraph.vtx_num * sizeof(float)));
     ggraph.valid = valid;

@@ -119,6 +119,7 @@ public:
   __device__ vtx_t *getNeighborPtr(index_t idx) {
     return &adj_list[beg_pos[idx]];
   }
+  __device__ void UpdateWalkerState(uint idx, uint info);
 };
 
 #endif

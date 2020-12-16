@@ -1,7 +1,7 @@
 /*
  * @Author: Pengyu Wang
  * @Date: 2020-12-08 17:22:17
- * @LastEditTime: 2020-12-08 20:47:32
+ * @LastEditTime: 2020-12-09 19:57:18
  * @Description:
  * @FilePath: /sampling/src/api/bias_node2vec.cu
  */
@@ -23,4 +23,7 @@ __device__ float gpu_graph::getBias(index_t dst, uint src, uint idx) {
     // printf("NotConnect\t");
     return weight_list[dst] / this->result->q;
   }
+}
+__device__ void gpu_graph::UpdateWalkerState(uint idx, uint info){
+  this->result->state[idx].last = info;
 }
