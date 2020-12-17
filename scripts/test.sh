@@ -4,7 +4,7 @@ HD=(4 1  4 1 4 1) # uk-union rmat29 web-ClueWeb09)
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: PengyuWang
- # @LastEditTime: 2020-12-09 20:21:55
+ # @LastEditTime: 2020-12-16 16:50:25
  # @FilePath: /sampling/scripts/test.sh
 ### 
 GR=".w.gr"
@@ -59,12 +59,17 @@ GR=".w.gr"
 #     ./main --k 2 --d 2 --ol=1 --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]}
 # done
 
-echo "-------------------------------------------------------online sample 4k 2,2. using degree"
+# echo "-------------------------------------------------------online sample 4k 2,2. using degree"
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./main_degree --k 2 --d 2 --ol=1 --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]}
+# done
+
+echo "-------------------------------------------------------offline ppr 4k 0.15. using 64"
 for idx in $(seq 1 ${#DATA[*]}) 
 do
-    ./main_degree --k 2 --d 2 --ol=1 --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]}
+    ./main --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} -bias=1 --rw=1 --ol=1 --n=4000 --k 1 --d 100  --tp=0.85 
 done
-
 
 # echo "-------------------------------------------------------offline sample |V| 2,2. using 0-64 weight"
 # for idx in $(seq 1 ${#DATA[*]}) 

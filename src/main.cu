@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-09 20:05:45
+ * @LastEditTime: 2020-12-16 16:43:42
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -43,20 +43,24 @@ DEFINE_bool(dw, false, "using degree as weight");
 DEFINE_bool(randomweight, false, "generate random weight with range");
 DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
 
+// app specific
 DEFINE_bool(sage, false, "GraphSage");
 DEFINE_bool(deepwalk, false, "deepwalk");
 DEFINE_bool(node2vec, false, "node2vec");
 DEFINE_double(p, 2.0, "hyper-parameter p for node2vec");
 DEFINE_double(q, 0.5, "hyper-parameter q for node2vec");
+DEFINE_double(tp, 0.0, "terminate probabiility");
 
 DEFINE_bool(um, false, "using UM for alias table");
 DEFINE_bool(umresult, false, "using UM for result");
 DEFINE_bool(umbuf, false, "using UM for global buffer");
+
 DEFINE_bool(cache, false, "cache alias table for online");
 DEFINE_bool(debug, false, "debug");
 DEFINE_bool(bias, true, "biased or unbiased sampling");
 DEFINE_bool(full, false, "sample over all node");
 DEFINE_bool(v, false, "verbose");
+DEFINE_bool(stream, false, "streaming sample over all node");
 
 int main(int argc, char *argv[]) {
 
@@ -104,13 +108,13 @@ int main(int argc, char *argv[]) {
     if (FLAGS_v)
       LOG("overriding um buffer\n");
   }
-  if (FLAGS_full) {
+  if (FLAGS_full && !FLAGS_stream) {
     SampleSize = ggraph.vtx_num;
     FLAGS_n = ggraph.vtx_num;
   }
   Sampler sampler(ggraph);
 
-  if (!FLAGS_bias) {
+  if (!FLAGS_bias) {    // unbias
     if (!FLAGS_rw) {
       sampler.SetSeed(SampleSize, Depth + 1, hops);
       // UnbiasedSample(sampler);
@@ -119,19 +123,17 @@ int main(int argc, char *argv[]) {
       walker.SetSeed(SampleSize, Depth + 1);
       UnbiasedWalk(walker);
     }
-  } else {
-    if (FLAGS_ol) {
+  } else {              // biased
+    if (FLAGS_ol) { // online biased
       sampler.SetSeed(SampleSize, Depth + 1, hops);
       if (!FLAGS_rw) {
-        // printf("OnlineGBSample\n");
         OnlineGBSample(sampler);
       } else {
-        // printf("OnlineGBWalk\n");
         Walker walker(sampler);
         walker.SetSeed(SampleSize, Depth + 1);
         OnlineGBWalk(walker);
       }
-    } else {
+    } else {        // offline biased
       sampler.InitFullForConstruction();
       ConstructTable(sampler);
       if (!FLAGS_rw) { //&& FLAGS_k != 1

@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-09 17:44:44
+ * @LastEditTime: 2020-12-16 16:44:04
  * @FilePath: /sampling/src/unbiased_walk.cu
  */
 #include "kernel.cuh"
@@ -11,7 +11,7 @@
 #include "util.cuh"
 DECLARE_bool(v);
 DEFINE_bool(dynamic, false, "invoke kernel for each itr");
-
+DECLARE_double(tp);
 // #define paster(n) printf("var: " #n " =  %d\n", n)
 __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
@@ -47,7 +47,7 @@ __global__ void GetSize(Walker *walker, uint current_itr, uint *size) {
     *size = walker->result.frontier.Size(current_itr);
 }
 
-__global__ void UnbiasedWalkKernel(Walker *walker) {
+__global__ void UnbiasedWalkKernel(Walker *walker, float *tp) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
   gpu_graph *graph = &walker->ggraph;
   curandState state;
@@ -60,14 +60,14 @@ __global__ void UnbiasedWalkKernel(Walker *walker) {
       uint src_id = result.GetData(current_itr, idx_i);
       uint src_degree = graph->getDegree((uint)src_id);
       // if(idx_i==0) printf("src_id %d src_degree %d\n",src_id,src_degree );
-      if (1 < src_degree) {
+      if (src_degree == 0 || curand_uniform(&state) < *tp) {
+        result.length[idx_i] = current_itr;
+        break;
+      } else if (1 < src_degree) {
         int col = (int)floor(curand_uniform(&state) * src_degree);
         uint candidate = col;
         *result.GetDataPtr(current_itr + 1, idx_i) =
             graph->getOutNode(src_id, candidate);
-      } else if (src_degree == 0) {
-        result.length[idx_i] = current_itr;
-        break;
       } else {
         *result.GetDataPtr(current_itr + 1, idx_i) =
             graph->getOutNode(src_id, 0);
@@ -140,6 +140,12 @@ void UnbiasedWalk(Walker &walker) {
   cudaMalloc(&sampler_ptr, sizeof(Walker));
   H_ERR(
       cudaMemcpy(sampler_ptr, &walker, sizeof(Walker), cudaMemcpyHostToDevice));
+
+  float *tp_d, tp;
+  tp = FLAGS_tp;
+  cudaMalloc(&tp_d, sizeof(float));
+  H_ERR(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
+
   double start_time, total_time;
   // init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
@@ -153,7 +159,7 @@ void UnbiasedWalk(Walker &walker) {
 
   start_time = wtime();
   if (!FLAGS_dynamic) {
-    UnbiasedWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+    UnbiasedWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, tp_d);
   } else {
     for (uint current_itr = 0; current_itr < walker.result.hop_num - 1;
          current_itr++) {

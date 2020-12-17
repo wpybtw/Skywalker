@@ -12,6 +12,7 @@ using namespace cooperative_groups;
 #include <stdlib.h>
 
 // #define check
+#define skip8k
 
 #define u64 unsigned long long int
 using ll = long long;

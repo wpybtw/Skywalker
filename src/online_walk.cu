@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-09 19:53:37
+ * @LastEditTime: 2020-12-16 16:43:52
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -12,6 +12,7 @@
 #define paster(n) printf("var: " #n " =  %d\n", n)
 DECLARE_bool(v);
 DECLARE_bool(debug);
+DECLARE_double(tp);
 static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int idx, int node_id,
@@ -94,7 +95,7 @@ SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
 }
 
 __global__ void OnlineWalkKernel(Walker *sampler,
-                                 Vector_pack<uint> *vector_pack) {
+                                 Vector_pack<uint> *vector_pack, float *tp) {
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack<uint> *vector_packs = &vector_pack[BID];
@@ -123,12 +124,20 @@ __global__ void OnlineWalkKernel(Walker *sampler,
     while (job.val) {
       uint node_id = result.GetData(current_itr, job.node_id);
       uint sid = job.node_id;
-      if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
-        SampleWarpCentic(result, ggraph, state, current_itr, job.idx, node_id,
-                         buffer, sid);
+      // if(LTID==0) printf("curand_uniform(&state) %f tp
+      // %f\t",curand_uniform(&state),*tp);
+      bool stop = __shfl_sync(0xffffffff, (curand_uniform(&state) < *tp), 0);
+      if (!stop) {
+        if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
+          SampleWarpCentic(result, ggraph, state, current_itr, job.idx, node_id,
+                           buffer, sid);
+        } else {
+          if (LID == 0)
+            result.AddHighDegree(current_itr, sid);
+        }
       } else {
         if (LID == 0)
-          result.AddHighDegree(current_itr, sid);
+          result.length[sid] = current_itr;
       }
       __syncwarp(0xffffffff);
       if (LID == 0)
@@ -224,14 +233,19 @@ void OnlineGBWalk(Walker &sampler) {
                    sizeof(Vector_pack<uint>) * block_num,
                    cudaMemcpyHostToDevice));
 
+  float *tp_d, tp;
+  tp = FLAGS_tp;
+  cudaMalloc(&tp_d, sizeof(float));
+  H_ERR(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
+
   //  Global_buffer
   H_ERR(cudaDeviceSynchronize());
   start_time = wtime();
   if (FLAGS_debug)
-    OnlineWalkKernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
+    OnlineWalkKernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs, tp_d);
   else
-    OnlineWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr,
-                                                      vector_packs);
+    OnlineWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs,
+                                                      tp_d);
 
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
