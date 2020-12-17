@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-16 16:43:52
+ * @LastEditTime: 2020-12-17 16:13:56
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -38,9 +38,6 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
       ggraph->UpdateWalkerState(sid, node_id);
-      // if (sid == 0)
-      //   printf("from %uto %u candidate %u\t", node_id,
-      //          ggraph->getOutNode(node_id, candidate), candidate);
     };
   } else {
     if (LID == 0)
@@ -79,12 +76,6 @@ SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
       *result.GetDataPtr(current_itr + 1, sid) =
           ggraph->getOutNode(node_id, candidate);
       ggraph->UpdateWalkerState(sid, node_id);
-      // result.state[sid].last = node_id;
-      // if (sid == 0) {
-      //   printf("seting last %u \t", node_id);
-      //   printf("BCfrom %uto %u \n", node_id,
-      //          ggraph->getOutNode(node_id, candidate));
-      // }
     };
   } else {
     if (LTID == 0)
@@ -124,8 +115,6 @@ __global__ void OnlineWalkKernel(Walker *sampler,
     while (job.val) {
       uint node_id = result.GetData(current_itr, job.node_id);
       uint sid = job.node_id;
-      // if(LTID==0) printf("curand_uniform(&state) %f tp
-      // %f\t",curand_uniform(&state),*tp);
       bool stop = __shfl_sync(0xffffffff, (curand_uniform(&state) < *tp), 0);
       if (!stop) {
         if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
@@ -154,9 +143,6 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       if (job.val) {
         sid2 = job.node_id;
         high_degree_job.node_id = result.GetData(current_itr, sid2);
-        // high_degree_job.node_id = result.data[current_itr * result.size,
-        // sid2];
-        // uint node_id = result.data[current_itr * result.size, job.node_id];
       }
     }
     __syncthreads();
