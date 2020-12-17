@@ -12,7 +12,8 @@ using namespace cooperative_groups;
 #include <stdlib.h>
 
 // #define check
-#define skip8k
+// #define skip8k
+// #define plargeitr
 
 #define u64 unsigned long long int
 using ll = long long;

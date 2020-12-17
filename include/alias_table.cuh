@@ -583,9 +583,17 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
         }
       }
       // __syncthreads();
-      if (LTID == 0)
-        itr++;
+      // if (LTID == 0)
+      itr++;
       __syncthreads();
+#ifdef plargeitr
+      if (itr > 50 && LTID == 0) {
+        printf("large itr %d\n", itr);
+      }
+// if (itr > 100) {
+//   break;
+// }
+#endif
     }
   }
 
@@ -1471,9 +1479,18 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
           }
         }
       }
-      if (LID == 0)
-        itr++;
+      // if (LID == 0) {
+      itr++;
+      // }
       __syncwarp(0xffffffff);
+#ifdef plargeitr
+      if (itr > 10 && LID == 0) {
+        printf("large itr %d\n", itr);
+      }
+// if (itr > 100) {
+//   break;
+// }
+#endif
     }
   }
 };

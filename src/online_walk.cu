@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-17 16:13:56
+ * @LastEditTime: 2020-12-17 16:18:01
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -121,7 +121,11 @@ __global__ void OnlineWalkKernel(Walker *sampler,
           SampleWarpCentic(result, ggraph, state, current_itr, job.idx, node_id,
                            buffer, sid);
         } else {
+#ifdef skip8k
+          if (LID == 0 && ggraph->getDegree(node_id) < 8000)
+#else
           if (LID == 0)
+#endif // skip8k
             result.AddHighDegree(current_itr, sid);
         }
       } else {

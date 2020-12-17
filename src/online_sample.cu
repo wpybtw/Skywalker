@@ -4,9 +4,10 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 DECLARE_bool(v);
-static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
-                                 curandState state, int current_itr, int idx,
-                                 int node_id, void *buffer) {
+static __device__ void SampleWarpCentic(sample_result &result,
+                                        gpu_graph *ggraph, curandState state,
+                                        int current_itr, int idx, int node_id,
+                                        void *buffer) {
   alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
   alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
@@ -21,10 +22,11 @@ static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph
   table->Clean();
 }
 
-static __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
-                                  curandState state, int current_itr,
-                                  int node_id, void *buffer,
-                                  Vector_pack<uint> *vector_packs) {
+static __device__ void SampleBlockCentic(sample_result &result,
+                                         gpu_graph *ggraph, curandState state,
+                                         int current_itr, int node_id,
+                                         void *buffer,
+                                         Vector_pack<uint> *vector_packs) {
   alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
       *tables = (alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
                                                BufferType::GMEM> *)buffer;
@@ -64,7 +66,8 @@ __global__ void sample_kernel(Sampler *sampler,
   __syncthreads();
   for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
   {
-    Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[current_itr];
+    Vector_gmem<uint> *high_degrees =
+        &sampler->result.high_degrees[current_itr];
     sample_job job;
     __threadfence_block();
     if (LID == 0)
@@ -79,7 +82,11 @@ __global__ void sample_kernel(Sampler *sampler,
         SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
                          job.node_id, buffer);
       } else {
+#ifdef skip8k
+        if (LID == 0 && ggraph->getDegree(job.node_id) < 8000)
+#else
         if (LID == 0)
+#endif // skip8k
           result.AddHighDegree(current_itr, job.node_id);
       }
       __syncwarp(0xffffffff);
@@ -141,7 +148,8 @@ void OnlineGBSample(Sampler sampler) {
 
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
-  int gbuff_size = sampler.ggraph.MaxDegree;;
+  int gbuff_size = sampler.ggraph.MaxDegree;
+  ;
   LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
 
   Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
@@ -167,7 +175,7 @@ void OnlineGBSample(Sampler sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:\t%.6f\n", total_time);
-  if(FLAGS_v)
-  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  if (FLAGS_v)
+    print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }
