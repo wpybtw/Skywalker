@@ -525,8 +525,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
     // return;
     // todo block lock step
     while ((!small.Empty()) && (!large.Empty())) {
+      itr++;
       thread_block tb = this_thread_block();
-
       long long old_small_idx = small.Size() - LTID - 1;
       long long old_small_size = small.Size();
       bool act = (old_small_idx >= 0);
@@ -584,7 +584,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       }
       // __syncthreads();
       // if (LTID == 0)
-      itr++;
       __syncthreads();
 #ifdef plargeitr
       if (itr > 50 && LTID == 0) {
@@ -595,6 +594,9 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
 // }
 #endif
     }
+    // if (LTID == 0) {
+    //   printf("bcitr, %d\n", itr);
+    // }
   }
 
   __device__ void construct() {
@@ -1318,7 +1320,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
       local_sum += graph->getBias(ids[i], _src_id, _idx);
     }
     tmp = warpReduce<float>(local_sum);
-
+    // printf("local_sum %f\t",local_sum);
     if (LID == 0) {
       weight_sum = tmp;
     }
@@ -1349,6 +1351,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
   __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
                                        uint _idx = 0) {
     float scale = size / weight_sum;
+    // if(LID==0) printf("weight_sum %f scale %f\n",weight_sum,scale);
     for (size_t i = LID; i < size; i += 32) {
       prob[i] = graph->getBias(ids[i], _src_id, _idx) * scale; // gdb error
     }
@@ -1434,7 +1437,9 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     }
     __syncwarp(0xffffffff);
     int itr = 0;
+    // printf("small.Size() %d large.Size() %d\n",small.Size(),large.Size());
     while (!small.Empty() && !large.Empty()) {
+      ++itr;
       int old_small_idx = small.Size() - LID - 1;
       int old_small_size = small.Size();
       // printf("old_small_idx %d\n", old_small_idx);
@@ -1479,10 +1484,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
           }
         }
       }
-      // if (LID == 0) {
-      itr++;
-      // }
-      __syncwarp(0xffffffff);
+      // if (LID == 0) {}
 #ifdef plargeitr
       if (itr > 10 && LID == 0) {
         printf("large itr %d\n", itr);
@@ -1491,6 +1493,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
 //   break;
 // }
 #endif
+      __syncwarp(0xffffffff);
     }
+    // if (LID == 0) {
+    //   printf("witr, %d\n", itr);
+    // }
   }
 };

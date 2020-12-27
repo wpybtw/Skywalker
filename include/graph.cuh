@@ -1,16 +1,16 @@
 #ifndef _GRAPH_CUH
 #define _GRAPH_CUH
 
-#include "util.cuh"
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <cerrno>
 #include <cstring>
-#include <cuda_runtime.h>
 #include <fcntl.h>
 #include <memory>
 #include <stdexcept>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <unistd.h>
+#include <algorithm>
+#include <assert.h>
 
 #include <cooperative_groups.h>
 #include <cuda_profiler_api.h>
@@ -18,14 +18,17 @@
 #include <nvrtc.h>
 
 #include "gflags/gflags.h"
-#include <algorithm>
-#include <assert.h>
+#include <omp.h>
+
+#include "util.cuh"
+
 using namespace std;
 // using namespace intrinsics;
 DECLARE_string(input);
 DECLARE_int32(device);
 DECLARE_bool(umbuf);
 DECLARE_bool(bias);
+DECLARE_bool(weight);
 DECLARE_bool(dw);
 DECLARE_bool(randomweight); // randomweight
 DECLARE_int32(weightrange);
@@ -76,12 +79,13 @@ public:
     this->withWeight = false;
     this->device = FLAGS_device;
     ReadGraphGR();
-    Set_Mem_Policy(FLAGS_randomweight);
+    Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
   }
   ~Graph() {
     H_ERR(cudaFree(xadj));
     H_ERR(cudaFree(adjncy));
-    H_ERR(cudaFree(adjwgt));
+    if (adjwgt != nullptr)
+      H_ERR(cudaFree(adjwgt));
   }
 
   void Init(int _device) {
@@ -106,7 +110,7 @@ public:
     H_ERR(
         cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device, 0));
 
-    if (needWeight && FLAGS_bias) {
+    if (needWeight) {
       H_ERR(cudaMemAdvise(adjwgt, numEdge * sizeof(weight_t),
                           cudaMemAdviseSetAccessedBy, FLAGS_device));
       H_ERR(cudaMemPrefetchAsync(adjwgt, numEdge * sizeof(weight_t),
@@ -175,7 +179,7 @@ public:
     um_used += (num_Node + 1) * sizeof(vtx_t) + num_Edge * sizeof(vtx_t);
 
     adjwgt = nullptr;
-    if (FLAGS_bias)
+    if (FLAGS_weight)
       H_ERR(cudaMallocManaged(&adjwgt, num_Edge * sizeof(weight_t)));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
@@ -239,17 +243,34 @@ public:
     if (FLAGS_v)
       printf("%d has max out degree %d\n", maxD, outDegree[maxD]);
     MaxDegree = outDegree[maxD];
-    if (sizeEdgeTy && !FLAGS_randomweight && FLAGS_bias) {
+    if (sizeEdgeTy && !FLAGS_randomweight &&FLAGS_weight && FLAGS_bias) {
+      if (FLAGS_v)
+        LOG("loading weight\n");
       if (num_Edge % 2)
         if (fseek(fpin, 4, SEEK_CUR) != 0) // skip
           printf("Error when seeking\n");
       if (sizeof(uint) == sizeof(uint32_t)) {
-        read = fread(adjwgt, sizeof(uint), num_Edge,
+        // if (FLAGS_v)
+        //   LOG("loading uint weight uint\n");
+        // uint tmp_weight[num_Edge];
+        uint *tmp_weight = new uint[num_Edge];
+
+        read = fread(tmp_weight, sizeof(uint), num_Edge,
                      fpin); // This is little-endian data
         readew = true;
         if (read < num_Edge)
           printf("Error: Partial read of edge data\n");
 
+        if (FLAGS_v)
+          LOG("convent uint weight to float\n");
+        
+        // if(omp_get_thread_num()) 
+        // printf("omp_get_max_threads() %d\n",omp_get_max_threads());
+        #pragma omp parallel for
+        for (size_t i = 0; i < num_Edge; i++) {
+          adjwgt[i] = static_cast<float>(tmp_weight[i]);
+        }
+        delete[] tmp_weight;
         // fprintf(stderr, "read data for %lu edges\n", num_Edge);
       } else {
         assert(false &&

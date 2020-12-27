@@ -1,7 +1,7 @@
 /*
  * @Author: Pengyu Wang
  * @Date: 2020-12-08 17:22:17
- * @LastEditTime: 2020-12-09 19:57:18
+ * @LastEditTime: 2020-12-27 20:01:54
  * @Description:
  * @FilePath: /sampling/src/api/bias_node2vec.cu
  */
@@ -9,7 +9,8 @@
 #include "gflags/gflags.h"
 #include "gpu_graph.cuh"
 
-
+DEFINE_bool(weight, true, "load edge weight from file");
+// DEFINE_bool(bias, true, "biased or unbiased sampling");
 
 __device__ float gpu_graph::getBias(index_t dst, uint src, uint idx) {
   // if(LID==0)

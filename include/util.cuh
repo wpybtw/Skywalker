@@ -58,8 +58,12 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
 }
 __device__ void active_size(int n);
 __device__ int active_size2(char *txt, int n);
-#define LOG(...) if(FLAGS_v)print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
-#define LOG(...) if(FLAGS_v)print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
+#define LOG(...)                                                               \
+  if (FLAGS_v)                                                                 \
+  print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
+#define LOG(...)                                                               \
+  if (FLAGS_v)                                                                 \
+  print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 
 using uint = unsigned int;
 
@@ -78,6 +82,13 @@ myprintf(const char *file, int line, const char *__format, Args... args) {
   printf(__format, args...);
 #endif
 }
+
+// void print() {}
+// template <typename T, typename... Types>
+// void print(const T &firstArg, const Types &... args) {
+//   std::cout << firstArg << std::endl;
+//   print(args...);
+// }
 } // namespace print
 
 // increment the value at ptr by 1 and return the old value

@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-16 16:43:42
+ * @LastEditTime: 2020-12-27 20:38:46
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
