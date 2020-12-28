@@ -1,16 +1,16 @@
 #include "alias_table.cuh"
+#include "kernel.cuh"
 #include "sampler.cuh"
 #include "util.cuh"
-#include "kernel.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
 __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
                                     gpu_graph *ggraph, curandState state,
                                     int current_itr, int idx, int node_id,
                                     void *buffer) {
-  using WCTable =
-      alias_table_constructor_shmem<uint, ExecutionPolicy::WC,
-                        BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
+  using WCTable = alias_table_constructor_shmem<
+      uint, ExecutionPolicy::WC,
+      BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
   WCTable *tables = (WCTable *)buffer;
   WCTable *table = &tables[WID];
 
@@ -22,7 +22,7 @@ __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
     table->SaveAliasTable(ggraph);
     if (LID == 0)
       sampler->valid[node_id] = 1;
-  } 
+  }
   table->Clean();
 }
 
@@ -30,7 +30,8 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
                                      gpu_graph *ggraph, curandState state,
                                      int current_itr, int node_id, void *buffer,
                                      Vector_pack2<uint> *vector_packs) {
-  using BCTable = alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
+  using BCTable =
+      alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
                                     AliasTableStorePolicy::STORE>;
   BCTable *tables = (BCTable *)buffer;
   BCTable *table = &tables[0];
@@ -45,7 +46,7 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
     table->SaveAliasTable(ggraph);
     if (LTID == 0)
       sampler->valid[node_id] = 1;
-  } 
+  }
   __syncthreads();
   table->Clean();
 }
@@ -55,9 +56,9 @@ __global__ void ConstructAliasTableKernel(Sampler *sampler,
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack2<uint> *vector_packs = &vector_pack[BID];
-  using WCTable =
-      alias_table_constructor_shmem<uint, ExecutionPolicy::WC,
-                        BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
+  using WCTable = alias_table_constructor_shmem<
+      uint, ExecutionPolicy::WC,
+      BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
   __shared__ WCTable table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;
@@ -145,7 +146,7 @@ void ConstructTable(Sampler &sampler) {
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   int gbuff_size = sampler.ggraph.MaxDegree;
-  
+
   LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
 
   Vector_pack2<uint> *vector_pack_h = new Vector_pack2<uint>[block_num];
@@ -172,4 +173,11 @@ void ConstructTable(Sampler &sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Construct table time:\t%.6f\n", total_time);
+  if (FLAGS_weight || FLAGS_randomweight) {
+    H_ERR(cudaFree(sampler.ggraph.weight_list));
+    // H_ERR(cudaMemAdvise(sampler.ggraph.weight_list, sampler.ggraph.edge_num * sizeof(weight_t),
+    //                     cudaMemAdviseUnsetAccessedBy, FLAGS_device));
+    // H_ERR(cudaMemPrefetchAsync(sampler.ggraph.weight_list, sampler.ggraph.edge_num * sizeof(weight_t), cudaCpuDeviceId,
+    //                            0));
+  }
 }

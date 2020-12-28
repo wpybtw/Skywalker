@@ -4,7 +4,8 @@
 // #include "alias_table.cuh"
 #include <random>
 DECLARE_bool(ol);
-DECLARE_bool(um);
+DECLARE_bool(umtable);
+DECLARE_bool(hmtable);
 // struct sample_result;
 // class Sampler;
 
@@ -41,11 +42,12 @@ public:
   }
   ~Sampler() {}
   void AllocateAliasTable() {
-    if (!FLAGS_um) {
+    if (!FLAGS_umtable && !FLAGS_hmtable) {
       H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
       H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
       H_ERR(cudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
-    } else {
+    }
+    if (FLAGS_umtable) {
       H_ERR(cudaMallocManaged((void **)&prob_array,
                               ggraph.edge_num * sizeof(float)));
       H_ERR(cudaMallocManaged((void **)&alias_array,
@@ -58,6 +60,16 @@ public:
                           cudaMemAdviseSetAccessedBy, FLAGS_device));
       H_ERR(cudaMemAdvise(valid, ggraph.vtx_num * sizeof(char),
                           cudaMemAdviseSetAccessedBy, FLAGS_device));
+    }
+    if (FLAGS_hmtable) {
+      if(FLAGS_v)
+        printf("host mapped table");
+      H_ERR(cudaHostAlloc((void **)&prob_array, ggraph.edge_num * sizeof(float),
+                          cudaHostAllocWriteCombined ));
+      H_ERR(cudaHostAlloc((void **)&alias_array, ggraph.edge_num * sizeof(uint),
+                          cudaHostAllocWriteCombined ));
+      H_ERR(cudaHostAlloc((void **)&valid, ggraph.vtx_num * sizeof(char),
+                          cudaHostAllocWriteCombined ));
     }
     // if (!FLAGS_ol)
     //   H_ERR(cudaMalloc((void **)&avg_bias, ggraph.vtx_num * sizeof(float)));

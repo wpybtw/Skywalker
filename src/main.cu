@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-27 20:38:46
+ * @LastEditTime: 2020-12-28 13:36:53
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -51,7 +51,9 @@ DEFINE_double(p, 2.0, "hyper-parameter p for node2vec");
 DEFINE_double(q, 0.5, "hyper-parameter q for node2vec");
 DEFINE_double(tp, 0.0, "terminate probabiility");
 
-DEFINE_bool(um, false, "using UM for alias table");
+DEFINE_bool(hmtable, false, "using host mapped mem for alias table");
+
+DEFINE_bool(umtable, false, "using UM for alias table");
 DEFINE_bool(umresult, false, "using UM for result");
 DEFINE_bool(umbuf, false, "using UM for global buffer");
 
@@ -99,7 +101,7 @@ int main(int argc, char *argv[]) {
   Graph *ginst = new Graph();
   gpu_graph ggraph(ginst);
   if (ginst->numEdge > 1000000000) {
-    FLAGS_um = 1;
+    FLAGS_umtable = 1;
     if (FLAGS_v)
       LOG("overriding um for alias table\n");
   }

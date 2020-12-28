@@ -1484,7 +1484,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
           }
         }
       }
-      // if (LID == 0) {}
+// if (LID == 0) {}
 #ifdef plargeitr
       if (itr > 10 && LID == 0) {
         printf("large itr %d\n", itr);
