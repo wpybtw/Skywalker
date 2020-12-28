@@ -342,6 +342,7 @@ public:
       printf("already full %d\n", old);
   }
   __device__ bool Empty() {
+    // return !(static_cast<bool>(*size));
     if (*size == 0)
       return true;
     return false;

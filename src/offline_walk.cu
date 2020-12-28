@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-07 14:55:16
+ * @LastEditTime: 2020-12-28 14:36:59
  * @FilePath: /sampling/src/offline_walk.cu
  */
 #include "kernel.cuh"
@@ -36,17 +36,17 @@ __global__ void sample_kernel(Walker *walker) {
         const uint target_size = 1;
         if (target_size < src_degree) {
           //   int itr = 0;
-          for (size_t i = 0; i < target_size; i++) {
-            int col = (int)floor(curand_uniform(&state) * src_degree);
-            float p = curand_uniform(&state);
-            uint candidate;
-            if (p < prob[col])
-              candidate = col;
-            else
-              candidate = alias[col];
-            *result.GetDataPtr(current_itr + 1, idx_i) =
-                graph->getOutNode(src_id, candidate);
-          }
+          // for (size_t i = 0; i < target_size; i++) {
+          int col = (int)floor(curand_uniform(&state) * src_degree);
+          float p = curand_uniform(&state);
+          uint candidate;
+          if (p < prob[col])
+            candidate = col;
+          else
+            candidate = alias[col];
+          *result.GetDataPtr(current_itr + 1, idx_i) =
+              graph->getOutNode(src_id, candidate);
+          // }
         } else if (src_degree == 0) {
           result.alive[idx_i] = 0;
           result.length[idx_i] = current_itr;
