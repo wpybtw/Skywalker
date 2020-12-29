@@ -9,7 +9,8 @@ DECLARE_bool(hmtable);
 // struct sample_result;
 // class Sampler;
 
-template <typename T> void printH(T *ptr, int size) {
+template <typename T>
+void printH(T *ptr, int size) {
   T *ptrh = new T[size];
   H_ERR(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
   printf("printH: ");
@@ -24,7 +25,7 @@ template <typename T> void printH(T *ptr, int size) {
 // template <JobType T = JobType::NS> class Sampler;
 
 class Sampler {
-public:
+ public:
   gpu_graph ggraph;
   sample_result result;
   uint num_seed;
@@ -37,7 +38,7 @@ public:
   uint device_id;
   // float *avg_bias;
 
-public:
+ public:
   Sampler(gpu_graph graph, uint _device_id = 0) : device_id(_device_id) {
     ggraph = graph;
     // Init();
@@ -80,22 +81,23 @@ public:
     ggraph.alias_array = alias_array;
     H_ERR(cudaMemset(prob_array, 0, ggraph.vtx_num * sizeof(float)));
   }
-  void SetSeed(uint _num_seed, uint _hop_num, uint *_hops) {
-    // printf("%s\t %s :%d\n", __FILE__, __PRETTY_FUNCTION__, __LINE__);
+  void SetSeed(uint _num_seed, uint _hop_num, uint *_hops, uint offset = 0) {
+    int dev_id = omp_get_thread_num();
+    int dev_num = omp_get_num_threads();
     num_seed = _num_seed;
     std::random_device rd;
     std::mt19937 gen(56);
-    std::uniform_int_distribution<> dis(1, 10000); // ggraph.vtx_num);
+    std::uniform_int_distribution<> dis(1, 10000);  // ggraph.vtx_num);
     uint *seeds = new uint[num_seed];
+    // for (int n = num_seed / dev_num * dev_id;
+    //      n < num_seed / dev_num * (dev_id + 1); ++n)
     for (int n = 0; n < num_seed; ++n) {
 #ifdef check
       // seeds[n] = n;
-      seeds[n] = 1;
-// seeds[n] = 339;
 #else
-      seeds[n] = n;
+      seeds[n] = offset + n;
 // seeds[n] = dis(gen);
-#endif // check
+#endif  // check
     }
     result.init(num_seed, _hop_num, _hops, seeds, device_id);
     // printf("first ten seed:");
@@ -116,7 +118,7 @@ public:
 };
 
 class Walker {
-public:
+ public:
   gpu_graph ggraph;
   // sample_result result;
   uint num_seed;
@@ -127,7 +129,7 @@ public:
   char *valid;
   uint device_id;
 
-public:
+ public:
   Walker(gpu_graph graph, uint _device_id = 0) : device_id(_device_id) {
     ggraph = graph;
     // Init();
@@ -151,21 +153,17 @@ public:
     ggraph.alias_array = alias_array;
     H_ERR(cudaMemset(prob_array, 0, ggraph.vtx_num * sizeof(float)));
   }
-  void SetSeed(uint _num_seed, uint _hop_num) {
+  void SetSeed(uint _num_seed, uint _hop_num, uint offset = 0) {
+    // int dev_id = omp_get_thread_num();
+    // int dev_num = omp_get_num_threads();
     num_seed = _num_seed;
     std::random_device rd;
     std::mt19937 gen(56);
-    std::uniform_int_distribution<> dis(1, 10000); // ggraph.vtx_num);
+    std::uniform_int_distribution<> dis(1, 10000);  // ggraph.vtx_num);
     uint *seeds = new uint[num_seed];
     for (int n = 0; n < num_seed; ++n) {
-      // #ifdef check
-      //       // seeds[n] = n;
-      //       seeds[n] = 1;
-      // #else
-      //       seeds[n] = n;
       // // seeds[n] = dis(gen);
-      // #endif // check
-      seeds[n] = n;
+      seeds[n] = offset + n;
     }
     result.init(num_seed, _hop_num, seeds, device_id);
   }

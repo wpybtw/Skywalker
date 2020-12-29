@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 16:33:11
+ * @LastEditTime: 2020-12-29 20:51:50
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -10,6 +10,8 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <numa.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,6 +73,11 @@ DEFINE_bool(printresult, false, "printresult");
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  if (numa_available() < 0) {
+    LOG("Your system does not support NUMA API\n");
+  }
+
   // override flag
   if (FLAGS_node2vec) {
     FLAGS_ol = true;
@@ -88,7 +95,7 @@ int main(int argc, char *argv[]) {
     FLAGS_d = 2;
   }
 
-  int SampleSize = FLAGS_n;
+  int sample_size = FLAGS_n;
   int NeighborSize = FLAGS_k;
   int Depth = FLAGS_d;
 
@@ -112,15 +119,21 @@ int main(int argc, char *argv[]) {
     LOG("overriding um buffer\n");
   }
   if (FLAGS_full && !FLAGS_stream) {
-    SampleSize = ginst->numNode;
+    sample_size = ginst->numNode;
     FLAGS_n = ginst->numNode;
   }
 
   uint num_device = FLAGS_ngpu;
 
-#pragma omp parallel num_threads(num_device) shared(ginst)
+#pragma omp parallel num_threads(num_device) shared(ginst)  // proc_bind(spread)
   {
     int dev_id = omp_get_thread_num();
+    int dev_num = omp_get_num_threads();
+    uint local_sample_size = sample_size / dev_num;
+    uint offset_sample_size = local_sample_size * dev_id;
+
+    LOG("device_id %d ompid %d coreid %d\n", dev_id, omp_get_thread_num(),
+        sched_getcpu());
     CUDA_RT_CALL(cudaSetDevice(dev_id));
     CUDA_RT_CALL(cudaFree(0));
 
@@ -128,40 +141,47 @@ int main(int argc, char *argv[]) {
     Sampler sampler(ggraph, dev_id);
 
     if (!FLAGS_bias && !FLAGS_rw) {  // unbias
-      sampler.SetSeed(SampleSize, Depth + 1, hops);
+      sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
       // UnbiasedSample(sampler);
     }
 
     if (!FLAGS_bias && FLAGS_rw) {
       Walker walker(sampler);
-      walker.SetSeed(SampleSize, Depth + 1);
+      walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
       UnbiasedWalk(walker);
     }
 
     if (FLAGS_bias && FLAGS_ol) {  // online biased
-      sampler.SetSeed(SampleSize, Depth + 1, hops);
+      sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
       if (!FLAGS_rw) {
         OnlineGBSample(sampler);
       } else {
         Walker walker(sampler);
-        walker.SetSeed(SampleSize, Depth + 1);
+        walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
         OnlineGBWalk(walker);
-      }
-    }
-
-    if (FLAGS_bias && !FLAGS_ol) {  // offline biased
-      sampler.InitFullForConstruction();
-      ConstructTable(sampler);
-      if (!FLAGS_rw) {  //&& FLAGS_k != 1
-        sampler.SetSeed(SampleSize, Depth + 1, hops);
-        OfflineSample(sampler);
-      } else {
-        Walker walker(sampler);
-        walker.SetSeed(SampleSize, Depth + 1);
-        OfflineWalk(walker);
       }
     }
   }
 
+  if(!FLAGS_ol)
+  {
+    LOG("handle offline!\n");
+    gpu_graph ggraph(ginst, 0);
+    Sampler sampler(ggraph, 0);
+    // offline need addition handle
+    if (FLAGS_bias && !FLAGS_ol) {  // offline biased
+      sampler.InitFullForConstruction();
+      ConstructTable(sampler);
+      if (!FLAGS_rw) {  //&& FLAGS_k != 1
+        sampler.SetSeed(sample_size, Depth + 1, hops);
+        OfflineSample(sampler);
+      } else {
+        Walker walker(sampler);
+        walker.SetSeed(sample_size, Depth + 1);
+        OfflineWalk(walker);
+      }
+    }
+  }
+  
   return 0;
 }

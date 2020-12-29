@@ -2,13 +2,21 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: PengyuWang
- # @LastEditTime: 2020-12-27 21:33:38
+ # @LastEditTime: 2020-12-29 20:19:45
  # @FilePath: /sampling/scripts/test.sh
 ### 
 DATA=(lj orkut  uk-2005 twitter-2010 sk-2005 friendster) # uk-union rmat29 web-ClueWeb09)
 HD=(4 1  4 1 4 1) # uk-union rmat29 web-ClueWeb09)
 
 GR=".w.gr"
+
+# export OMP_PROC_BIND=TRUE
+# GOMP_CPU_AFFINITY="0-9 10-19 20-29 30-99"
+# OMP_PLACES=cores
+# OMP_PROC_BIND=close
+
+# correct one
+# OMP_PLACES=cores OMP_PROC_BIND=spread
 
 # --randomweight=1 --weightrange=2 
 
