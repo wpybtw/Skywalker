@@ -237,6 +237,7 @@ struct Jobs_result<JobType::RW, T> {
   __device__ struct sample_job requireOneJob(uint current_itr)  // uint hop
   {
     sample_job job;
+    job.val = false;
     // printf("requireOneJob for itr %u\n", current_itr);
     // paster(job_sizes[current_itr]);
     // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
@@ -402,6 +403,7 @@ struct sample_result {
   __device__ struct sample_job requireOneJob(uint current_itr)  // uint hop
   {
     sample_job job;
+    job.val = false;
     // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
     int old = atomicAdd(&job_sizes_floor[current_itr], 1);
     if (old < job_sizes[current_itr]) {

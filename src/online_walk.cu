@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 16:33:50
+ * @LastEditTime: 2020-12-29 17:48:00
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
