@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:57:00
+ * @LastEditTime: 2020-12-29 16:33:11
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -19,6 +19,7 @@
 
 #include <iostream>
 
+#include "error.cuh"
 #include "gpu_graph.cuh"
 #include "graph.cuh"
 #include "sampler.cuh"
@@ -28,7 +29,8 @@ using namespace std;
 // DECLARE_bool(v);
 // DEFINE_bool(pf, false, "use UM prefetch");
 DEFINE_string(input, "/home/pywang/data/lj.w.gr", "input");
-DEFINE_int32(device, 0, "GPU ID");
+// DEFINE_int32(device, 0, "GPU ID");
+DEFINE_int32(ngpu, 1, "number of GPUs ");
 
 DEFINE_int32(n, 4000, "sample size");
 DEFINE_int32(k, 2, "neightbor");
@@ -62,8 +64,10 @@ DEFINE_bool(cache, false, "cache alias table for online");
 DEFINE_bool(debug, false, "debug");
 DEFINE_bool(bias, true, "biased or unbiased sampling");
 DEFINE_bool(full, false, "sample over all node");
-DEFINE_bool(v, false, "verbose");
 DEFINE_bool(stream, false, "streaming sample over all node");
+
+DEFINE_bool(v, false, "verbose");
+DEFINE_bool(printresult, false, "printresult");
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -112,41 +116,50 @@ int main(int argc, char *argv[]) {
     FLAGS_n = ginst->numNode;
   }
 
-  gpu_graph ggraph(ginst, 0);
-  Sampler sampler(ggraph, 0);
+  uint num_device = FLAGS_ngpu;
 
-  if (!FLAGS_bias && !FLAGS_rw) {  // unbias
-    sampler.SetSeed(SampleSize, Depth + 1, hops);
-    // UnbiasedSample(sampler);
-  }
+#pragma omp parallel num_threads(num_device) shared(ginst)
+  {
+    int dev_id = omp_get_thread_num();
+    CUDA_RT_CALL(cudaSetDevice(dev_id));
+    CUDA_RT_CALL(cudaFree(0));
 
-  if (!FLAGS_bias && FLAGS_rw) {
-    Walker walker(sampler);
-    walker.SetSeed(SampleSize, Depth + 1);
-    UnbiasedWalk(walker);
-  }
+    gpu_graph ggraph(ginst, dev_id);
+    Sampler sampler(ggraph, dev_id);
 
-  if (FLAGS_bias && FLAGS_ol) {  // online biased
-    sampler.SetSeed(SampleSize, Depth + 1, hops);
-    if (!FLAGS_rw) {
-      OnlineGBSample(sampler);
-    } else {
-      Walker walker(sampler);
-      walker.SetSeed(SampleSize, Depth + 1);
-      OnlineGBWalk(walker);
-    }
-  }
-
-  if (FLAGS_bias && !FLAGS_ol) {  // offline biased
-    sampler.InitFullForConstruction();
-    ConstructTable(sampler);
-    if (!FLAGS_rw) {  //&& FLAGS_k != 1
+    if (!FLAGS_bias && !FLAGS_rw) {  // unbias
       sampler.SetSeed(SampleSize, Depth + 1, hops);
-      OfflineSample(sampler);
-    } else {
+      // UnbiasedSample(sampler);
+    }
+
+    if (!FLAGS_bias && FLAGS_rw) {
       Walker walker(sampler);
       walker.SetSeed(SampleSize, Depth + 1);
-      OfflineWalk(walker);
+      UnbiasedWalk(walker);
+    }
+
+    if (FLAGS_bias && FLAGS_ol) {  // online biased
+      sampler.SetSeed(SampleSize, Depth + 1, hops);
+      if (!FLAGS_rw) {
+        OnlineGBSample(sampler);
+      } else {
+        Walker walker(sampler);
+        walker.SetSeed(SampleSize, Depth + 1);
+        OnlineGBWalk(walker);
+      }
+    }
+
+    if (FLAGS_bias && !FLAGS_ol) {  // offline biased
+      sampler.InitFullForConstruction();
+      ConstructTable(sampler);
+      if (!FLAGS_rw) {  //&& FLAGS_k != 1
+        sampler.SetSeed(SampleSize, Depth + 1, hops);
+        OfflineSample(sampler);
+      } else {
+        Walker walker(sampler);
+        walker.SetSeed(SampleSize, Depth + 1);
+        OfflineWalk(walker);
+      }
     }
   }
 

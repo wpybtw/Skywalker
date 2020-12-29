@@ -18,8 +18,10 @@ API_OBJ_DIR:= obj/api
 API_SRC_FILES := $(wildcard $(API_SRC_DIR)/*.cu)
 API_OBJ_FILES := $(patsubst $(API_SRC_DIR)/%.cu,$(API_OBJ_DIR)/%.o,$(API_SRC_FILES))
 
-LDFLAGS := -Xcompiler -fopenmp -Xlinker -lgomp /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags -gencode=arch=compute_75,code=sm_75
-CUFLAG= -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -gencode=arch=compute_75,code=sm_75 -std=c++11  -lineinfo  -Xptxas -v -Xcompiler -fopenmp  #-keep   #-Xptxas -O3,-v   
+FLAGS= -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75 # -Xptxas -v  -Xcompiler -Werror
+
+LDFLAGS := ${FLAGS} -Xlinker -lgomp /home/pywang/sampling/build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags 
+CUFLAG= ${FLAGS} -I../include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11  #-keep   #-Xptxas -O3,-v   
 
 main_degree: $(OBJ_FILES)  $(API_OBJ_DIR)/bias_degree.o
 	nvcc $(LDFLAGS) -o $(BIN_DIR)/$@ $^

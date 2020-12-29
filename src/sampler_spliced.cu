@@ -195,7 +195,7 @@ void StartSP(Sampler sampler) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:\t%.6f\n", total_time);
+  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

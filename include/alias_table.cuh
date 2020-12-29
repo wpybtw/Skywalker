@@ -79,7 +79,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
   Vector_virtual<T> alias;
   Vector_virtual<float> prob;
   Vector_gmem<unsigned short int> selected;
-  __device__ bool loadGlobalBuffer(Vector_pack2<T> *pack) {
+  __device__ void loadGlobalBuffer(Vector_pack2<T> *pack) {
     if (LTID == 0) {
       // paster(pack->size);
       large = pack->large;
@@ -95,7 +95,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
                     graph->getDegree((uint)src_id));
     }
   }
-  __device__ bool SaveAliasTable(gpu_graph *graph) {
+  __device__ void SaveAliasTable(gpu_graph *graph) {
     size_t start = graph->xadj[src_id];
     uint len = graph->getDegree((uint)src_id);
     for (size_t i = LTID; i < len; i += blockDim.x) {
@@ -238,7 +238,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
         *small.size -= active_size;
       }
       __syncthreads();
-      u64 tmp4 = (u64)small.size;
+      // u64 tmp4 = (u64)small.size;
       T smallV, largeV;
       if (act)
         smallV = small.Get(old_small_idx);
@@ -317,7 +317,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
         if (active.thread_rank() == 0) {
           *small.size -= MIN(small.Size(), active.size());
         }
-        u64 tmp4 = (u64)small.size;
+        // u64 tmp4 = (u64)small.size;
 
         T smallV = small.Get(old_small_idx);
         T largeV;
@@ -379,7 +379,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
   Vector_gmem<T> alias;
   Vector_gmem<float> prob;
   Vector_gmem<unsigned short int> selected;
-  __device__ bool loadGlobalBuffer(Vector_pack<T> *pack) {
+  __device__ void loadGlobalBuffer(Vector_pack<T> *pack) {
     if (LTID == 0) {
       // paster(pack->size);
       large = pack->large;
@@ -538,7 +538,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
         *small.size -= active_size;
       }
       __syncthreads();
-      u64 tmp4 = (u64)small.size;
+      // u64 tmp4 = (u64)small.size;
       T smallV, largeV;
       if (act)
         smallV = small.Get(old_small_idx);
@@ -626,7 +626,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
         if (active.thread_rank() == 0) {
           *small.size -= MIN(small.Size(), active.size());
         }
-        u64 tmp4 = (u64)small.size;
+        // u64 tmp4 = (u64)small.size;
 
         T smallV = small.Get(old_small_idx);
         T largeV;
@@ -897,7 +897,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
   //     selected;
   Vector_shmem<char, ExecutionPolicy::BC, ELE_PER_BLOCK, true> selected;
 
-  __forceinline__ __device__ bool
+  __forceinline__ __device__ void
   loadGlobalBuffer(Buffer_pointer *buffer_pointer) {
     if (LTID == 0) {
       large.LoadBuffer(buffer_pointer->b0, buffer_pointer->size);
@@ -1331,7 +1331,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     } else
       return false;
   }
-  __device__ bool SaveAliasTable(gpu_graph *graph) {
+  __device__ void SaveAliasTable(gpu_graph *graph) {
     size_t start = graph->xadj[src_id];
     uint len = graph->getDegree((uint)src_id);
     for (size_t i = LID; i < len; i++) {

@@ -12,22 +12,22 @@ DECLARE_bool(umresult);
 struct sample_job {
   uint idx;
   uint node_id;
-  bool val = false;
+  bool val; //= false
 };
 
 struct id_pair {
   uint idx, node_id;
   __device__ id_pair &operator=(uint idx) {
-    idx = 0;
-    node_id = 0;
+    this->idx = 0;
+    this->node_id = 0;
     return *this;
   }
 };
 
 enum class JobType {
-  NS, // neighbour sampling
-  LS, // layer sampling
-  RW, // random walk
+  NS,  // neighbour sampling
+  LS,  // layer sampling
+  RW,  // random walk
   NODE2VEC
 };
 
@@ -50,9 +50,11 @@ static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
 // *seeds,
 //                                      size_t size);
 
-template <JobType job, typename T> struct Jobs_result;
+template <JobType job, typename T>
+struct Jobs_result;
 
-template <typename T> struct Frontier {
+template <typename T>
+struct Frontier {
   u64 *size;
   T *data;
   u64 capacity;
@@ -73,13 +75,14 @@ template <typename T> struct Frontier {
   }
 };
 static __global__ void setFrontierSize(u64 *data, uint size) {
-  if (TID == 0)
-    data[0] = size;
+  if (TID == 0) data[0] = size;
 }
 
-template <JobType job, typename T> struct SamplerState;
+template <JobType job, typename T>
+struct SamplerState;
 
-template <typename T> struct SamplerState<JobType::NODE2VEC, T> {
+template <typename T>
+struct SamplerState<JobType::NODE2VEC, T> {
   T last = 0;
   // bool alive = true;
 };
@@ -90,7 +93,8 @@ template <typename T> struct SamplerState<JobType::NODE2VEC, T> {
 //   // void Allocate(uint size) { H_ERR(cudaMalloc(&data, size * sizeof(T))); }
 // };
 
-template <typename T> struct Jobs_result<JobType::RW, T> {
+template <typename T>
+struct Jobs_result<JobType::RW, T> {
   // using task_t = Task<JobType::RW, T>;
   u64 size;
   uint hop_num;
@@ -114,8 +118,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     device_id = _device_id;
     size = _size;
     hop_num = _hop_num;
-    if (size * hop_num > 400000000)
-      FLAGS_umresult = true;
+    if (size * hop_num > 400000000) FLAGS_umresult = true;
     if (!FLAGS_umresult) {
       H_ERR(cudaMalloc(&data, size * hop_num * sizeof(uint)));
     } else {
@@ -197,7 +200,8 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
       job.node_id = high_degrees[current_itr].Get(old);
       job.val = true;
     } else {
-      int old = atomicAdd(high_degrees[current_itr].floor, -1);
+      // int old = atomicAdd(high_degrees[current_itr].floor, -1);
+      int old = my_atomicSub(high_degrees[current_itr].floor, 1);
     }
     return job;
   }
@@ -230,7 +234,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     // paster(addr_offset[hop]);
     return data2[hop * size + idx];
   }
-  __device__ struct sample_job requireOneJob(uint current_itr) // uint hop
+  __device__ struct sample_job requireOneJob(uint current_itr)  // uint hop
   {
     sample_job job;
     // printf("requireOneJob for itr %u\n", current_itr);
@@ -251,7 +255,6 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     return job;
   }
   __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
-
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);
     array[old] = candidate;
     // printf("Add new ele %u with degree %d\n", candidate,  );
@@ -285,18 +288,12 @@ struct sample_result {
   sample_result() {}
   // void Free()
   void Free() {
-    if (hops != nullptr)
-      H_ERR(cudaFree(hops));
-    if (addr_offset != nullptr)
-      H_ERR(cudaFree(addr_offset));
-    if (data != nullptr)
-      H_ERR(cudaFree(data));
-    if (job_sizes != nullptr)
-      H_ERR(cudaFree(job_sizes));
-    if (job_sizes_floor != nullptr)
-      H_ERR(cudaFree(job_sizes_floor));
-    if (job_sizes_h != nullptr)
-      delete[] job_sizes_h;
+    if (hops != nullptr) H_ERR(cudaFree(hops));
+    if (addr_offset != nullptr) H_ERR(cudaFree(addr_offset));
+    if (data != nullptr) H_ERR(cudaFree(data));
+    if (job_sizes != nullptr) H_ERR(cudaFree(job_sizes));
+    if (job_sizes_floor != nullptr) H_ERR(cudaFree(job_sizes_floor));
+    if (job_sizes_h != nullptr) delete[] job_sizes_h;
   }
   void init(uint _size, uint _hop_num, uint *_hops, uint *seeds,
             uint _device_id = 0) {
@@ -396,12 +393,13 @@ struct sample_result {
       job.val = true;
       // printf("poping high degree node_id %d\n", job.node_id);
     } else {
-      int old = atomicAdd(high_degrees[current_itr].floor, -1);
+      // int old = atomicAdd(high_degrees[current_itr].floor, -1);
+      int old = my_atomicSub(high_degrees[current_itr].floor, 1);
       // job.val = false;
     }
     return job;
   }
-  __device__ struct sample_job requireOneJob(uint current_itr) // uint hop
+  __device__ struct sample_job requireOneJob(uint current_itr)  // uint hop
   {
     sample_job job;
     // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
@@ -420,7 +418,6 @@ struct sample_result {
     return job;
   }
   __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
-
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);
     array[old] = candidate;
     // printf("Add new ele %u with degree %d\n", candidate,  );

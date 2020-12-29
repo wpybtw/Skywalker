@@ -90,7 +90,7 @@ template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::WC> {
       selected;
   Vector_gmem<unsigned short int> selected_high_degree;
 
-  __device__ bool loadGlobalBuffer(Vector_pack_short<T> *pack) {
+  __device__ void loadGlobalBuffer(Vector_pack_short<T> *pack) {
     if (LID == 0) {
       selected_high_degree = pack->selected;
     }

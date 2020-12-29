@@ -9,6 +9,8 @@
 #include <stdlib.h>
 
 #include <iostream>
+
+
 using namespace cooperative_groups;
 // #define check
 // #define skip8k
@@ -158,5 +160,6 @@ __device__ double my_atomicSub(double *address, double val);
 __device__ float my_atomicSub(float *address, float val);
 
 __device__ long long my_atomicSub(long long *address, long long val);
+__device__ unsigned long long my_atomicSub(unsigned long long *address, unsigned long long val);
 
 __device__ long long my_atomicAdd(long long *address, long long val);

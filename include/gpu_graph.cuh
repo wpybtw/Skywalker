@@ -1,5 +1,4 @@
-// 10/03/2016
-// Graph data structure on GPUs
+
 #ifndef _GPU_GRAPH_H_
 #define _GPU_GRAPH_H_
 #include <algorithm>
@@ -79,6 +78,7 @@ class gpu_graph {
     // (graph->*(graph->getBias))
   }
   void Set_Mem_Policy(bool needWeight = false) {
+    // LOG("cudaMemAdvise %d %d\n", device_id, omp_get_thread_num());
     H_ERR(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
                         cudaMemAdviseSetAccessedBy, device_id));
     H_ERR(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
@@ -94,6 +94,7 @@ class gpu_graph {
       H_ERR(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t), device_id,
                                  0));
     }
+    H_ERR(cudaDeviceSynchronize());
   }
   __device__ __host__ ~gpu_graph() {}
   __device__ edge_t getDegree(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }

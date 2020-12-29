@@ -118,9 +118,9 @@ public:
   }
   void ReadGraphGRHead() {
     FILE *fpin;
-    bool readew;
+    // bool readew;
     fpin = gk_fopen(graphFilePath.data(), "r", "ReadGraphGR: Graph");
-    size_t read;
+    // size_t read;
     uint64_t x[4];
     if (fread(x, sizeof(uint64_t), 4, fpin) != 4) {
       printf("Unable to read header\n");
@@ -249,7 +249,7 @@ public:
         if (read < num_Edge)
           printf("Error: Partial read of edge data\n");
 
-        LOG("convent uint weight to float\n");
+        // LOG("convent uint weight to float\n");
 
 // if(omp_get_thread_num())
 // printf("omp_get_max_threads() %d\n",omp_get_max_threads());

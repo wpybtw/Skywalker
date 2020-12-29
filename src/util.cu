@@ -110,6 +110,18 @@ __device__ long long my_atomicSub(long long *address, long long val)
   return (old);
 }
 
+__device__ unsigned long long my_atomicSub(unsigned long long *address, unsigned long long val)
+{
+  unsigned long long int *address_as_ull = (unsigned long long int *)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do
+  {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, ((assumed)-val)); // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+  } while (assumed != old);
+  return (old);
+}
+
 __device__ long long my_atomicAdd(long long *address, long long val)
 {
   unsigned long long int *address_as_ull = (unsigned long long int *)address;

@@ -44,6 +44,7 @@ public:
   }
   ~Sampler() {}
   void AllocateAliasTable() {
+    LOG("umtable %d %d\n", device_id, omp_get_thread_num());
     if (!FLAGS_umtable && !FLAGS_hmtable) {
       H_ERR(cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
       H_ERR(cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));

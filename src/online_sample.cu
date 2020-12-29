@@ -2,6 +2,7 @@
 #include "kernel.cuh"
 #include "sampler.cuh"
 #include "util.cuh"
+DECLARE_bool(printresult);
 #define paster(n) printf("var: " #n " =  %d\n", n)
 DECLARE_bool(v);
 static __device__ void SampleWarpCentic(sample_result &result,
@@ -65,8 +66,8 @@ __global__ void sample_kernel(Sampler *sampler,
   __syncthreads();
   for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
   {
-    Vector_gmem<uint> *high_degrees =
-        &sampler->result.high_degrees[current_itr];
+    // Vector_gmem<uint> *high_degrees =
+    //     &sampler->result.high_degrees[current_itr];
     sample_job job;
     __threadfence_block();
     if (LID == 0) job = result.requireOneJob(current_itr);
@@ -175,7 +176,7 @@ void OnlineGBSample(Sampler sampler) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

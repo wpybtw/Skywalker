@@ -2,7 +2,7 @@
  * @Description: degree limited
  * @Date: 2020-11-20 20:38:55
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-06 17:09:18
+ * @LastEditTime: 2020-12-29 16:34:00
  * @FilePath: /sampling/src/sampler.cu
  */
 
@@ -10,6 +10,7 @@
 #include "sampler.cuh"
 #include "util.cuh"
 DECLARE_bool(v);
+DECLARE_bool(printresult);
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
 static __device__ void SampleWarpCentic(sample_result &result,
@@ -164,6 +165,6 @@ void Start(Sampler sampler) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 }

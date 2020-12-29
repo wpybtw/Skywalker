@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:56:31
+ * @LastEditTime: 2020-12-29 16:33:50
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -13,6 +13,8 @@
 DECLARE_bool(v);
 DECLARE_bool(debug);
 DECLARE_double(tp);
+DECLARE_bool(printresult);
+
 static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int idx, int node_id,
@@ -243,7 +245,7 @@ void OnlineGBWalk(Walker &sampler) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

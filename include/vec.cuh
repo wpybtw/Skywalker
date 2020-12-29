@@ -106,7 +106,8 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
         data.data[old] = t;
       else {
         // atomicDec(&size, 1);
-        atomicAdd((unsigned long long *)&size, -1);
+        // atomicAdd((unsigned long long *)&size, -1);
+        my_atomicSub(&size,1);
         printf("Line  %d: vector_shmem overflow to %llu\n", __LINE__, size);
       }
     }
@@ -189,7 +190,8 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
       else if (old < capacity + buffer_size) {
         gbuf_data[old - capacity] = t;
       } else {
-        atomicAdd((unsigned long long *)&size, -1);
+        // atomicAdd((unsigned long long *)&size, -1);
+        my_atomicSub(&size,1);
         // atomicDec(&size, 1);
         // printf("Vector_shmem overflow %d \n", __LINE__);
       }
@@ -249,6 +251,7 @@ public:
     floor = old.floor;
     capacity = old.capacity;
     data = old.data;
+    return *this;
   }
   __host__ void Free() {
     if (data != nullptr)
@@ -272,10 +275,10 @@ public:
     if (!FLAGS_umbuf) {
       H_ERR(cudaMalloc(&data, _capacity * sizeof(T)));
     } else {
-      LOG("FLAGS_device not solved\n");
-      H_ERR(cudaMallocManaged(&data, _capacity * sizeof(T)));
-      H_ERR(cudaMemAdvise(data, _capacity * sizeof(T),
-                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+      LOG("FLAGS_device not solved for vec\n");
+      // H_ERR(cudaMallocManaged(&data, _capacity * sizeof(T)));
+      // H_ERR(cudaMemAdvise(data, _capacity * sizeof(T),
+      //                     cudaMemAdviseSetAccessedBy, FLAGS_device));
     }
   }
   __device__ void Init(int _size = 0) {

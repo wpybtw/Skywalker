@@ -10,6 +10,7 @@
 #include "sampler.cuh"
 #include "util.cuh"
 DECLARE_bool(v);
+DECLARE_bool(printresult);
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
 __global__ void sample_kernel(Walker *walker) {
@@ -92,7 +93,7 @@ void OfflineWalk(Walker &walker) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

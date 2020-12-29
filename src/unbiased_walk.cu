@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:56:44
+ * @LastEditTime: 2020-12-29 16:34:07
  * @FilePath: /sampling/src/unbiased_walk.cu
  */
 #include "kernel.cuh"
@@ -12,6 +12,8 @@
 DECLARE_bool(v);
 DEFINE_bool(dynamic, false, "invoke kernel for each itr");
 DECLARE_double(tp);
+DECLARE_bool(printresult);
+
 // #define paster(n) printf("var: " #n " =  %d\n", n)
 __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
@@ -175,7 +177,7 @@ void UnbiasedWalk(Walker &walker) {
   H_ERR(cudaDeviceSynchronize());
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }
