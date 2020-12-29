@@ -12,6 +12,6 @@ DEFINE_bool(weight, false, "load edge weight from file");
 
 __device__ float gpu_graph::getBias(uint dst, uint src, uint idx) {
   // printf("degree\t");
-  return beg_pos[dst + 1] - beg_pos[dst];
+  return xadj[dst + 1] - xadj[dst];
 }
 __device__ void gpu_graph::UpdateWalkerState(uint idx, uint info){}

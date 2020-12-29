@@ -60,8 +60,8 @@ static __global__ void sample_kernel(Sampler *sampler) {
       Vector_virtual<uint> alias;
       Vector_virtual<float> prob;
       uint src_degree = graph->getDegree((uint)src_id);
-      alias.Construt(graph->alias_array + graph->beg_pos[src_id], src_degree);
-      prob.Construt(graph->prob_array + graph->beg_pos[src_id], src_degree);
+      alias.Construt(graph->alias_array + graph->xadj[src_id], src_degree);
+      prob.Construt(graph->prob_array + graph->xadj[src_id], src_degree);
       alias.Init(src_degree);
       prob.Init(src_degree);
       {

@@ -27,9 +27,9 @@ template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::TC> {
   //   }
 
   __device__ bool SetVirtualVector(gpu_graph *graph) {
-    alias.Construt(graph->alias_array + graph->beg_pos[src_id],
+    alias.Construt(graph->alias_array + graph->xadj[src_id],
                    graph->getDegree((uint)src_id));
-    prob.Construt(graph->prob_array + graph->beg_pos[src_id],
+    prob.Construt(graph->prob_array + graph->xadj[src_id],
                   graph->getDegree((uint)src_id));
   }
 
@@ -97,9 +97,9 @@ template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::WC> {
   }
 
   __device__ bool SetVirtualVector(gpu_graph *graph) {
-    alias.Construt(graph->alias_array + graph->beg_pos[src_id],
+    alias.Construt(graph->alias_array + graph->xadj[src_id],
                    graph->getDegree((uint)src_id));
-    prob.Construt(graph->prob_array + graph->beg_pos[src_id],
+    prob.Construt(graph->prob_array + graph->xadj[src_id],
                   graph->getDegree((uint)src_id));
   }
 

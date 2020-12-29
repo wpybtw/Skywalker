@@ -9,9 +9,12 @@
 #include <algorithm>
 #include <iostream>
 
-typedef uint index_t;
-typedef unsigned int vtx_t;
-typedef float weight_t;
+DECLARE_bool(weight);
+DECLARE_bool(randomweight);
+
+// typedef uint edge_t;
+// typedef unsigned int vtx_t;
+// typedef float weight_t;
 typedef unsigned char bit_t;
 
 #define INFTY (int)-1
@@ -22,9 +25,9 @@ enum class BiasType { Weight = 0, Degree = 1 };
 // template<BiasType bias=BiasType::Weight>
 class gpu_graph {
 public:
-  vtx_t *adj_list;
-  weight_t *weight_list;
-  index_t *beg_pos;
+  vtx_t *adjncy;
+  weight_t *adjwgt;
+  edge_t *xadj;
   vtx_t *degree_list;
   uint *outDegree;
 
@@ -32,9 +35,9 @@ public:
   uint *alias_array;
   char *valid;
 
-  index_t vtx_num;
-  index_t edge_num;
-  index_t avg_degree;
+  edge_t vtx_num;
+  edge_t edge_num;
+  edge_t avg_degree;
   uint MaxDegree;
 
   Jobs_result<JobType::RW, uint> *result;
@@ -51,26 +54,52 @@ public:
     // printf("vtx_num: %d\t edge_num: %d\n", vtx_num, edge_num);
     avg_degree = ginst->numEdge / ginst->numNode;
 
-    // size_t weight_sz=sizeof(weight_t)*edge_num;
-    size_t adj_sz = sizeof(vtx_t) * edge_num;
-    size_t deg_sz = sizeof(vtx_t) * edge_num;
-    size_t beg_sz = sizeof(index_t) * (vtx_num + 1);
+    H_ERR(cudaMallocManaged(&xadj, (vtx_num + 1) * sizeof(edge_t)));
+    H_ERR(cudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
+    if (FLAGS_weight || FLAGS_randomweight)
+      H_ERR(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
 
-    adj_list = ginst->adjncy;
-    beg_pos = ginst->xadj;
-    weight_list = ginst->adjwgt;
+    H_ERR(cudaMemcpy(xadj, ginst->xadj, (vtx_num + 1) * sizeof(edge_t),
+                     cudaMemcpyHostToDevice));
+    H_ERR(cudaMemcpy(adjncy, ginst->adjncy, edge_num * sizeof(vtx_t),
+                     cudaMemcpyHostToDevice));
+    if (FLAGS_weight || FLAGS_randomweight)
+      H_ERR(cudaMemcpy(adjwgt, ginst->adjwgt, edge_num * sizeof(weight_t),
+                       cudaMemcpyHostToDevice));
+
+    // adjncy = ginst->adjncy;
+    // xadj = ginst->xadj;
+    // adjwgt = ginst->adjwgt;
+
     MaxDegree = ginst->MaxDegree;
+    Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight);
     // bias = static_cast<BiasType>(FLAGS_dw);
     // getBias= &gpu_graph::getBiasImpl;
     // (graph->*(graph->getBias))
   }
-  __device__ __host__ ~gpu_graph() {}
-  __device__ index_t getDegree(index_t idx) {
-    return beg_pos[idx + 1] - beg_pos[idx];
+  void Set_Mem_Policy(bool needWeight = false) {
+    H_ERR(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
+                        cudaMemAdviseSetAccessedBy, FLAGS_device));
+    H_ERR(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
+                        cudaMemAdviseSetAccessedBy, FLAGS_device));
+
+    H_ERR(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t),
+                               FLAGS_device, 0));
+    H_ERR(cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), FLAGS_device,
+                               0));
+
+    if (needWeight) {
+      H_ERR(cudaMemAdvise(adjwgt, edge_num * sizeof(weight_t),
+                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+      H_ERR(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t),
+                                 FLAGS_device, 0));
+    }
   }
-  // __host__ index_t getDegree_h(index_t idx) { return outDegree[idx]; }
-  // __device__ float getBias(index_t id);
-  __device__ float getBias(index_t dst, uint src = 0, uint idx = 0);
+  __device__ __host__ ~gpu_graph() {}
+  __device__ edge_t getDegree(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }
+  // __host__ edge_t getDegree_h(edge_t idx) { return outDegree[idx]; }
+  // __device__ float getBias(edge_t id);
+  __device__ float getBias(edge_t dst, uint src = 0, uint idx = 0);
 
   // degree 2 [0 ,1 ]
   // < 1 [1]
@@ -102,7 +131,7 @@ public:
   }
   __device__ bool CheckConnect(int src, int dst) {
     // uint degree = getDegree(src);
-    if (BinarySearch(adj_list + beg_pos[src], getDegree(src), dst)) {
+    if (BinarySearch(adjncy + xadj[src], getDegree(src), dst)) {
       // paster()
       // printf("Connect %d %d \n", src, dst);
       return true;
@@ -110,36 +139,32 @@ public:
     // printf("not Connect %d %d \n", src, dst);
     return false;
   }
-  __device__ float getBiasImpl(index_t idx) {
-    return beg_pos[idx + 1] - beg_pos[idx];
+  __device__ float getBiasImpl(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }
+  __device__ edge_t getOutNode(edge_t idx, edge_t offset) {
+    return adjncy[xadj[idx] + offset];
   }
-  __device__ index_t getOutNode(index_t idx, index_t offset) {
-    return adj_list[beg_pos[idx] + offset];
-  }
-  __device__ vtx_t *getNeighborPtr(index_t idx) {
-    return &adj_list[beg_pos[idx]];
-  }
+  __device__ vtx_t *getNeighborPtr(edge_t idx) { return &adjncy[xadj[idx]]; }
   __device__ void UpdateWalkerState(uint idx, uint info);
 };
 
 #endif
-//  __device__ float getBias(index_t idx);
-// __device__ float getBias(index_t idx, Jobs_result<JobType::RW, uint>
+//  __device__ float getBias(edge_t idx);
+// __device__ float getBias(edge_t idx, Jobs_result<JobType::RW, uint>
 // result);
-// __device__ float getBias(index_t idx, sample_result result);
+// __device__ float getBias(edge_t idx, sample_result result);
 //  {
-//   return beg_pos[idx + 1] - beg_pos[idx];
+//   return xadj[idx + 1] - xadj[idx];
 // }
 // template <BiasType bias>
-// friend  __device__ float getBias(gpu_graph *g, index_t idx);
+// friend  __device__ float getBias(gpu_graph *g, edge_t idx);
 //  {
-//   return g->beg_pos[idx + 1] - g->beg_pos[idx];
+//   return g->xadj[idx + 1] - g->xadj[idx];
 // }
 
 // template <BiasType bias = BiasType::Degree>
-// __device__ float getBiasImpl(index_t idx);
+// __device__ float getBiasImpl(edge_t idx);
 
-// __device__ index_t getBias(index_t idx) {
+// __device__ edge_t getBias(edge_t idx) {
 //   return getBiasImpl<static_cast<BiasType>(FLAGS_dw)>(idx);
 // }
 // __device__ bool CheckConnect(int src, int dst) {

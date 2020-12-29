@@ -21,8 +21,8 @@ typename new_vert_t, typename new_index_t, typename new_weight_t>
 class graph
 {
 	public:
-		new_index_t *beg_pos;
-		new_vert_t *adj_list;
+		new_index_t *xadj;
+		new_vert_t *adjncy;
 		new_weight_t *weight;
 		new_vert_t *degree_list;
 		new_index_t vtx_num;
@@ -32,18 +32,18 @@ class graph
 		graph(){};
 		~graph(){};
 		graph(const char *beg_file, 
-				const char *adj_list_file,
+				const char *adjncy_file,
 				const char *weight_file);
 
 		graph(file_vert_t *csr,
-				file_index_t *beg_pos,
-				file_weight_t *weight_list,
+				file_index_t *xadj,
+				file_weight_t *adjwgt,
 				file_index_t vtx_num,
 				file_index_t edge_num)
 		{
-			this->beg_pos = beg_pos;
-			this->adj_list = csr;
-			this->weight = weight_list;
+			this->xadj = xadj;
+			this->adjncy = csr;
+			this->weight = adjwgt;
 			//this->degree_list= degree_list;
 			this->edge_num = edge_num;
 			this->vtx_num = vtx_num;

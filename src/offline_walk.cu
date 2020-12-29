@@ -28,8 +28,8 @@ __global__ void sample_kernel(Walker *walker) {
         Vector_virtual<float> prob;
         uint src_id = result.GetData(current_itr, idx_i);
         uint src_degree = graph->getDegree((uint)src_id);
-        alias.Construt(graph->alias_array + graph->beg_pos[src_id], src_degree);
-        prob.Construt(graph->prob_array + graph->beg_pos[src_id], src_degree);
+        alias.Construt(graph->alias_array + graph->xadj[src_id], src_degree);
+        prob.Construt(graph->prob_array + graph->xadj[src_id], src_degree);
         alias.Init(src_degree);
         prob.Init(src_degree);
 

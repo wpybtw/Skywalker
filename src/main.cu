@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-28 13:36:53
+ * @LastEditTime: 2020-12-29 14:04:38
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -99,7 +99,6 @@ int main(int argc, char *argv[]) {
     hops[1] = 10;
   }
   Graph *ginst = new Graph();
-  gpu_graph ggraph(ginst);
   if (ginst->numEdge > 1000000000) {
     FLAGS_umtable = 1;
     if (FLAGS_v)
@@ -111,12 +110,14 @@ int main(int argc, char *argv[]) {
       LOG("overriding um buffer\n");
   }
   if (FLAGS_full && !FLAGS_stream) {
-    SampleSize = ggraph.vtx_num;
-    FLAGS_n = ggraph.vtx_num;
+    SampleSize = ginst->numNode;
+    FLAGS_n = ginst->numNode;
   }
+
+  gpu_graph ggraph(ginst);
   Sampler sampler(ggraph);
 
-  if (!FLAGS_bias) {    // unbias
+  if (!FLAGS_bias) { // unbias
     if (!FLAGS_rw) {
       sampler.SetSeed(SampleSize, Depth + 1, hops);
       // UnbiasedSample(sampler);
@@ -125,7 +126,7 @@ int main(int argc, char *argv[]) {
       walker.SetSeed(SampleSize, Depth + 1);
       UnbiasedWalk(walker);
     }
-  } else {              // biased
+  } else {          // biased
     if (FLAGS_ol) { // online biased
       sampler.SetSeed(SampleSize, Depth + 1, hops);
       if (!FLAGS_rw) {
@@ -135,7 +136,7 @@ int main(int argc, char *argv[]) {
         walker.SetSeed(SampleSize, Depth + 1);
         OnlineGBWalk(walker);
       }
-    } else {        // offline biased
+    } else { // offline biased
       sampler.InitFullForConstruction();
       ConstructTable(sampler);
       if (!FLAGS_rw) { //&& FLAGS_k != 1

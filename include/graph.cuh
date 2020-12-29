@@ -1,16 +1,16 @@
 #ifndef _GRAPH_CUH
 #define _GRAPH_CUH
 
-#include <sys/mman.h>
-#include <sys/stat.h>
+#include <algorithm>
+#include <assert.h>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
 #include <memory>
 #include <stdexcept>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <algorithm>
-#include <assert.h>
 
 #include <cooperative_groups.h>
 #include <cuda_profiler_api.h>
@@ -36,14 +36,14 @@ DECLARE_int32(weightrange);
 DECLARE_bool(v);
 template <typename T> void PrintResults(T *results, uint n);
 
-class Graph {
+using uint = unsigned int;
+using vtx_t = unsigned int;  // vertex_num < 4B
+using edge_t = unsigned int; // vertex_num < 4B
+// using edge_t = unsigned long long int; // vertex_num > 4B
+using weight_t = float;
+using ulong = unsigned long;
 
-  using uint = unsigned int;
-  using vtx_t = unsigned int;  // vertex_num < 4B
-  using edge_t = unsigned int; // vertex_num < 4B
-  // using edge_t = unsigned long long int; // vertex_num > 4B
-  using weight_t = float;
-  using ulong = unsigned long;
+class Graph {
 
 public:
   std::string graphFilePath;
@@ -77,15 +77,21 @@ public:
     this->weighted = false;
     this->hasZeroID = false;
     this->withWeight = false;
-    this->device = FLAGS_device;
+    // this->device = FLAGS_device;
     ReadGraphGR();
-    Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
+    // Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
   }
   ~Graph() {
-    H_ERR(cudaFree(xadj));
-    H_ERR(cudaFree(adjncy));
+    if (xadj != nullptr)
+      H_ERR(cudaFree(xadj));
+    if (adjncy != nullptr)
+      H_ERR(cudaFree(adjncy));
     if (adjwgt != nullptr)
       H_ERR(cudaFree(adjwgt));
+    // free(xadj);
+    // free(adjncy);
+    // if (adjwgt != nullptr)
+    //   free(adjwgt);
   }
 
   void Init(int _device) {
@@ -99,24 +105,25 @@ public:
   void Load() { ReadGraphGR(); }
   // void Map();
 
-  void Set_Mem_Policy(bool needWeight = false) {
-    H_ERR(cudaMemAdvise(xadj, (numNode + 1) * sizeof(edge_t),
-                        cudaMemAdviseSetAccessedBy, FLAGS_device));
-    H_ERR(cudaMemAdvise(adjncy, numEdge * sizeof(vtx_t),
-                        cudaMemAdviseSetAccessedBy, FLAGS_device));
+  // void Set_Mem_Policy(bool needWeight = false) {
+  //   H_ERR(cudaMemAdvise(xadj, (numNode + 1) * sizeof(edge_t),
+  //                       cudaMemAdviseSetAccessedBy, FLAGS_device));
+  //   H_ERR(cudaMemAdvise(adjncy, numEdge * sizeof(vtx_t),
+  //                       cudaMemAdviseSetAccessedBy, FLAGS_device));
 
-    H_ERR(cudaMemPrefetchAsync(xadj, (numNode + 1) * sizeof(edge_t),
-                               FLAGS_device, 0));
-    H_ERR(
-        cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device, 0));
+  //   H_ERR(cudaMemPrefetchAsync(xadj, (numNode + 1) * sizeof(edge_t),
+  //                              FLAGS_device, 0));
+  //   H_ERR(
+  //       cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device,
+  //       0));
 
-    if (needWeight) {
-      H_ERR(cudaMemAdvise(adjwgt, numEdge * sizeof(weight_t),
-                          cudaMemAdviseSetAccessedBy, FLAGS_device));
-      H_ERR(cudaMemPrefetchAsync(adjwgt, numEdge * sizeof(weight_t),
-                                 FLAGS_device, 0));
-    }
-  }
+  //   if (needWeight) {
+  //     H_ERR(cudaMemAdvise(adjwgt, numEdge * sizeof(weight_t),
+  //                         cudaMemAdviseSetAccessedBy, FLAGS_device));
+  //     H_ERR(cudaMemPrefetchAsync(adjwgt, numEdge * sizeof(weight_t),
+  //                                FLAGS_device, 0));
+  //   }
+  // }
 
   void gk_fclose(FILE *fp) { fclose(fp); }
   FILE *gk_fopen(const char *fname, const char *mode, const char *msg) {
@@ -174,13 +181,13 @@ public:
     }
     // H_ERR(cudaMallocHost(&xadj, (num_Node + 1) * sizeof(uint)));
     // H_ERR(cudaMallocHost(&adjncy, num_Edge * sizeof(uint)));
-    H_ERR(cudaMallocManaged(&xadj, (num_Node + 1) * sizeof(edge_t)));
-    H_ERR(cudaMallocManaged(&adjncy, num_Edge * sizeof(vtx_t)));
+    H_ERR(cudaHostAlloc(&xadj, (num_Node + 1) * sizeof(edge_t),cudaHostAllocMapped));
+    H_ERR(cudaHostAlloc(&adjncy, num_Edge * sizeof(vtx_t),cudaHostAllocMapped));
     um_used += (num_Node + 1) * sizeof(vtx_t) + num_Edge * sizeof(vtx_t);
 
     adjwgt = nullptr;
     if (FLAGS_weight)
-      H_ERR(cudaMallocManaged(&adjwgt, num_Edge * sizeof(weight_t)));
+      H_ERR(cudaHostAlloc(&adjwgt, num_Edge * sizeof(weight_t),cudaHostAllocMapped));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
     if ((!sizeEdgeTy || FLAGS_randomweight) && FLAGS_bias) {
@@ -243,7 +250,7 @@ public:
     if (FLAGS_v)
       printf("%d has max out degree %d\n", maxD, outDegree[maxD]);
     MaxDegree = outDegree[maxD];
-    if (sizeEdgeTy && !FLAGS_randomweight &&FLAGS_weight && FLAGS_bias) {
+    if (sizeEdgeTy && !FLAGS_randomweight && FLAGS_weight && FLAGS_bias) {
       if (FLAGS_v)
         LOG("loading weight\n");
       if (num_Edge % 2)
@@ -263,10 +270,10 @@ public:
 
         if (FLAGS_v)
           LOG("convent uint weight to float\n");
-        
-        // if(omp_get_thread_num()) 
-        // printf("omp_get_max_threads() %d\n",omp_get_max_threads());
-        #pragma omp parallel for
+
+// if(omp_get_thread_num())
+// printf("omp_get_max_threads() %d\n",omp_get_max_threads());
+#pragma omp parallel for
         for (size_t i = 0; i < num_Edge; i++) {
           adjwgt[i] = static_cast<float>(tmp_weight[i]);
         }

@@ -89,14 +89,14 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
   }
   __device__ bool SetVirtualVector(gpu_graph *graph) {
     if (LTID == 0) {
-      alias.Construt(graph->alias_array + graph->beg_pos[src_id],
+      alias.Construt(graph->alias_array + graph->xadj[src_id],
                      graph->getDegree((uint)src_id));
-      prob.Construt(graph->prob_array + graph->beg_pos[src_id],
+      prob.Construt(graph->prob_array + graph->xadj[src_id],
                     graph->getDegree((uint)src_id));
     }
   }
   __device__ bool SaveAliasTable(gpu_graph *graph) {
-    size_t start = graph->beg_pos[src_id];
+    size_t start = graph->xadj[src_id];
     uint len = graph->getDegree((uint)src_id);
     for (size_t i = LTID; i < len; i += blockDim.x) {
       graph->alias_array[start + i] = alias[i];
@@ -1113,9 +1113,9 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
 
   __host__ __device__ uint Size() { return size; }
   __device__ bool SetVirtualVector(gpu_graph *graph) {
-    alias.Construt(graph->alias_array + graph->beg_pos[src_id],
+    alias.Construt(graph->alias_array + graph->xadj[src_id],
                    graph->getDegree((uint)src_id));
-    prob.Construt(graph->prob_array + graph->beg_pos[src_id],
+    prob.Construt(graph->prob_array + graph->xadj[src_id],
                   graph->getDegree((uint)src_id));
   }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
@@ -1332,7 +1332,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
       return false;
   }
   __device__ bool SaveAliasTable(gpu_graph *graph) {
-    size_t start = graph->beg_pos[src_id];
+    size_t start = graph->xadj[src_id];
     uint len = graph->getDegree((uint)src_id);
     for (size_t i = LID; i < len; i++) {
       graph->alias_array[start + i] = alias[i];

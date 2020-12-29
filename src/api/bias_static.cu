@@ -9,7 +9,7 @@
 DEFINE_bool(weight, true, "load edge weight from file");
 // DEFINE_bool(bias, true, "biased or unbiased sampling");
 
-__device__ float gpu_graph::getBias(index_t dst, uint src, uint idx) {
-  return weight_list[dst];
+__device__ float gpu_graph::getBias(edge_t dst, uint src, uint idx) {
+  return adjwgt[dst];
 }
 __device__ void gpu_graph::UpdateWalkerState(uint idx, uint info){}
