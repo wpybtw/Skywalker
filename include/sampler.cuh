@@ -33,10 +33,12 @@ public:
   float *prob_array;
   uint *alias_array;
   char *valid;
+
+  uint device_id;
   // float *avg_bias;
 
 public:
-  Sampler(gpu_graph graph) {
+  Sampler(gpu_graph graph, uint _device_id = 0) : device_id(_device_id) {
     ggraph = graph;
     // Init();
   }
@@ -55,21 +57,20 @@ public:
       H_ERR(cudaMallocManaged((void **)&valid, ggraph.vtx_num * sizeof(char)));
 
       H_ERR(cudaMemAdvise(prob_array, ggraph.edge_num * sizeof(float),
-                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+                          cudaMemAdviseSetAccessedBy, device_id));
       H_ERR(cudaMemAdvise(alias_array, ggraph.edge_num * sizeof(uint),
-                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+                          cudaMemAdviseSetAccessedBy, device_id));
       H_ERR(cudaMemAdvise(valid, ggraph.vtx_num * sizeof(char),
-                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+                          cudaMemAdviseSetAccessedBy, device_id));
     }
     if (FLAGS_hmtable) {
-      if(FLAGS_v)
-        printf("host mapped table");
+      LOG("host mapped table\n");
       H_ERR(cudaHostAlloc((void **)&prob_array, ggraph.edge_num * sizeof(float),
-                          cudaHostAllocWriteCombined ));
+                          cudaHostAllocWriteCombined));
       H_ERR(cudaHostAlloc((void **)&alias_array, ggraph.edge_num * sizeof(uint),
-                          cudaHostAllocWriteCombined ));
+                          cudaHostAllocWriteCombined));
       H_ERR(cudaHostAlloc((void **)&valid, ggraph.vtx_num * sizeof(char),
-                          cudaHostAllocWriteCombined ));
+                          cudaHostAllocWriteCombined));
     }
     // if (!FLAGS_ol)
     //   H_ERR(cudaMalloc((void **)&avg_bias, ggraph.vtx_num * sizeof(float)));
@@ -95,7 +96,7 @@ public:
 // seeds[n] = dis(gen);
 #endif // check
     }
-    result.init(num_seed, _hop_num, _hops, seeds);
+    result.init(num_seed, _hop_num, _hops, seeds, device_id);
     // printf("first ten seed:");
     // printH(result.data,10 );
   }
@@ -108,7 +109,7 @@ public:
     uint *_hops = new uint[2];
     _hops[0] = 1;
     _hops[1] = 1;
-    result.init(ggraph.vtx_num, 2, _hops, seeds);
+    result.init(ggraph.vtx_num, 2, _hops, seeds, device_id);
   }
   // void Start();
 };
@@ -123,9 +124,10 @@ public:
   float *prob_array;
   uint *alias_array;
   char *valid;
+  uint device_id;
 
 public:
-  Walker(gpu_graph graph) {
+  Walker(gpu_graph graph, uint _device_id = 0) : device_id(_device_id) {
     ggraph = graph;
     // Init();
   }
@@ -134,6 +136,7 @@ public:
     valid = ggraph.valid;
     prob_array = ggraph.prob_array;
     alias_array = ggraph.alias_array;
+    device_id = sampler.device_id;
   }
   ~Walker() {}
   __device__ void BindResult() { ggraph.result = &result; }
@@ -163,7 +166,7 @@ public:
       // #endif // check
       seeds[n] = n;
     }
-    result.init(num_seed, _hop_num, seeds);
+    result.init(num_seed, _hop_num, seeds, device_id);
   }
   // void Start();
 };

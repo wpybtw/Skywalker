@@ -77,7 +77,6 @@ public:
     this->weighted = false;
     this->hasZeroID = false;
     this->withWeight = false;
-    // this->device = FLAGS_device;
     ReadGraphGR();
     // Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
   }
@@ -104,26 +103,6 @@ public:
   }
   void Load() { ReadGraphGR(); }
   // void Map();
-
-  // void Set_Mem_Policy(bool needWeight = false) {
-  //   H_ERR(cudaMemAdvise(xadj, (numNode + 1) * sizeof(edge_t),
-  //                       cudaMemAdviseSetAccessedBy, FLAGS_device));
-  //   H_ERR(cudaMemAdvise(adjncy, numEdge * sizeof(vtx_t),
-  //                       cudaMemAdviseSetAccessedBy, FLAGS_device));
-
-  //   H_ERR(cudaMemPrefetchAsync(xadj, (numNode + 1) * sizeof(edge_t),
-  //                              FLAGS_device, 0));
-  //   H_ERR(
-  //       cudaMemPrefetchAsync(adjncy, numEdge * sizeof(vtx_t), FLAGS_device,
-  //       0));
-
-  //   if (needWeight) {
-  //     H_ERR(cudaMemAdvise(adjwgt, numEdge * sizeof(weight_t),
-  //                         cudaMemAdviseSetAccessedBy, FLAGS_device));
-  //     H_ERR(cudaMemPrefetchAsync(adjwgt, numEdge * sizeof(weight_t),
-  //                                FLAGS_device, 0));
-  //   }
-  // }
 
   void gk_fclose(FILE *fp) { fclose(fp); }
   FILE *gk_fopen(const char *fname, const char *mode, const char *msg) {
@@ -181,13 +160,16 @@ public:
     }
     // H_ERR(cudaMallocHost(&xadj, (num_Node + 1) * sizeof(uint)));
     // H_ERR(cudaMallocHost(&adjncy, num_Edge * sizeof(uint)));
-    H_ERR(cudaHostAlloc(&xadj, (num_Node + 1) * sizeof(edge_t),cudaHostAllocMapped));
-    H_ERR(cudaHostAlloc(&adjncy, num_Edge * sizeof(vtx_t),cudaHostAllocMapped));
+    H_ERR(cudaHostAlloc(&xadj, (num_Node + 1) * sizeof(edge_t),
+                        cudaHostAllocMapped));
+    H_ERR(
+        cudaHostAlloc(&adjncy, num_Edge * sizeof(vtx_t), cudaHostAllocMapped));
     um_used += (num_Node + 1) * sizeof(vtx_t) + num_Edge * sizeof(vtx_t);
 
     adjwgt = nullptr;
     if (FLAGS_weight)
-      H_ERR(cudaHostAlloc(&adjwgt, num_Edge * sizeof(weight_t),cudaHostAllocMapped));
+      H_ERR(cudaHostAlloc(&adjwgt, num_Edge * sizeof(weight_t),
+                          cudaHostAllocMapped));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
     if ((!sizeEdgeTy || FLAGS_randomweight) && FLAGS_bias) {
@@ -247,12 +229,11 @@ public:
     //   printf("%d has  out degree %d\n", tmp, outDegree[tmp]);
     uint maxD = std::distance(
         outDegree, std::max_element(outDegree, outDegree + num_Node));
-    if (FLAGS_v)
-      printf("%d has max out degree %d\n", maxD, outDegree[maxD]);
+    // if (FLAGS_v)
+    LOG("%d has max out degree %d\n", maxD, outDegree[maxD]);
     MaxDegree = outDegree[maxD];
     if (sizeEdgeTy && !FLAGS_randomweight && FLAGS_weight && FLAGS_bias) {
-      if (FLAGS_v)
-        LOG("loading weight\n");
+      LOG("loading weight\n");
       if (num_Edge % 2)
         if (fseek(fpin, 4, SEEK_CUR) != 0) // skip
           printf("Error when seeking\n");
@@ -268,8 +249,7 @@ public:
         if (read < num_Edge)
           printf("Error: Partial read of edge data\n");
 
-        if (FLAGS_v)
-          LOG("convent uint weight to float\n");
+        LOG("convent uint weight to float\n");
 
 // if(omp_get_thread_num())
 // printf("omp_get_max_threads() %d\n",omp_get_max_threads());

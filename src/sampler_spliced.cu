@@ -3,14 +3,16 @@
 #include "util.cuh"
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph,
-                                 curandState state, int current_itr, int idx,
-                                 int node_id, void *buffer) {
+static __device__ void SampleWarpCentic(sample_result &result,
+                                        gpu_graph *ggraph, curandState state,
+                                        int current_itr, int idx, int node_id,
+                                        void *buffer) {
   // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
   // tables[WARP_PER_BLK];
   alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
       (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table = &tables[WID];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
+      &tables[WID];
 
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
@@ -22,16 +24,18 @@ static __device__ void SampleWarpCentic(sample_result &result, gpu_graph *ggraph
   table->Clean();
 }
 
-static __device__ void SampleBlockCentic(sample_result &result, gpu_graph *ggraph,
-                                  curandState state, int current_itr, int idx,
-                                  int node_id, void *buffer,
-                                  Buffer_pointer *buffer_pointer) {
-  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC> tables[1];
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *tables =
-      (alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *)
-          buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED> *table =
-      &tables[0];
+static __device__ void SampleBlockCentic(sample_result &result,
+                                         gpu_graph *ggraph, curandState state,
+                                         int current_itr, int idx, int node_id,
+                                         void *buffer,
+                                         Buffer_pointer *buffer_pointer) {
+  // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC>
+  // tables[1];
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED>
+      *tables = (alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
+                                               BufferType::SPLICED> *)buffer;
+  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::SPLICED>
+      *table = &tables[0];
 
 #ifdef check
   if (LTID == 0)
@@ -148,8 +152,8 @@ static __global__ void print_result(Sampler *sampler) {
 // void Start_high_degree(Sampler sampler)
 void StartSP(Sampler sampler) {
   // orkut max degree 932101
-  if (FLAGS_v)
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+
+  LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);
@@ -157,7 +161,8 @@ void StartSP(Sampler sampler) {
   int n_sm = prop.multiProcessorCount;
 
   if (sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::BC>) <
-      sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC>) * WARP_PER_BLK)
+      sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC>) *
+          WARP_PER_BLK)
     printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
@@ -168,7 +173,8 @@ void StartSP(Sampler sampler) {
 
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
-  int gbuff_size = sampler.ggraph.MaxDegree;;
+  int gbuff_size = sampler.ggraph.MaxDegree;
+  ;
   LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
   Buffer_pointer *buffer_pointers = new Buffer_pointer[block_num];
   for (size_t i = 0; i < block_num; i++) {

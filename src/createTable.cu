@@ -126,8 +126,7 @@ __global__ void PrintTable(Sampler *sampler) {
 }
 
 void ConstructTable(Sampler &sampler) {
-  if (FLAGS_v)
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+  LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);

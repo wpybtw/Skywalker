@@ -2,6 +2,7 @@
 #include "gflags/gflags.h"
 #include "util.cuh"
 
+DECLARE_bool(v);
 DECLARE_bool(umbuf);
 DECLARE_int32(device);
 enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2 };
@@ -271,6 +272,7 @@ public:
     if (!FLAGS_umbuf) {
       H_ERR(cudaMalloc(&data, _capacity * sizeof(T)));
     } else {
+      LOG("FLAGS_device not solved\n");
       H_ERR(cudaMallocManaged(&data, _capacity * sizeof(T)));
       H_ERR(cudaMemAdvise(data, _capacity * sizeof(T),
                           cudaMemAdviseSetAccessedBy, FLAGS_device));

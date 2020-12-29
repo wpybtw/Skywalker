@@ -55,7 +55,7 @@ static __global__ void sample_kernel(Sampler *sampler) {
     __threadfence_block();
     // if (LID == 0)
     job = result.requireOneJob(current_itr);
-    while (job.val&&graph->valid[job.node_id] ) {
+    while (job.val && graph->valid[job.node_id]) {
       uint src_id = job.node_id;
       Vector_virtual<uint> alias;
       Vector_virtual<float> prob;
@@ -101,8 +101,8 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 void OfflineSample(Sampler &sampler) {
-  if (FLAGS_v)
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+
+  LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);

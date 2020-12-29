@@ -39,6 +39,7 @@ public:
   edge_t edge_num;
   edge_t avg_degree;
   uint MaxDegree;
+  uint device_id;
 
   Jobs_result<JobType::RW, uint> *result;
   // sample_result *result2;
@@ -48,7 +49,7 @@ public:
 
 public:
   gpu_graph() {}
-  gpu_graph(Graph *ginst) {
+  gpu_graph(Graph *ginst, uint _device_id = 0) : device_id(_device_id) {
     vtx_num = ginst->numNode;
     edge_num = ginst->numEdge;
     // printf("vtx_num: %d\t edge_num: %d\n", vtx_num, edge_num);
@@ -79,20 +80,19 @@ public:
   }
   void Set_Mem_Policy(bool needWeight = false) {
     H_ERR(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
-                        cudaMemAdviseSetAccessedBy, FLAGS_device));
+                        cudaMemAdviseSetAccessedBy, device_id));
     H_ERR(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
-                        cudaMemAdviseSetAccessedBy, FLAGS_device));
+                        cudaMemAdviseSetAccessedBy, device_id));
 
-    H_ERR(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t),
-                               FLAGS_device, 0));
-    H_ERR(cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), FLAGS_device,
+    H_ERR(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t), device_id,
                                0));
+    H_ERR(cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
 
     if (needWeight) {
       H_ERR(cudaMemAdvise(adjwgt, edge_num * sizeof(weight_t),
-                          cudaMemAdviseSetAccessedBy, FLAGS_device));
-      H_ERR(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t),
-                                 FLAGS_device, 0));
+                          cudaMemAdviseSetAccessedBy, device_id));
+      H_ERR(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t), device_id,
+                                 0));
     }
   }
   __device__ __host__ ~gpu_graph() {}

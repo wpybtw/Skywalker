@@ -131,12 +131,12 @@ static __global__ void print_result(Sampler *sampler) {
 // void Start_high_degree(Sampler sampler)
 void OnlineGBSample(Sampler sampler) {
   // orkut max degree 932101
-  if (FLAGS_v) {
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+
+  LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
-    printf("skipping 8k\n");
+  LOG("skipping 8k\n");
 #endif // skip8k
-  }
+
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);

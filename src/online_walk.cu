@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-17 20:11:32
+ * @LastEditTime: 2020-12-29 14:35:15
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -189,12 +189,12 @@ template <typename T> void init_array(T *ptr, size_t size, T v) {
 // void Start_high_degree(Walker sampler)
 void OnlineGBWalk(Walker &sampler) {
   // orkut max degree 932101
-  if (FLAGS_v) {
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+
+  LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
-    printf("skipping 8k\n");
+  LOG("skipping 8k\n");
 #endif // skip8k
-  }
+
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);

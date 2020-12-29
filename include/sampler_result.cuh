@@ -104,12 +104,14 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
   int *job_sizes_floor = nullptr;
   int *job_sizes = nullptr;
   uint *data2;
+  uint device_id;
 
   SamplerState<JobType::NODE2VEC, T> *state;
   float p = 2.0, q = 0.5;
 
   Jobs_result() {}
-  void init(uint _size, uint _hop_num, uint *seeds) {
+  void init(uint _size, uint _hop_num, uint *seeds, uint _device_id = 0) {
+    device_id = _device_id;
     size = _size;
     hop_num = _hop_num;
     if (size * hop_num > 400000000)
@@ -119,7 +121,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
     } else {
       H_ERR(cudaMallocManaged(&data, size * hop_num * sizeof(uint)));
       H_ERR(cudaMemAdvise(data, size * hop_num * sizeof(uint),
-                          cudaMemAdviseSetAccessedBy, FLAGS_device));
+                          cudaMemAdviseSetAccessedBy, device_id));
     }
     H_ERR(cudaMalloc(&alive, size * sizeof(char)));
     H_ERR(cudaMemset(alive, 1, size * sizeof(char)));
@@ -138,7 +140,7 @@ template <typename T> struct Jobs_result<JobType::RW, T> {
       } else {
         H_ERR(cudaMallocManaged(&data2, size * hop_num * sizeof(uint)));
         H_ERR(cudaMemAdvise(data2, size * hop_num * sizeof(uint),
-                            cudaMemAdviseSetAccessedBy, FLAGS_device));
+                            cudaMemAdviseSetAccessedBy, device_id));
       }
       H_ERR(cudaMemcpy(data2, seeds, size * sizeof(uint),
                        cudaMemcpyHostToDevice));
@@ -275,6 +277,7 @@ struct sample_result {
   int *job_sizes_h = nullptr;
   int *job_sizes_floor = nullptr;
   uint capacity;
+  uint device_id;
 
   Vector_gmem<uint> *high_degrees;
 
@@ -295,7 +298,9 @@ struct sample_result {
     if (job_sizes_h != nullptr)
       delete[] job_sizes_h;
   }
-  void init(uint _size, uint _hop_num, uint *_hops, uint *seeds) {
+  void init(uint _size, uint _hop_num, uint *_hops, uint *seeds,
+            uint _device_id = 0) {
+    device_id = _device_id;
     Free();
     size = _size;
     hop_num = _hop_num;

@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:13:47
+ * @LastEditTime: 2020-12-29 14:34:23
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -101,21 +101,19 @@ int main(int argc, char *argv[]) {
   Graph *ginst = new Graph();
   if (ginst->numEdge > 1000000000) {
     FLAGS_umtable = 1;
-    if (FLAGS_v)
-      LOG("overriding um for alias table\n");
+    LOG("overriding um for alias table\n");
   }
   if (ginst->MaxDegree > 500000) {
     FLAGS_umbuf = 1;
-    if (FLAGS_v)
-      LOG("overriding um buffer\n");
+    LOG("overriding um buffer\n");
   }
   if (FLAGS_full && !FLAGS_stream) {
     SampleSize = ginst->numNode;
     FLAGS_n = ginst->numNode;
   }
 
-  gpu_graph ggraph(ginst);
-  Sampler sampler(ggraph);
+  gpu_graph ggraph(ginst, 0);
+  Sampler sampler(ggraph, 0);
 
   if (!FLAGS_bias && !FLAGS_rw) { // unbias
     sampler.SetSeed(SampleSize, Depth + 1, hops);

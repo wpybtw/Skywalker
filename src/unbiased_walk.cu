@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-16 16:44:04
+ * @LastEditTime: 2020-12-29 14:36:32
  * @FilePath: /sampling/src/unbiased_walk.cu
  */
 #include "kernel.cuh"
@@ -128,8 +128,8 @@ static __global__ void print_result(Walker *walker) {
 }
 
 void UnbiasedWalk(Walker &walker) {
-  if (FLAGS_v)
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+
+  LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);
