@@ -70,8 +70,7 @@ __global__ void sample_kernel(Sampler *sampler,
   curand_init(TID, 0, 0, &state);
 
   __shared__ uint current_itr;
-  if (threadIdx.x == 0)
-    current_itr = 0;
+  if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
   __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC> table;
@@ -85,8 +84,7 @@ __global__ void sample_kernel(Sampler *sampler,
     // high_degree_vec.Init(0);
     sample_job job;
 
-    if (LID == 0)
-      job = result.requireOneJob(current_itr);
+    if (LID == 0) job = result.requireOneJob(current_itr);
     __syncwarp(0xffffffff);
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
@@ -104,8 +102,7 @@ __global__ void sample_kernel(Sampler *sampler,
         }
       }
       __syncwarp(0xffffffff);
-      if (LID == 0)
-        job = result.requireOneJob(current_itr);
+      if (LID == 0) job = result.requireOneJob(current_itr);
       job.idx = __shfl_sync(0xffffffff, job.idx, 0);
       job.val = __shfl_sync(0xffffffff, job.val, 0);
       job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
@@ -123,7 +120,7 @@ __global__ void sample_kernel(Sampler *sampler,
     while (high_degree_job.val) {
       SampleBlockCentic(result, ggraph, state, current_itr, 0,
                         high_degree_job.node_id, buffer,
-                        buffer_pointer); // buffer_pointer
+                        buffer_pointer);  // buffer_pointer
       __syncthreads();
       if (LTID == 0) {
         job = result.requireOneHighDegreeJob(current_itr);

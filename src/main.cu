@@ -2,13 +2,12 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:34:23
+ * @LastEditTime: 2020-12-29 14:57:00
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -17,6 +16,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <iostream>
 
 #include "gpu_graph.cuh"
 #include "graph.cuh"
@@ -65,7 +66,6 @@ DEFINE_bool(v, false, "verbose");
 DEFINE_bool(stream, false, "streaming sample over all node");
 
 int main(int argc, char *argv[]) {
-
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   // override flag
   if (FLAGS_node2vec) {
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
   gpu_graph ggraph(ginst, 0);
   Sampler sampler(ggraph, 0);
 
-  if (!FLAGS_bias && !FLAGS_rw) { // unbias
+  if (!FLAGS_bias && !FLAGS_rw) {  // unbias
     sampler.SetSeed(SampleSize, Depth + 1, hops);
     // UnbiasedSample(sampler);
   }
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
     UnbiasedWalk(walker);
   }
 
-  if (FLAGS_bias && FLAGS_ol) { // online biased
+  if (FLAGS_bias && FLAGS_ol) {  // online biased
     sampler.SetSeed(SampleSize, Depth + 1, hops);
     if (!FLAGS_rw) {
       OnlineGBSample(sampler);
@@ -137,10 +137,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (FLAGS_bias && !FLAGS_ol) { // offline biased
+  if (FLAGS_bias && !FLAGS_ol) {  // offline biased
     sampler.InitFullForConstruction();
     ConstructTable(sampler);
-    if (!FLAGS_rw) { //&& FLAGS_k != 1
+    if (!FLAGS_rw) {  //&& FLAGS_k != 1
       sampler.SetSeed(SampleSize, Depth + 1, hops);
       OfflineSample(sampler);
     } else {

@@ -44,11 +44,10 @@ static __global__ void sample_kernel(Sampler *sampler) {
   curand_init(TID, 0, 0, &state);
 
   __shared__ uint current_itr;
-  if (threadIdx.x == 0)
-    current_itr = 0;
+  if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
 
-  for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
+  for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
   {
     // if(LID==0) paster(result.hop_num - 1);
     sample_job job;
@@ -90,8 +89,7 @@ static __global__ void sample_kernel(Sampler *sampler) {
       job = result.requireOneJob(current_itr);
     }
     __syncthreads();
-    if (threadIdx.x == 0)
-      result.NextItr(current_itr);
+    if (threadIdx.x == 0) result.NextItr(current_itr);
     __syncthreads();
   }
 }
@@ -101,7 +99,6 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 void OfflineSample(Sampler &sampler) {
-
   LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;

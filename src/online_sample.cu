@@ -61,17 +61,15 @@ __global__ void sample_kernel(Sampler *sampler,
   curand_init(TID, 0, 0, &state);
 
   __shared__ uint current_itr;
-  if (threadIdx.x == 0)
-    current_itr = 0;
+  if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
-  for (; current_itr < result.hop_num - 1;) // for 2-hop, hop_num=3
+  for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
   {
     Vector_gmem<uint> *high_degrees =
         &sampler->result.high_degrees[current_itr];
     sample_job job;
     __threadfence_block();
-    if (LID == 0)
-      job = result.requireOneJob(current_itr);
+    if (LID == 0) job = result.requireOneJob(current_itr);
     __syncwarp(0xffffffff);
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
@@ -86,12 +84,11 @@ __global__ void sample_kernel(Sampler *sampler,
         if (LID == 0 && ggraph->getDegree(job.node_id) < 8000)
 #else
         if (LID == 0)
-#endif // skip8k
+#endif  // skip8k
           result.AddHighDegree(current_itr, job.node_id);
       }
       __syncwarp(0xffffffff);
-      if (LID == 0)
-        job = result.requireOneJob(current_itr);
+      if (LID == 0) job = result.requireOneJob(current_itr);
       job.idx = __shfl_sync(0xffffffff, job.idx, 0);
       job.val = __shfl_sync(0xffffffff, job.val, 0);
       job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
@@ -107,7 +104,7 @@ __global__ void sample_kernel(Sampler *sampler,
     while (high_degree_job.val) {
       SampleBlockCentic(result, ggraph, state, current_itr,
                         high_degree_job.node_id, buffer,
-                        vector_packs); // buffer_pointer
+                        vector_packs);  // buffer_pointer
       __syncthreads();
       if (LTID == 0) {
         job = result.requireOneHighDegreeJob(current_itr);
@@ -135,7 +132,7 @@ void OnlineGBSample(Sampler sampler) {
   LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
   LOG("skipping 8k\n");
-#endif // skip8k
+#endif  // skip8k
 
   int device;
   cudaDeviceProp prop;
@@ -179,7 +176,6 @@ void OnlineGBSample(Sampler sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v)
-    print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

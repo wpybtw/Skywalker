@@ -2,12 +2,12 @@
 // Graph data structure on GPUs
 #ifndef _GPU_GRAPH_H_
 #define _GPU_GRAPH_H_
+#include <algorithm>
+#include <iostream>
+
 #include "graph.cuh"
 #include "header.h"
 #include "sampler_result.cuh"
-#include "util.h"
-#include <algorithm>
-#include <iostream>
 
 DECLARE_bool(weight);
 DECLARE_bool(randomweight);
@@ -24,7 +24,7 @@ enum class BiasType { Weight = 0, Degree = 1 };
 
 // template<BiasType bias=BiasType::Weight>
 class gpu_graph {
-public:
+ public:
   vtx_t *adjncy;
   weight_t *adjwgt;
   edge_t *xadj;
@@ -47,7 +47,7 @@ public:
 
   // float (gpu_graph::*getBias)(uint);
 
-public:
+ public:
   gpu_graph() {}
   gpu_graph(Graph *ginst, uint _device_id = 0) : device_id(_device_id) {
     vtx_num = ginst->numNode;

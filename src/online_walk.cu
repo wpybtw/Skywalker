@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:35:15
+ * @LastEditTime: 2020-12-29 14:56:31
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -40,16 +40,17 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
       ggraph->UpdateWalkerState(sid, node_id);
     };
   } else {
-    if (LID == 0)
-      result.length[sid] = current_itr;
+    if (LID == 0) result.length[sid] = current_itr;
   }
   table->Clean();
 }
 
-static __device__ void
-SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
-                  curandState state, int current_itr, int node_id, void *buffer,
-                  Vector_pack<uint> *vector_packs, uint sid = 0) {
+static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
+                                         gpu_graph *ggraph, curandState state,
+                                         int current_itr, int node_id,
+                                         void *buffer,
+                                         Vector_pack<uint> *vector_packs,
+                                         uint sid = 0) {
   alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
       *tables = (alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
                                                BufferType::GMEM> *)buffer;
@@ -78,8 +79,7 @@ SampleBlockCentic(Jobs_result<JobType::RW, uint> &result, gpu_graph *ggraph,
       ggraph->UpdateWalkerState(sid, node_id);
     };
   } else {
-    if (LTID == 0)
-      result.length[sid] = current_itr;
+    if (LTID == 0) result.length[sid] = current_itr;
   }
   __syncthreads();
   table->Clean();
@@ -97,8 +97,7 @@ __global__ void OnlineWalkKernel(Walker *sampler,
   curand_init(TID, 0, 0, &state);
 
   __shared__ uint current_itr;
-  if (threadIdx.x == 0)
-    current_itr = 0;
+  if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
   for (; current_itr < result.hop_num - 1;) {
     Vector_gmem<uint> *high_degrees =
@@ -125,16 +124,14 @@ __global__ void OnlineWalkKernel(Walker *sampler,
           if (LID == 0 && ggraph->getDegree(node_id) < 8000)
 #else
           if (LID == 0)
-#endif // skip8k
+#endif  // skip8k
             result.AddHighDegree(current_itr, sid);
         }
       } else {
-        if (LID == 0)
-          result.length[sid] = current_itr;
+        if (LID == 0) result.length[sid] = current_itr;
       }
       __syncwarp(0xffffffff);
-      if (LID == 0)
-        job = result.requireOneJob(current_itr);
+      if (LID == 0) job = result.requireOneJob(current_itr);
       job.val = __shfl_sync(0xffffffff, job.val, 0);
       job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
     }
@@ -153,7 +150,7 @@ __global__ void OnlineWalkKernel(Walker *sampler,
     while (high_degree_job.val) {
       SampleBlockCentic(result, ggraph, state, current_itr,
                         high_degree_job.node_id, buffer, vector_packs,
-                        sid2); // buffer_pointer
+                        sid2);  // buffer_pointer
       __syncthreads();
       if (LTID == 0) {
         job = result.requireOneHighDegreeJob(current_itr);
@@ -177,12 +174,14 @@ static __global__ void print_result(Walker *sampler) {
   sampler->result.PrintResult();
 }
 
-template <typename T> __global__ void init_array_d(T *ptr, size_t size, T v) {
+template <typename T>
+__global__ void init_array_d(T *ptr, size_t size, T v) {
   if (TID < size) {
     ptr[TID] = v;
   }
 }
-template <typename T> void init_array(T *ptr, size_t size, T v) {
+template <typename T>
+void init_array(T *ptr, size_t size, T v) {
   init_array_d<T><<<size / 512 + 1, 512>>>(ptr, size, v);
 }
 
@@ -193,7 +192,7 @@ void OnlineGBWalk(Walker &sampler) {
   LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
   LOG("skipping 8k\n");
-#endif // skip8k
+#endif  // skip8k
 
   int device;
   cudaDeviceProp prop;
@@ -245,7 +244,6 @@ void OnlineGBWalk(Walker &sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v)
-    print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

@@ -65,7 +65,6 @@ static __global__ void print_result(Walker *walker) {
 }
 
 void OfflineWalk(Walker &walker) {
-
   LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
@@ -94,7 +93,6 @@ void OfflineWalk(Walker &walker) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v)
-    print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

@@ -12,7 +12,6 @@
 DECLARE_bool(v);
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
-
 static __device__ void SampleWarpCentic(sample_result &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int idx, int node_id,
@@ -62,8 +61,7 @@ __global__ void sample_kernel(Sampler *sampler) {
   curand_init(TID, 0, 0, &state);
 
   __shared__ uint current_itr;
-  if (threadIdx.x == 0)
-    current_itr = 0;
+  if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
   // __shared__ char buffer[48928];
   __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
@@ -73,13 +71,12 @@ __global__ void sample_kernel(Sampler *sampler) {
   // void * buffer=nullptr;
   __shared__ Vector_shmem<id_pair, ExecutionPolicy::BC, 16> high_degree_vec;
 
-  for (; current_itr < result.hop_num - 1;) // 3 2
+  for (; current_itr < result.hop_num - 1;)  // 3 2
   {
     high_degree_vec.Init(0);
     id_pair high_degree;
     sample_job job;
-    if (LID == 0)
-      job = result.requireOneJob(current_itr);
+    if (LID == 0) job = result.requireOneJob(current_itr);
     __syncwarp(0xffffffff);
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
@@ -100,8 +97,7 @@ __global__ void sample_kernel(Sampler *sampler) {
         }
       }
       __syncwarp(0xffffffff);
-      if (LID == 0)
-        job = result.requireOneJob(current_itr);
+      if (LID == 0) job = result.requireOneJob(current_itr);
       job.idx = __shfl_sync(0xffffffff, job.idx, 0);
       job.val = __shfl_sync(0xffffffff, job.val, 0);
       job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
@@ -169,6 +165,5 @@ void Start(Sampler sampler) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v)
-    print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 }

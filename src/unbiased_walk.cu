@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:36:32
+ * @LastEditTime: 2020-12-29 14:56:44
  * @FilePath: /sampling/src/unbiased_walk.cu
  */
 #include "kernel.cuh"
@@ -39,12 +39,10 @@ __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
   // }
 }
 __global__ void Reset(Walker *walker, uint current_itr) {
-  if (TID == 0)
-    walker->result.frontier.Reset(current_itr);
+  if (TID == 0) walker->result.frontier.Reset(current_itr);
 }
 __global__ void GetSize(Walker *walker, uint current_itr, uint *size) {
-  if (TID == 0)
-    *size = walker->result.frontier.Size(current_itr);
+  if (TID == 0) *size = walker->result.frontier.Size(current_itr);
 }
 
 __global__ void UnbiasedWalkKernel(Walker *walker, float *tp) {
@@ -128,7 +126,6 @@ static __global__ void print_result(Walker *walker) {
 }
 
 void UnbiasedWalk(Walker &walker) {
-
   LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
@@ -179,7 +176,6 @@ void UnbiasedWalk(Walker &walker) {
   // H_ERR(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("SamplingTime:\t%.6f\n", total_time);
-  if (FLAGS_v)
-    print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  if (FLAGS_v) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   H_ERR(cudaDeviceSynchronize());
 }

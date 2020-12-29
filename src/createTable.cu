@@ -10,7 +10,7 @@ __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
                                     void *buffer) {
   using WCTable = alias_table_constructor_shmem<
       uint, ExecutionPolicy::WC,
-      BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
+      BufferType::SHMEM>;  //, AliasTableStorePolicy::STORE
   WCTable *tables = (WCTable *)buffer;
   WCTable *table = &tables[WID];
 
@@ -20,8 +20,7 @@ __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
   if (not_all_zero) {
     table->construct();
     table->SaveAliasTable(ggraph);
-    if (LID == 0)
-      sampler->valid[node_id] = 1;
+    if (LID == 0) sampler->valid[node_id] = 1;
   }
   table->Clean();
 }
@@ -44,8 +43,7 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
   if (not_all_zero) {
     table->constructBC();
     table->SaveAliasTable(ggraph);
-    if (LTID == 0)
-      sampler->valid[node_id] = 1;
+    if (LTID == 0) sampler->valid[node_id] = 1;
   }
   __syncthreads();
   table->Clean();
@@ -58,23 +56,21 @@ __global__ void ConstructAliasTableKernel(Sampler *sampler,
   Vector_pack2<uint> *vector_packs = &vector_pack[BID];
   using WCTable = alias_table_constructor_shmem<
       uint, ExecutionPolicy::WC,
-      BufferType::SHMEM>; //, AliasTableStorePolicy::STORE
+      BufferType::SHMEM>;  //, AliasTableStorePolicy::STORE
   __shared__ WCTable table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;
   curand_init(TID, 0, 0, &state);
 
   __shared__ uint current_itr;
-  if (threadIdx.x == 0)
-    current_itr = 0;
+  if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
 
   Vector_gmem<uint> *high_degrees = &sampler->result.high_degrees[0];
 
   sample_job job;
   __threadfence_block();
-  if (LID == 0)
-    job = result.requireOneJob(current_itr);
+  if (LID == 0) job = result.requireOneJob(current_itr);
   __syncwarp(0xffffffff);
   job.idx = __shfl_sync(0xffffffff, job.idx, 0);
   job.val = __shfl_sync(0xffffffff, job.val, 0);
@@ -85,12 +81,10 @@ __global__ void ConstructAliasTableKernel(Sampler *sampler,
       ConstructWarpCentic(sampler, result, ggraph, state, current_itr, job.idx,
                           job.node_id, buffer);
     } else {
-      if (LID == 0)
-        result.AddHighDegree(current_itr, job.node_id);
+      if (LID == 0) result.AddHighDegree(current_itr, job.node_id);
     }
     __syncwarp(0xffffffff);
-    if (LID == 0)
-      job = result.requireOneJob(current_itr);
+    if (LID == 0) job = result.requireOneJob(current_itr);
     job.idx = __shfl_sync(0xffffffff, job.idx, 0);
     job.val = __shfl_sync(0xffffffff, job.val, 0);
     job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
@@ -106,7 +100,7 @@ __global__ void ConstructAliasTableKernel(Sampler *sampler,
   while (high_degree_job.val) {
     ConstructBlockCentic(sampler, result, ggraph, state, current_itr,
                          high_degree_job.node_id, buffer,
-                         vector_packs); // buffer_pointer
+                         vector_packs);  // buffer_pointer
     // __syncthreads();
     if (LTID == 0) {
       job = result.requireOneHighDegreeJob(current_itr);
@@ -174,9 +168,11 @@ void ConstructTable(Sampler &sampler) {
   printf("Construct table time:\t%.6f\n", total_time);
   if (FLAGS_weight || FLAGS_randomweight) {
     H_ERR(cudaFree(sampler.ggraph.adjwgt));
-    // H_ERR(cudaMemAdvise(sampler.ggraph.adjwgt, sampler.ggraph.edge_num * sizeof(weight_t),
+    // H_ERR(cudaMemAdvise(sampler.ggraph.adjwgt, sampler.ggraph.edge_num *
+    // sizeof(weight_t),
     //                     cudaMemAdviseUnsetAccessedBy, FLAGS_device));
-    // H_ERR(cudaMemPrefetchAsync(sampler.ggraph.adjwgt, sampler.ggraph.edge_num * sizeof(weight_t), cudaCpuDeviceId,
+    // H_ERR(cudaMemPrefetchAsync(sampler.ggraph.adjwgt, sampler.ggraph.edge_num
+    // * sizeof(weight_t), cudaCpuDeviceId,
     //                            0));
   }
 }
