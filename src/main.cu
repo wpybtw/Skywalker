@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 14:04:38
+ * @LastEditTime: 2020-12-29 14:13:47
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -117,36 +117,38 @@ int main(int argc, char *argv[]) {
   gpu_graph ggraph(ginst);
   Sampler sampler(ggraph);
 
-  if (!FLAGS_bias) { // unbias
+  if (!FLAGS_bias && !FLAGS_rw) { // unbias
+    sampler.SetSeed(SampleSize, Depth + 1, hops);
+    // UnbiasedSample(sampler);
+  }
+
+  if (!FLAGS_bias && FLAGS_rw) {
+    Walker walker(sampler);
+    walker.SetSeed(SampleSize, Depth + 1);
+    UnbiasedWalk(walker);
+  }
+
+  if (FLAGS_bias && FLAGS_ol) { // online biased
+    sampler.SetSeed(SampleSize, Depth + 1, hops);
     if (!FLAGS_rw) {
-      sampler.SetSeed(SampleSize, Depth + 1, hops);
-      // UnbiasedSample(sampler);
+      OnlineGBSample(sampler);
     } else {
       Walker walker(sampler);
       walker.SetSeed(SampleSize, Depth + 1);
-      UnbiasedWalk(walker);
+      OnlineGBWalk(walker);
     }
-  } else {          // biased
-    if (FLAGS_ol) { // online biased
+  }
+
+  if (FLAGS_bias && !FLAGS_ol) { // offline biased
+    sampler.InitFullForConstruction();
+    ConstructTable(sampler);
+    if (!FLAGS_rw) { //&& FLAGS_k != 1
       sampler.SetSeed(SampleSize, Depth + 1, hops);
-      if (!FLAGS_rw) {
-        OnlineGBSample(sampler);
-      } else {
-        Walker walker(sampler);
-        walker.SetSeed(SampleSize, Depth + 1);
-        OnlineGBWalk(walker);
-      }
-    } else { // offline biased
-      sampler.InitFullForConstruction();
-      ConstructTable(sampler);
-      if (!FLAGS_rw) { //&& FLAGS_k != 1
-        sampler.SetSeed(SampleSize, Depth + 1, hops);
-        OfflineSample(sampler);
-      } else {
-        Walker walker(sampler);
-        walker.SetSeed(SampleSize, Depth + 1);
-        OfflineWalk(walker);
-      }
+      OfflineSample(sampler);
+    } else {
+      Walker walker(sampler);
+      walker.SetSeed(SampleSize, Depth + 1);
+      OfflineWalk(walker);
     }
   }
 
