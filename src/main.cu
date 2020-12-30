@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 20:51:50
+ * @LastEditTime: 2020-12-30 16:28:04
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -131,6 +131,8 @@ int main(int argc, char *argv[]) {
     int dev_num = omp_get_num_threads();
     uint local_sample_size = sample_size / dev_num;
     uint offset_sample_size = local_sample_size * dev_id;
+    // paster(local_sample_size);
+    // paster(offset_sample_size);
 
     LOG("device_id %d ompid %d coreid %d\n", dev_id, omp_get_thread_num(),
         sched_getcpu());

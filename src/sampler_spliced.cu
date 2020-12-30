@@ -172,7 +172,7 @@ void StartSP(Sampler sampler) {
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   int gbuff_size = sampler.ggraph.MaxDegree;
   ;
-  LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
+  LOG("alllocate GMEM buffer %d MB\n", block_num * gbuff_size * MEM_PER_ELE/1024/1024);
   Buffer_pointer *buffer_pointers = new Buffer_pointer[block_num];
   for (size_t i = 0; i < block_num; i++) {
     buffer_pointers[i].allocate(gbuff_size);

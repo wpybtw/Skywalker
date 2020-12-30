@@ -141,7 +141,7 @@ class gpu_graph {
     return false;
   }
   __device__ float getBiasImpl(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }
-  __device__ edge_t getOutNode(edge_t idx, edge_t offset) {
+  __device__ edge_t getOutNode(edge_t idx, uint offset) {
     return adjncy[xadj[idx] + offset];
   }
   __device__ vtx_t *getNeighborPtr(edge_t idx) { return &adjncy[xadj[idx]]; }

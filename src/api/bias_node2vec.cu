@@ -6,7 +6,7 @@
  * @FilePath: /sampling/src/api/bias_node2vec.cu
  */
 
-#include "gflags/gflags.h"
+#include <gflags/gflags.h>
 #include "gpu_graph.cuh"
 
 DEFINE_bool(weight, true, "load edge weight from file");

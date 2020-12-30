@@ -1,24 +1,23 @@
 #ifndef _GRAPH_CUH
 #define _GRAPH_CUH
 
-#include <algorithm>
 #include <assert.h>
-#include <cerrno>
-#include <cstring>
+#include <cooperative_groups.h>
+#include <cuda_profiler_api.h>
+#include <cuda_runtime.h>
 #include <fcntl.h>
-#include <memory>
-#include <stdexcept>
+#include <gflags/gflags.h>
+#include <nvrtc.h>
+#include <omp.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <cooperative_groups.h>
-#include <cuda_profiler_api.h>
-#include <cuda_runtime.h>
-#include <nvrtc.h>
-
-#include "gflags/gflags.h"
-#include <omp.h>
+#include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <memory>
+#include <stdexcept>
 
 #include "util.cuh"
 
@@ -30,22 +29,22 @@ DECLARE_bool(umbuf);
 DECLARE_bool(bias);
 DECLARE_bool(weight);
 DECLARE_bool(dw);
-DECLARE_bool(randomweight); // randomweight
+DECLARE_bool(randomweight);  // randomweight
 DECLARE_int32(weightrange);
 
 DECLARE_bool(v);
-template <typename T> void PrintResults(T *results, uint n);
+template <typename T>
+void PrintResults(T *results, uint n);
 
 using uint = unsigned int;
-using vtx_t = unsigned int;  // vertex_num < 4B
-using edge_t = unsigned int; // vertex_num < 4B
+using vtx_t = unsigned int;   // vertex_num < 4B
+using edge_t = unsigned int;  // vertex_num < 4B
 // using edge_t = unsigned long long int; // vertex_num > 4B
 using weight_t = float;
 using ulong = unsigned long;
 
 class Graph {
-
-public:
+ public:
   std::string graphFilePath;
   void *gr_ptr;
   size_t filesize;
@@ -81,12 +80,9 @@ public:
     // Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
   }
   ~Graph() {
-    if (xadj != nullptr)
-      H_ERR(cudaFree(xadj));
-    if (adjncy != nullptr)
-      H_ERR(cudaFree(adjncy));
-    if (adjwgt != nullptr)
-      H_ERR(cudaFree(adjwgt));
+    if (xadj != nullptr) H_ERR(cudaFree(xadj));
+    if (adjncy != nullptr) H_ERR(cudaFree(adjncy));
+    if (adjwgt != nullptr) H_ERR(cudaFree(adjwgt));
     // free(xadj);
     // free(adjncy);
     // if (adjwgt != nullptr)
@@ -109,8 +105,7 @@ public:
     FILE *fp;
     char errmsg[8192];
     fp = fopen(fname, mode);
-    if (fp != NULL)
-      return fp;
+    if (fp != NULL) return fp;
     sprintf(errmsg, "file: %s, mode: %s, [%s]", fname, mode, msg);
     perror(errmsg);
     printf("Failed on gk_fopen()\n");
@@ -189,9 +184,8 @@ public:
     // assert(adjwgt != NULL);
     if (sizeof(edge_t) == sizeof(uint64_t)) {
       read = fread(xadj + 1, sizeof(uint64_t), num_Node,
-                   fpin); // This is little-endian data
-      if (read < num_Node)
-        printf("Error: Partial read of node data\n");
+                   fpin);  // This is little-endian data
+      if (read < num_Node) printf("Error: Partial read of node data\n");
       fprintf(stderr, "read %lu nodes\n", num_Node);
     } else {
       for (size_t i = 0; i < num_Node; i++) {
@@ -204,9 +198,8 @@ public:
     // edges are 32-bit
     if (sizeof(vtx_t) == sizeof(uint32_t)) {
       read = fread(adjncy, sizeof(uint), num_Edge,
-                   fpin); // This is little-endian data
-      if (read < num_Edge)
-        printf("Error: Partial read of edge destinations\n");
+                   fpin);  // This is little-endian data
+      if (read < num_Edge) printf("Error: Partial read of edge destinations\n");
       // fprintf(stderr, "read %lu edges\n", numEdge);
     } else {
       assert(false &&
@@ -235,7 +228,7 @@ public:
     if (sizeEdgeTy && !FLAGS_randomweight && FLAGS_weight && FLAGS_bias) {
       LOG("loading weight\n");
       if (num_Edge % 2)
-        if (fseek(fpin, 4, SEEK_CUR) != 0) // skip
+        if (fseek(fpin, 4, SEEK_CUR) != 0)  // skip
           printf("Error when seeking\n");
       if (sizeof(uint) == sizeof(uint32_t)) {
         // if (FLAGS_v)
@@ -244,12 +237,11 @@ public:
         uint *tmp_weight = new uint[num_Edge];
 
         read = fread(tmp_weight, sizeof(uint), num_Edge,
-                     fpin); // This is little-endian data
+                     fpin);  // This is little-endian data
         readew = true;
-        if (read < num_Edge)
-          printf("Error: Partial read of edge data\n");
+        if (read < num_Edge) printf("Error: Partial read of edge data\n");
 
-        // LOG("convent uint weight to float\n");
+          // LOG("convent uint weight to float\n");
 
 // if(omp_get_thread_num())
 // printf("omp_get_max_threads() %d\n",omp_get_max_threads());

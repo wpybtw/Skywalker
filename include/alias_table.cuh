@@ -1,3 +1,4 @@
+#include <curand_kernel.h>
 #include "gpu_graph.cuh"
 #include "kernel.cuh"
 #include "sampler_result.cuh"
@@ -48,7 +49,7 @@ struct Buffer_pointer {
     H_ERR(cudaMalloc(&b1, size * sizeof(uint)));
     H_ERR(cudaMalloc(&b2, size * sizeof(uint)));
     H_ERR(cudaMalloc(&b3, size * sizeof(float)));
-    H_ERR(cudaMalloc(&b4, size * sizeof(char))); // unsigned short int
+    H_ERR(cudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
   }
   // __host__ ~Buffer_pointer(){
   // }
@@ -119,7 +120,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
     __syncthreads();
     Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i]);
     }
@@ -145,8 +146,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
   }
   __device__ void normalize_from_graph(gpu_graph *graph) {
     float scale = size / weight_sum;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-    {                                                // size //TODO
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
+    {                                                 // size //TODO
       prob.data[i] = graph->getBias(ids[i]) * scale;
     }
     __syncthreads();
@@ -167,8 +168,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
       int itr = 0;
       __shared__ uint sizes[1];
       uint *local_size = &sizes[0];
-      if (LTID == 0)
-        *local_size = 0;
+      if (LTID == 0) *local_size = 0;
       __syncthreads();
       // TODO warp centric??
       while (*local_size < target_size) {
@@ -209,9 +209,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
   }
   __device__ void constructBC() {
     __shared__ uint smallsize;
-    if (LTID == 0)
-      smallsize = 0;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    if (LTID == 0) smallsize = 0;
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (prob.Get(i) > 1)
         large.Add(i);
@@ -240,8 +239,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
       __syncthreads();
       // u64 tmp4 = (u64)small.size;
       T smallV, largeV;
-      if (act)
-        smallV = small.Get(old_small_idx);
+      if (act) smallV = small.Get(old_small_idx);
       // T largeV;
       bool holder = ((LTID < MIN(large.Size(), old_small_size)) ? true : false);
       if (act) {
@@ -260,8 +258,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
       }
       __syncthreads();
       float old;
-      if (holder)
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+      if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
       __syncthreads();
       if (!holder && act)
         old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
@@ -285,16 +282,14 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
         }
       }
       // __syncthreads();
-      if (LTID == 0)
-        itr++;
+      if (LTID == 0) itr++;
       __syncthreads();
     }
   }
   __device__ void construct() {
     __shared__ uint smallsize;
-    if (LTID == 0)
-      smallsize = 0;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    if (LTID == 0) smallsize = 0;
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (prob.Get(i) > 1)
         large.Add(i);
@@ -336,8 +331,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
           *large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
         }
         float old;
-        if (holder)
-          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+        if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
         if (!holder)
           old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
 
@@ -357,8 +351,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
           }
         }
       }
-      if (LID == 0)
-        itr++;
+      if (LID == 0) itr++;
       __syncwarp(0xffffffff);
     }
   }
@@ -404,7 +397,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
 
     Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i], _src_id, _idx);
     }
@@ -432,8 +425,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
   __device__ void normalize_from_graph(gpu_graph *graph, int _src_id,
                                        uint _idx = 0) {
     float scale = size / weight_sum;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-    {                                                // size //TODO
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
+    {                                                 // size //TODO
       prob.data[i] = graph->getBias(ids[i], _src_id, _idx) * scale;
     }
     __syncthreads();
@@ -467,8 +460,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       int itr = 0;
       __shared__ uint sizes[1];
       uint *local_size = &sizes[0];
-      if (LTID == 0)
-        *local_size = 0;
+      if (LTID == 0) *local_size = 0;
       __syncthreads();
       // TODO warp centric??
       while (*local_size < target_size) {
@@ -509,9 +501,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
   }
   __device__ void constructBC() {
     __shared__ uint smallsize;
-    if (LTID == 0)
-      smallsize = 0;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    if (LTID == 0) smallsize = 0;
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (prob.Get(i) > 1)
         large.Add(i);
@@ -540,8 +531,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       __syncthreads();
       // u64 tmp4 = (u64)small.size;
       T smallV, largeV;
-      if (act)
-        smallV = small.Get(old_small_idx);
+      if (act) smallV = small.Get(old_small_idx);
       // T largeV;
       bool holder = ((LTID < MIN(large.Size(), old_small_size)) ? true : false);
       if (act) {
@@ -558,8 +548,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       }
       __syncthreads();
       float old;
-      if (holder)
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+      if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
       __syncthreads();
       if (!holder && act)
         old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
@@ -601,9 +590,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
 
   __device__ void construct() {
     __shared__ uint smallsize;
-    if (LTID == 0)
-      smallsize = 0;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    if (LTID == 0) smallsize = 0;
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (prob.Get(i) > 1)
         large.Add(i);
@@ -643,8 +631,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
           *large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
         }
         float old;
-        if (holder)
-          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+        if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
         if (!holder)
           old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
         if (old + prob.Get(smallV) - 1.0 < 0) {
@@ -663,8 +650,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
           }
         }
       }
-      if (LID == 0)
-        itr++;
+      if (LID == 0) itr++;
       __syncwarp(0xffffffff);
     }
   }
@@ -704,7 +690,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
 
     Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i]);
     }
@@ -733,8 +719,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
   }
   __device__ void normalize_from_graph(gpu_graph *graph) {
     float scale = size / weight_sum;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-    {                                                // size //TODO
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
+    {                                                 // size //TODO
       prob.Get(i) = graph->getBias(ids[i]) * scale;
     }
     __syncthreads();
@@ -756,8 +742,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
       int itr = 0;
       __shared__ uint sizes[1];
       uint *local_size = &sizes[0];
-      if (LTID == 0)
-        *local_size = 0;
+      if (LTID == 0) *local_size = 0;
       __syncthreads();
       // TODO warp centric??
       while (*local_size < target_size) {
@@ -768,8 +753,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
         __syncthreads();
         if (itr > 10) {
           break;
-          if (LID == 0)
-            printf("itr > 10\n");
+          if (LID == 0) printf("itr > 10\n");
         }
       }
     }
@@ -791,8 +775,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
     else
       candidate = alias.Get(col);
 #ifdef check
-    if (LID == 0)
-      printf("tid %d candidate %u\n", LID, candidate);
+    if (LID == 0) printf("tid %d candidate %u\n", LID, candidate);
 #endif
     unsigned short int updated = atomicCAS(
         &selected.Get(candidate), (unsigned short int)0, (unsigned short int)1);
@@ -808,9 +791,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
 
   __device__ void construct() {
     __shared__ uint smallsize;
-    if (LTID == 0)
-      smallsize = 0;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    if (LTID == 0) smallsize = 0;
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (prob.Get(i) > 1)
         large.Add(i);
@@ -849,17 +831,14 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
           large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
         }
         float old;
-        if (holder)
-          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
-        if (!holder)
-          old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
+        if (holder) old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
+        if (!holder) old = atomicAdd(&prob.Get(largeV), prob.Get(smallV) - 1.0);
 
         if (old + prob.Get(smallV) - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
           atomicAdd(&prob.Get(largeV), 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
-
           alias.Get(smallV) = largeV;
           if (holder) {
             if (prob.Get(largeV) < 1.0) {
@@ -871,8 +850,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
           }
         }
       }
-      if (LID == 0)
-        itr++;
+      if (LID == 0) itr++;
     }
   }
 };
@@ -897,8 +875,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
   //     selected;
   Vector_shmem<char, ExecutionPolicy::BC, ELE_PER_BLOCK, true> selected;
 
-  __forceinline__ __device__ void
-  loadGlobalBuffer(Buffer_pointer *buffer_pointer) {
+  __forceinline__ __device__ void loadGlobalBuffer(
+      Buffer_pointer *buffer_pointer) {
     if (LTID == 0) {
       large.LoadBuffer(buffer_pointer->b0, buffer_pointer->size);
       small.LoadBuffer(buffer_pointer->b1, buffer_pointer->size);
@@ -923,7 +901,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
 
     Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       local_sum += graph->getBias(ids[i]);
     }
@@ -952,8 +930,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
   }
   __device__ void normalize_from_graph(gpu_graph *graph) {
     float scale = size / weight_sum;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
-    {                                                // size //TODO
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
+    {                                                 // size //TODO
       *prob.GetPtr(i) = graph->getBias(ids[i]) * scale;
     }
     __syncthreads();
@@ -975,8 +953,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
       int itr = 0;
       __shared__ uint sizes[1];
       uint *local_size = &sizes[0];
-      if (LTID == 0)
-        *local_size = 0;
+      if (LTID == 0) *local_size = 0;
       __syncthreads();
       // TODO warp centric??
       while (*local_size < target_size) {
@@ -985,8 +962,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
         }
         itr++;
         __syncthreads();
-        if (itr > 10)
-          break;
+        if (itr > 10) break;
       }
     }
   }
@@ -1010,7 +986,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
     // if (LID == 0)
     printf("tid %d candidate %u\n", LID, candidate);
 #endif
-    unsigned short int updated = char_atomicCAS( // atomicCAS
+    unsigned short int updated = char_atomicCAS(  // atomicCAS
         selected.GetPtr(candidate), (unsigned short int)0,
         (unsigned short int)1);
     if (!updated) {
@@ -1025,9 +1001,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
 
   __device__ void construct() {
     __shared__ uint smallsize;
-    if (LTID == 0)
-      smallsize = 0;
-    for (size_t i = LTID; i < size; i += blockDim.x) // BLOCK_SIZE
+    if (LTID == 0) smallsize = 0;
+    for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (prob.Get(i) > 1)
         large.Add(i);
@@ -1075,7 +1050,6 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
           atomicAdd(prob.GetPtr(largeV), 1 - prob.Get(smallV));
           small.Add(smallV);
         } else {
-
           *alias.GetPtr(smallV) = largeV;
           if (holder) {
             if (prob.Get(largeV) < 1.0) {
@@ -1086,8 +1060,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
           }
         }
       }
-      if (LID == 0)
-        itr++;
+      if (LID == 0) itr++;
       __syncwarp(0xffffffff);
     }
   }
@@ -1158,7 +1131,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
   __device__ void normalize_from_graph(gpu_graph *graph) {
     float scale = size / weight_sum;
     for (size_t i = LID; i < size; i += 32) {
-      prob[i] = graph->getBias(ids[i]) * scale; // gdb error
+      prob[i] = graph->getBias(ids[i]) * scale;  // gdb error
     }
   }
   __device__ void Clean() {
@@ -1179,8 +1152,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
       int itr = 0;
       __shared__ uint sizes[WARP_PER_BLK];
       uint *local_size = sizes + WID;
-      if (LID == 0)
-        *local_size = 0;
+      if (LID == 0) *local_size = 0;
       __syncwarp(0xffffffff);
       while (*local_size < target_size) {
         for (size_t i = *local_size + LID; i < 32 * (target_size / 32 + 1);
@@ -1257,16 +1229,13 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
           large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
         }
         float old;
-        if (holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        if (!holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        if (holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        if (!holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (old + prob[smallV] - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
           atomicAdd(&prob[largeV], 1 - prob[smallV]);
           small.Add(smallV);
         } else {
-
           alias[smallV] = largeV;
           if (holder) {
             if (prob[largeV] < 1) {
@@ -1277,8 +1246,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
           }
         }
       }
-      if (LID == 0)
-        itr++;
+      if (LID == 0) itr++;
       __syncwarp(0xffffffff);
     }
   }
@@ -1353,7 +1321,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     float scale = size / weight_sum;
     // if(LID==0) printf("weight_sum %f scale %f\n",weight_sum,scale);
     for (size_t i = LID; i < size; i += 32) {
-      prob[i] = graph->getBias(ids[i], _src_id, _idx) * scale; // gdb error
+      prob[i] = graph->getBias(ids[i], _src_id, _idx) * scale;  // gdb error
     }
   }
   __device__ void Clean() {
@@ -1385,8 +1353,7 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
       int itr = 0;
       __shared__ uint sizes[WARP_PER_BLK];
       uint *local_size = sizes + WID;
-      if (LID == 0)
-        *local_size = 0;
+      if (LID == 0) *local_size = 0;
       __syncwarp(0xffffffff);
       while (*local_size < target_size) {
         for (size_t i = *local_size + LID; i < 32 * (target_size / 32 + 1);
@@ -1465,10 +1432,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
           large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
         }
         float old;
-        if (holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        if (!holder)
-          old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        if (holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+        if (!holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
         if (old + prob[smallV] - 1.0 < 0) {
           // active_size2("prob<0 ", __LINE__);
           atomicAdd(&prob[largeV], 1 - prob[smallV]);

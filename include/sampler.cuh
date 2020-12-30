@@ -1,6 +1,7 @@
 #pragma once
 #include "gpu_graph.cuh"
 #include "sampler_result.cuh"
+#include "util.cuh"
 // #include "alias_table.cuh"
 #include <random>
 DECLARE_bool(ol);
@@ -19,7 +20,7 @@ void printH(T *ptr, int size) {
     std::cout << ptrh[i] << "\t";
   }
   printf("\n");
-  delete ptrh;
+  delete[] ptrh;
 }
 
 // template <JobType T = JobType::NS> class Sampler;

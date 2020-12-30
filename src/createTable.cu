@@ -140,7 +140,7 @@ void ConstructTable(Sampler &sampler) {
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   int gbuff_size = sampler.ggraph.MaxDegree;
 
-  LOG("alllocate GMEM buffer %d\n", block_num * gbuff_size * MEM_PER_ELE);
+  LOG("alllocate GMEM buffer %d MB\n", block_num * gbuff_size * MEM_PER_ELE/1024/1024);
 
   Vector_pack2<uint> *vector_pack_h = new Vector_pack2<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {

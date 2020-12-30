@@ -1,15 +1,14 @@
 #pragma once
-#include <cuda.h>
-// #include <thrust/host_vector.h>
-// #include <thrust/device_vector.h>
 #include <cooperative_groups.h>
+#include <cuda.h>
 #include <curand.h>
 #include <curand_kernel.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+// #include <thrust/host_vector.h>
+// #include <thrust/device_vector.h>
 #include <iostream>
-
 
 using namespace cooperative_groups;
 // #define check
@@ -51,7 +50,7 @@ using ll = long long;
 inline void gpuAssert(cudaError_t code, const char *file, int line,
                       bool abort = true) {
   if (code != cudaSuccess) {
-    fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
+    fprintf(stderr, "GPUassert: %s %s:%d\n", cudaGetErrorString(code), file,
             line);
     if (abort) exit(code);
   }
@@ -160,6 +159,7 @@ __device__ double my_atomicSub(double *address, double val);
 __device__ float my_atomicSub(float *address, float val);
 
 __device__ long long my_atomicSub(long long *address, long long val);
-__device__ unsigned long long my_atomicSub(unsigned long long *address, unsigned long long val);
+__device__ unsigned long long my_atomicSub(unsigned long long *address,
+                                           unsigned long long val);
 
 __device__ long long my_atomicAdd(long long *address, long long val);

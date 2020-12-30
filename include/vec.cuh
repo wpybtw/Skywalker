@@ -1,5 +1,5 @@
 #pragma once
-#include "gflags/gflags.h"
+#include <gflags/gflags.h>
 #include "util.cuh"
 
 DECLARE_bool(v);
@@ -106,8 +106,8 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
         data.data[old] = t;
       else {
         // atomicDec(&size, 1);
-        // atomicAdd((unsigned long long *)&size, -1);
-        my_atomicSub(&size,1);
+        atomicAdd((unsigned long long *)&size, -1);
+        // my_atomicSub(&size,1);
         printf("Line  %d: vector_shmem overflow to %llu\n", __LINE__, size);
       }
     }
@@ -190,8 +190,8 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
       else if (old < capacity + buffer_size) {
         gbuf_data[old - capacity] = t;
       } else {
-        // atomicAdd((unsigned long long *)&size, -1);
-        my_atomicSub(&size,1);
+        atomicAdd((unsigned long long *)&size, -1);
+        // my_atomicSub(&size,1);
         // atomicDec(&size, 1);
         // printf("Vector_shmem overflow %d \n", __LINE__);
       }
