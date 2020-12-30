@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-30 21:47:48
+ * @LastEditTime: 2020-12-30 22:19:55
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -68,8 +68,9 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
                                            ggraph, ggraph->getDegree(node_id),
                                            current_itr, node_id, instance_id);
   __syncthreads();
-  if (LTID == 0)
-    printf("instance %d block pro %u %u\n", instance_id, node_id, ggraph->getDegree(node_id));
+  // if (LTID == 0)
+  //   printf("instance %d block pro %u %u\n", instance_id, node_id,
+  //          ggraph->getDegree(node_id));
   if (not_all_zero) {
     table->constructBC();
     __syncthreads();
@@ -94,7 +95,7 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
   }
   __syncthreads();
   table->Clean();
-  if (LTID == 0) printf("block done \n");
+  // if (LTID == 0) printf("block done \n");
 }
 
 __global__ void OnlineWalkKernel(Walker *sampler,
@@ -128,7 +129,8 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       // uint instance_id = job.instance_idx;
 
       // if (LID == 0)
-      //   printf("node_id %d \tinstance_idx \t%d \n", node_id, instance_id);
+      //   printf("instance_idx \t%d node_id %d \t degree %d\n", job.instance_idx,
+      //          node_id, ggraph->getDegree(node_id));
 
       // if( LID==0) paster(instance_id); //instance_id>=2000 &&
 
@@ -144,9 +146,9 @@ __global__ void OnlineWalkKernel(Walker *sampler,
           if (LID == 0)
 #endif  // skip8k
             result.AddHighDegree(current_itr, job.instance_idx);
-          if (LID == 0)
-            printf("instance %d hd node %u degree %d\n", job.instance_idx, node_id,
-                   ggraph->getDegree(node_id));
+          // if (LID == 0)
+          //   printf("instance %d hd node %u degree %d\n", job.instance_idx,
+          //          node_id, ggraph->getDegree(node_id));
         }
       } else {
         if (LID == 0) result.length[job.instance_idx] = current_itr;
@@ -165,22 +167,17 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       sample_job_new tmp = result.requireOneHighDegreeJob(current_itr);
       high_degree_job.val = tmp.val;
       high_degree_job.instance_idx = tmp.instance_idx;
-
-      // if (tmp.val)
-      //   printf("val %d \tinstance_idx \t%d \n", tmp.val, tmp.instance_idx);
-      // high_degree_job = result.requireOneHighDegreeJob(current_itr);
       if (tmp.val) {
-        // instance_id2 = job.instance_idx;
         node_id = result.GetData(current_itr, high_degree_job.instance_idx);
-        printf("hd job instance_idx \t%d node_id \t%d \n", tmp.instance_idx,
-               node_id);
-        // paster(node_id);
-        // paster(high_degree_job.instance_idx);
       }
     }
     // return;
     __syncthreads();
     while (high_degree_job.val) {
+      // if (LTID == 0)
+      //   printf("hd job instance_idx \t%d node_id \t%d  degree %d\n",
+      //          high_degree_job.instance_idx, node_id,
+      //          ggraph->getDegree(node_id));
       SampleBlockCentic(result, ggraph, state, current_itr, node_id, buffer,
                         vector_packs,
                         high_degree_job.instance_idx);  // buffer_pointer
@@ -189,12 +186,8 @@ __global__ void OnlineWalkKernel(Walker *sampler,
         sample_job_new tmp = result.requireOneHighDegreeJob(current_itr);
         high_degree_job.val = tmp.val;
         high_degree_job.instance_idx = tmp.instance_idx;
-        // high_degree_job = result.requireOneHighDegreeJob(current_itr);
         if (high_degree_job.val) {
-          // instance_id2 = job.instance_idx;
           node_id = result.GetData(current_itr, high_degree_job.instance_idx);
-          printf("hd job instance_idx \t%d node_id \t%d \n", tmp.instance_idx,
-                 node_id);
         }
       }
       __syncthreads();
@@ -204,16 +197,6 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       result.NextItr(current_itr);
     }
     __syncthreads();
-  }
-  if (threadIdx.x == 0) {
-    for (size_t j = 0; j < result.hop_num - 1; j++) {
-      printf("result.high_degrees[current_itr].Size() %d floor %d \n",
-             result.high_degrees[j].Size(), result.high_degrees[j].floor);
-      for (size_t i = 0; i < result.high_degrees[j].Size(); i++) {
-        printf("%u ", result.high_degrees[j].Get(i));
-      }
-      printf("\n");
-    }
   }
 }
 

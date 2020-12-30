@@ -38,6 +38,17 @@ enum class JobType {
   NODE2VEC
 };
 
+template <typename T>
+__global__ void init_range_d(T *ptr, size_t size, size_t offset = 0) {
+  if (TID < size) {
+    ptr[TID] = offset + TID;
+  }
+}
+template <typename T>
+void init_range(T *ptr, size_t size, size_t offset = 0) {
+  init_range_d<T><<<size / 512 + 1, 512>>>(ptr, size, offset);
+}
+
 // static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
 //                                  uint hop) {
 //   if (TID < size) {
@@ -152,8 +163,10 @@ struct Jobs_result<JobType::RW, T> {
         H_ERR(cudaMemAdvise(data2, size * hop_num * sizeof(uint),
                             cudaMemAdviseSetAccessedBy, device_id));
       }
-      H_ERR(cudaMemcpy(data2, seeds, size * sizeof(uint),
-                       cudaMemcpyHostToDevice));
+
+      init_range(data2, size);
+      // H_ERR(cudaMemcpy(data2, seeds, size * sizeof(uint),
+      //                  cudaMemcpyHostToDevice));
 
       Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
       for (size_t i = 0; i < hop_num; i++) {
@@ -181,8 +194,7 @@ struct Jobs_result<JobType::RW, T> {
     //                  cudaMemcpyHostToDevice));
     // initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
 
-    H_ERR(cudaMemcpy(data, seeds, size * sizeof(uint),
-                     cudaMemcpyHostToDevice));
+    H_ERR(cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
   }
   __device__ void AddHighDegree(uint current_itr, uint instance_idx) {
     // printf("AddHighDegree %u %u \n",current_itr,instance_idx);
