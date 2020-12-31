@@ -109,13 +109,13 @@ __global__ void OnlineWalkKernel(Walker *sampler,
     if (LID == 0) {
       job = result.requireOneJob(current_itr);
     }
-    __syncwarp(0xffffffff);
-    job.val = __shfl_sync(0xffffffff, job.val, 0);
-    job.instance_idx = __shfl_sync(0xffffffff, job.instance_idx, 0);
-    __syncwarp(0xffffffff);
+    __syncwarp(FULL_WARP_MASK);
+    job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+    job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+    __syncwarp(FULL_WARP_MASK);
     while (job.val) {
       uint node_id = result.GetData(current_itr, job.instance_idx);
-      bool stop = __shfl_sync(0xffffffff, (curand_uniform(&state) < *tp), 0);
+      bool stop = __shfl_sync(FULL_WARP_MASK, (curand_uniform(&state) < *tp), 0);
       if (!stop) {
         if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
           SampleWarpCentic(result, ggraph, state, current_itr, node_id, buffer,
@@ -131,12 +131,12 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       } else {
         if (LID == 0) result.length[job.instance_idx] = current_itr;
       }
-      __syncwarp(0xffffffff);
+      __syncwarp(FULL_WARP_MASK);
       if (LID == 0) job = result.requireOneJob(current_itr);
-      __syncwarp(0xffffffff);
-      job.val = __shfl_sync(0xffffffff, job.val, 0);
-      job.instance_idx = __shfl_sync(0xffffffff, job.instance_idx, 0);
-      __syncwarp(0xffffffff);
+      __syncwarp(FULL_WARP_MASK);
+      job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+      job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+      __syncwarp(FULL_WARP_MASK);
     }
     __syncthreads();
     __shared__ sample_job_new high_degree_job;  // really use job_id

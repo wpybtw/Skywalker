@@ -71,11 +71,11 @@ __global__ void sample_kernel(Sampler *sampler,
     sample_job job;
     __threadfence_block();
     if (LID == 0) job = result.requireOneJob(current_itr);
-    __syncwarp(0xffffffff);
-    job.idx = __shfl_sync(0xffffffff, job.idx, 0);
-    job.val = __shfl_sync(0xffffffff, job.val, 0);
-    job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
-    __syncwarp(0xffffffff);
+    __syncwarp(FULL_WARP_MASK);
+    job.idx = __shfl_sync(FULL_WARP_MASK, job.idx, 0);
+    job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+    job.node_id = __shfl_sync(FULL_WARP_MASK, job.node_id, 0);
+    __syncwarp(FULL_WARP_MASK);
     while (job.val) {
       if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
         SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
@@ -88,11 +88,11 @@ __global__ void sample_kernel(Sampler *sampler,
 #endif  // skip8k
           result.AddHighDegree(current_itr, job.node_id);
       }
-      __syncwarp(0xffffffff);
+      __syncwarp(FULL_WARP_MASK);
       if (LID == 0) job = result.requireOneJob(current_itr);
-      job.idx = __shfl_sync(0xffffffff, job.idx, 0);
-      job.val = __shfl_sync(0xffffffff, job.val, 0);
-      job.node_id = __shfl_sync(0xffffffff, job.node_id, 0);
+      job.idx = __shfl_sync(FULL_WARP_MASK, job.idx, 0);
+      job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+      job.node_id = __shfl_sync(FULL_WARP_MASK, job.node_id, 0);
     }
     __syncthreads();
     __shared__ sample_job high_degree_job;

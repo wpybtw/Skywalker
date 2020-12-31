@@ -58,7 +58,7 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size, false> {
     for (size_t i = LID; i < _size; i += 32) {
       data.data[i] = 0;
     }
-    __syncwarp(0xffffffff);
+    __syncwarp(FULL_WARP_MASK);
   }
   __device__ void Add(T t) {
     if (Size() < _size) {

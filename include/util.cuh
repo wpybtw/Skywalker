@@ -105,13 +105,13 @@ __device__ void __conv();
 #include <sys/time.h>
 double wtime();
 
-#define FULL_MASK 0xffffffff
+#define FULL_WARP_MASK 0xffffffff
 
 template <typename T>
 __inline__ __device__ T warpReduce(T val) {
   // T val_shuffled;
   for (int offset = 16; offset > 0; offset /= 2)
-    val += __shfl_down_sync(FULL_MASK, val, offset);
+    val += __shfl_down_sync(FULL_WARP_MASK, val, offset);
   return val;
 }
 

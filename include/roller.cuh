@@ -118,7 +118,7 @@ template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::WC> {
       Init(src_degree);
     }
 
-    __syncwarp(0xffffffff);
+    __syncwarp(FULL_WARP_MASK);
     active_size(__LINE__);
   }
   __device__ void Init(uint sz) {
@@ -144,7 +144,7 @@ template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::WC> {
     // if (LID == 0) {
     //   printf("%s \n", __FUNCTION__);
     // }
-    // __syncwarp(0xffffffff);
+    // __syncwarp(FULL_WARP_MASK);
     active.sync();
     // curandState state;
     // paster(current_itr);
@@ -155,12 +155,12 @@ template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::WC> {
       uint *local_size = sizes + WID;
       if (LID == 0)
         *local_size = 0;
-      // __syncwarp(0xffffffff);
+      // __syncwarp(FULL_WARP_MASK);
       // if (LID == 0) {
       //   paster(*local_size);
       //   paster(target_size);
       // }
-      // __syncwarp(0xffffffff);
+      // __syncwarp(FULL_WARP_MASK);
       active.sync();
       active_size(__LINE__);
       while (*local_size < target_size) {
@@ -171,7 +171,7 @@ template <typename T> struct alias_table_roller_shmem<T, ExecutionPolicy::WC> {
           active_size(__LINE__);
           roll_once(array, local_size, state, target_size, result);
         }
-        // __syncwarp(0xffffffff);
+        // __syncwarp(FULL_WARP_MASK);
         active.sync();
         itr++;
         if (itr > 10) {

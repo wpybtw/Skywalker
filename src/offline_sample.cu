@@ -25,7 +25,7 @@ DECLARE_bool(printresult);
 //     active_size(__LINE__);
 //     roller->loadFromGraph(graph->getNeighborPtr(node_id), graph,
 //                           graph->getDegree(node_id), current_itr, node_id);
-//     __syncwarp(0xffffffff);
+//     __syncwarp(FULL_WARP_MASK);
 //     active.sync();
 //     active_size(__LINE__);
 //     roller->roll_atomic(result.getNextAddr(current_itr), &state, result);
