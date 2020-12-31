@@ -5,7 +5,6 @@
 #include <iostream>
 
 #include "graph.cuh"
-#include "header.h"
 #include "sampler_result.cuh"
 
 DECLARE_bool(weight);

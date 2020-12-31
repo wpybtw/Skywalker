@@ -168,11 +168,5 @@ void ConstructTable(Sampler &sampler) {
   printf("Construct table time:\t%.6f\n", total_time);
   if (FLAGS_weight || FLAGS_randomweight) {
     H_ERR(cudaFree(sampler.ggraph.adjwgt));
-    // H_ERR(cudaMemAdvise(sampler.ggraph.adjwgt, sampler.ggraph.edge_num *
-    // sizeof(weight_t),
-    //                     cudaMemAdviseUnsetAccessedBy, FLAGS_device));
-    // H_ERR(cudaMemPrefetchAsync(sampler.ggraph.adjwgt, sampler.ggraph.edge_num
-    // * sizeof(weight_t), cudaCpuDeviceId,
-    //                            0));
   }
 }

@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-30 22:22:33
+ * @LastEditTime: 2020-12-30 22:49:00
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -148,7 +148,7 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       if (tmp.val) {
         node_id = result.GetData(current_itr, high_degree_job.instance_idx);
       }
-    }
+    } 
     __syncthreads();
     while (high_degree_job.val) {
       SampleBlockCentic(result, ggraph, state, current_itr, node_id, buffer,
@@ -191,7 +191,6 @@ void init_array(T *ptr, size_t size, T v) {
 // void Start_high_degree(Walker sampler)
 void OnlineGBWalk(Walker &sampler) {
   // orkut max degree 932101
-
   LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
   LOG("skipping 8k\n");
