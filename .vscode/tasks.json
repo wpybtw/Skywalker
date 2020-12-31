@@ -1,0 +1,70 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    //   {
+    //     "type": "shell",
+    //     "label": "g++ build active file",
+    //     "command": "/usr/bin/g++",
+    //     "args": ["-g", "${file}", "-o", "${fileDirname}/${fileBasenameNoExtension}"],
+    //     "options": {
+    //       "cwd": "/usr/bin"
+    //     },
+    //     "problemMatcher": ["$gcc"],
+    //     "group": {
+    //       "kind": "build",
+    //       "isDefault": true
+    //     }
+    //   },
+    {
+      "type": "shell",
+      "label": "nvcc build active file",
+      "command": "make",
+      // "args": ["-g", "${file}", "-o", "${fileDirname}/${fileBasenameNoExtension}"],
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    // {
+    //   "label": "bandwidthTestMakefile",
+    //   "type": "shell",
+    //   "command": "make",
+    //   "options": {
+    //     "cwd": "/home/bigeye/NVIDIA_CUDA-9.2_Samples/1_Utilities/bandwidthTest"
+    //   },
+    //   "group": {
+    //     "kind": "build",
+    //     "isDefault": true
+    //   },
+    //   "presentation": {
+    //     "echo": true,
+    //     "reveal": "always",
+    //     "focus": false,
+    //     "panel": "shared"
+    //   },
+    //   "args": [
+    //     "QUIET=0"
+    //   ],
+    //   "problemMatcher": {
+    //     "owner": "cpp",
+    //     "fileLocation": [
+    //       "absolute"
+    //     ],
+    //     "pattern": {
+    //       "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+    //       "file": 1,
+    //       "line": 2,
+    //       "column": 3,
+    //       "severity": 4,
+    //       "message": 5
+    //     }
+    //   }
+    // }
+  ]
+}

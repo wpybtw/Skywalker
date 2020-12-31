@@ -1,6 +1,10 @@
 C-SAW/*
 alias-method/*
 build/*
+bin/*
+.clangd/*
+.VSCodeCounter/*
+
 *.o
 *.cubin
 *.fatbin

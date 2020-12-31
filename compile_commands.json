@@ -1,0 +1,77 @@
+[
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/kernel.o src/kernel.cu",
+    "file": "src/kernel.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/unbiased_walk.o src/unbiased_walk.cu",
+    "file": "src/unbiased_walk.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/online_walk.o src/online_walk.cu",
+    "file": "src/online_walk.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/createTable.o src/createTable.cu",
+    "file": "src/createTable.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/offline_sample.o src/offline_sample.cu",
+    "file": "src/offline_sample.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/online_sample.o src/online_sample.cu",
+    "file": "src/online_sample.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/offline_walk.o src/offline_walk.cu",
+    "file": "src/offline_walk.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/vec.o src/vec.cu",
+    "file": "src/vec.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/sampler.o src/sampler.cu",
+    "file": "src/sampler.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/main.o src/main.cu",
+    "file": "src/main.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/util.o src/util.cu",
+    "file": "src/util.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/sampler_spliced.o src/sampler_spliced.cu",
+    "file": "src/sampler_spliced.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/api/bias_static.o src/api/bias_static.cu",
+    "file": "src/api/bias_static.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/api/bias_degree.o src/api/bias_degree.cu",
+    "file": "src/api/bias_degree.cu"
+  },
+  {
+    "directory": "/home/pywang/sampling",
+    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/api/bias_node2vec.o src/api/bias_node2vec.cu",
+    "file": "src/api/bias_node2vec.cu"
+  }
+]
