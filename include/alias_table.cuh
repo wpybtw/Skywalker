@@ -92,10 +92,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
   __device__ bool SetVirtualVector(gpu_graph *graph) {
     if (LTID == 0) {
       alias.Construt(
-          graph->alias_array + graph->xadj[src_id] - graph->edge_offset,
+          graph->alias_array + graph->xadj[src_id] - graph->local_edge_offset,
           graph->getDegree((uint)src_id));
       prob.Construt(
-          graph->prob_array + graph->xadj[src_id] - graph->edge_offset,
+          graph->prob_array + graph->xadj[src_id] - graph->local_edge_offset,
           graph->getDegree((uint)src_id));
     }
   }
@@ -103,10 +103,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
     size_t start = graph->xadj[src_id];
     uint len = graph->getDegree((uint)src_id);
     for (size_t i = LTID; i < len; i += blockDim.x) {
-      graph->alias_array[start + i - graph->edge_offset] = alias[i];
+      graph->alias_array[start + i - graph->local_edge_offset] = alias[i];
     }
     for (size_t i = LTID; i < len; i += blockDim.x) {
-      graph->prob_array[start + i - graph->edge_offset] = prob[i];
+      graph->prob_array[start + i - graph->local_edge_offset] = prob[i];
     }
   }
   __host__ __device__ uint Size() { return size; }
@@ -1090,10 +1090,11 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
   __host__ __device__ uint Size() { return size; }
   __device__ bool SetVirtualVector(gpu_graph *graph) {
     alias.Construt(
-        graph->alias_array + graph->xadj[src_id] - graph->edge_offset,
+        graph->alias_array + graph->xadj[src_id] - graph->local_edge_offset,
         graph->getDegree((uint)src_id));
-    prob.Construt(graph->prob_array + graph->xadj[src_id] - graph->edge_offset,
-                  graph->getDegree((uint)src_id));
+    prob.Construt(
+        graph->prob_array + graph->xadj[src_id] - graph->local_edge_offset,
+        graph->getDegree((uint)src_id));
   }
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
                                 uint _current_itr, int _src_id) {
@@ -1307,10 +1308,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
     size_t start = graph->xadj[src_id];
     uint len = graph->getDegree((uint)src_id);
     for (size_t i = LID; i < len; i += WARP_SIZE) {
-      graph->alias_array[start + i - graph->edge_offset] = alias[i];
+      graph->alias_array[start + i - graph->local_edge_offset] = alias[i];
     }
     for (size_t i = LID; i < len; i += WARP_SIZE) {
-      graph->prob_array[start + i - graph->edge_offset] = prob[i];
+      graph->prob_array[start + i - graph->local_edge_offset] = prob[i];
     }
   }
   __device__ void Init(uint sz) {

@@ -40,6 +40,7 @@ class Sampler {
   // float *avg_bias;
 
  public:
+  Sampler() {}
   Sampler(gpu_graph graph, uint _device_id = 0) : device_id(_device_id) {
     ggraph = graph;
     // Init();
@@ -87,8 +88,10 @@ class Sampler {
     }
     // if (!FLAGS_ol)
     //   H_ERR(cudaMalloc((void **)&avg_bias, ggraph.vtx_num * sizeof(float)));
-    ggraph.vtx_offset = local_vtx_offset;
-    ggraph.edge_offset = local_edge_offset;
+    ggraph.local_vtx_offset = local_vtx_offset;
+    ggraph.local_edge_offset = local_edge_offset;
+    ggraph.local_vtx_num = local_vtx_num;
+    ggraph.local_edge_num = local_edge_size;
     ggraph.valid = valid;
     ggraph.prob_array = prob_array;
     ggraph.alias_array = alias_array;

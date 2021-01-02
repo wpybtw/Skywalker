@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-02 16:23:58
+ * @LastEditTime: 2021-01-02 17:18:55
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -125,14 +125,13 @@ int main(int argc, char *argv[]) {
 
   uint num_device = FLAGS_ngpu;
 
-
   float *prob_array;
   uint *alias_array;
   char *valid;
-
-  if (FLAGS_ngpu > 1) {
+  // if (FLAGS_ngpu > 1)
+  {
     LOG("new\n");
-    H_ERR(cudaHostAlloc((void **)&prob_array,ginst->numNode * sizeof(float),
+    H_ERR(cudaHostAlloc((void **)&prob_array, ginst->numNode * sizeof(float),
                         cudaHostAllocWriteCombined));
     H_ERR(cudaHostAlloc((void **)&alias_array, ginst->numEdge * sizeof(uint),
                         cudaHostAllocWriteCombined));
@@ -140,8 +139,12 @@ int main(int argc, char *argv[]) {
                         cudaHostAllocWriteCombined));
   }
 
-#pragma omp parallel num_threads(num_device) \
-    shared(ginst, prob_array, alias_array, valid)  // proc_bind(spread)
+  gpu_graph *ggraphs = new gpu_graph[num_device];
+  Sampler *samplers = new Sampler[num_device];
+
+#pragma omp parallel num_threads(num_device)                  \
+    shared(ginst, ggraphs, samplers, prob_array, alias_array, \
+           valid)  // proc_bind(spread)
   {
     int dev_id = omp_get_thread_num();
     int dev_num = omp_get_num_threads();
@@ -155,26 +158,28 @@ int main(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaSetDevice(dev_id));
     CUDA_RT_CALL(cudaFree(0));
 
-    gpu_graph ggraph(ginst, dev_id);
-    Sampler sampler(ggraph, dev_id);
+    ggraphs[dev_id] = gpu_graph(ginst, dev_id);
+    samplers[dev_id] = Sampler(ggraphs[dev_id], dev_id);
     if (FLAGS_ol) {
       if (!FLAGS_bias && !FLAGS_rw) {  // unbias
-        sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
+        samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
+                                 offset_sample_size);
         // UnbiasedSample(sampler);
       }
 
       if (!FLAGS_bias && FLAGS_rw) {
-        Walker walker(sampler);
+        Walker walker(samplers[dev_id]);
         walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
         UnbiasedWalk(walker);
       }
 
       if (FLAGS_bias && FLAGS_ol) {  // online biased
-        sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
+        samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
+                                 offset_sample_size);
         if (!FLAGS_rw) {
-          OnlineGBSample(sampler);
+          OnlineGBSample(samplers[dev_id]);
         } else {
-          Walker walker(sampler);
+          Walker walker(samplers[dev_id]);
           walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
           OnlineGBWalk(walker);
         }
@@ -185,29 +190,55 @@ int main(int argc, char *argv[]) {
       // LOG("handle offline!\n");
       // offline need addition handle
       if (FLAGS_bias && !FLAGS_ol) {  // offline biased
-        sampler.InitFullForConstruction(dev_num, dev_id);
-        ConstructTable(sampler, dev_num, dev_id);
+        samplers[dev_id].InitFullForConstruction(dev_num, dev_id);
+        ConstructTable(samplers[dev_id], dev_num, dev_id);
         // construt ok. How to group together?
 
-#pragma omp barrier
-        LOG("barrier0\n");
-        if (FLAGS_ngpu > 1) {
-          CUDA_RT_CALL(
-              cudaMemcpy((prob_array + ggraph.edge_offset), ggraph.prob_array,
-                         ggraph.edge_num * sizeof(float), cudaMemcpyDefault));
-        }
-#pragma omp barrier
-        LOG("barrier1\n");
+        // #pragma omp barrier
+        // #pragma omp master
+        //         {
+        //           for (size_t i = 0; i < dev_num; i++) {
+        //             paster(ggraphs[i].local_edge_offset);
+        //             paster(ggraphs[i].edge_num);
+        //             CUDA_RT_CALL(cudaMemcpy((prob_array +
+        //             ggraphs[i].local_edge_offset),
+        //                                     ggraphs[i].prob_array,
+        //                                     ggraphs[i].edge_num *
+        //                                     sizeof(float),
+        //                                     cudaMemcpyDefault));  //
+        //                                     cudaMemcpyDefault
+        //           }
+        //         }
+        // #pragma omp barrier
+        //         LOG("barrier1\n");
 
-        if (!FLAGS_rw) {  //&& FLAGS_k != 1
-          sampler.SetSeed(sample_size, Depth + 1, hops);
-          OfflineSample(sampler);
-        } else {
-          Walker walker(sampler);
-          walker.SetSeed(sample_size, Depth + 1);
-          OfflineWalk(walker);
-        }
+        //         if (!FLAGS_rw) {  //&& FLAGS_k != 1
+        //           samplers[dev_id].SetSeed(sample_size, Depth + 1, hops);
+        //           OfflineSample(samplers[dev_id]);
+        //         } else {
+        //           Walker walker(samplers[dev_id]);
+        //           walker.SetSeed(sample_size, Depth + 1);
+        //           OfflineWalk(walker);
+        //         }
       }
+    }
+  }
+  {
+    for (size_t i = 0; i < FLAGS_ngpu; i++) {
+      paster(samplers[i].ggraph.local_edge_offset);
+      paster(samplers[i].ggraph.local_edge_num);
+      // CUDA_RT_CALL(cudaMemcpy((prob_array + ggraphs[i].local_edge_offset), //
+      //                         ggraphs[i].prob_array,
+      //                         ggraphs[i].edge_num * sizeof(float),
+      //                         cudaMemcpyDeviceToHost));  // cudaMemcpyDefault
+      // CUDA_RT_CALL(cudaMemset(samplers[i].ggraph.prob_array, 0,
+      //                         samplers[i].ggraph.local_edge_offset * sizeof(float)));
+      if (samplers[i].ggraph.prob_array) printf("not null\n");
+      CUDA_RT_CALL(cudaMemcpy(
+          (prob_array + samplers[i].ggraph.local_edge_offset),  //
+          samplers[i].ggraph.prob_array,
+          6899377,  // samplers[i].ggraph.local_edge_num * sizeof(float),
+          cudaMemcpyDefault));  // cudaMemcpyDefault
     }
   }
 
