@@ -20,7 +20,7 @@ __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
   if (not_all_zero) {
     table->construct();
     table->SaveAliasTable(ggraph);
-    if (LID == 0) sampler->valid[node_id] = 1;
+    if (LID == 0) ggraph->SetValid(node_id);
   }
   table->Clean();
 }
@@ -43,7 +43,7 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
   if (not_all_zero) {
     table->constructBC();
     table->SaveAliasTable(ggraph);
-    if (LTID == 0) sampler->valid[node_id] = 1;
+    if (LTID == 0) ggraph->SetValid(node_id);
   }
   __syncthreads();
   table->Clean();
@@ -119,7 +119,8 @@ __global__ void PrintTable(Sampler *sampler) {
   }
 }
 
-void ConstructTable(Sampler &sampler) {
+// todo offset
+void ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
@@ -127,7 +128,7 @@ void ConstructTable(Sampler &sampler) {
   cudaGetDeviceProperties(&prop, device);
   int n_sm = prop.multiProcessorCount;
 
-  sampler.AllocateAliasTable();
+  sampler.AllocateAliasTablePartial(ngpu, index);
 
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
@@ -140,7 +141,8 @@ void ConstructTable(Sampler &sampler) {
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   int gbuff_size = sampler.ggraph.MaxDegree;
 
-  LOG("alllocate GMEM buffer %d MB\n", block_num * gbuff_size * MEM_PER_ELE/1024/1024);
+  LOG("alllocate GMEM buffer %d MB\n",
+      block_num * gbuff_size * MEM_PER_ELE / 1024 / 1024);
 
   Vector_pack2<uint> *vector_pack_h = new Vector_pack2<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {

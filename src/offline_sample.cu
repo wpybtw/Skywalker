@@ -54,7 +54,7 @@ static __global__ void sample_kernel(Sampler *sampler) {
     __threadfence_block();
     // if (LID == 0)
     job = result.requireOneJob(current_itr);
-    while (job.val && graph->valid[job.node_id]) {
+    while (job.val && graph->CheckValid(job.node_id)) {
       uint src_id = job.node_id;
       Vector_virtual<uint> alias;
       Vector_virtual<float> prob;

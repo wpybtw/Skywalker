@@ -26,13 +26,44 @@
  */
 #pragma once
 
-#define CUDA_RT_CALL(call)                                                                  \
-    {                                                                                       \
-        cudaError_t cudaStatus = call;                                                      \
-        if (cudaSuccess != cudaStatus)                                                      \
-            fprintf(stderr,                                                                 \
-                    "ERROR: CUDA RT call \"%s\" in line %d of file %s failed "              \
-                    "with "                                                                 \
-                    "%s (%d).\n",                                                           \
-                    #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
-    }
+#include <cuda.h>
+
+#include <iostream>
+
+#define CUDA_RT_CALL(call)                                               \
+  {                                                                      \
+    cudaError_t cudaStatus = call;                                       \
+    if (cudaSuccess != cudaStatus) {                                     \
+      fprintf(stderr,                                                    \
+              "%s:%d ERROR: CUDA RT call \"%s\" failed "                 \
+              "with "                                                    \
+              "%s (%d).\n",                                              \
+              __FILE__, __LINE__, #call, cudaGetErrorString(cudaStatus), \
+              cudaStatus);                                               \
+      exit(cudaStatus);                                                  \
+    }                                                                    \
+  }
+
+// static inline void checkRtError(cudaError_t res, const char *tok,
+//                                 const char *file, unsigned line) {
+//   if (res != cudaSuccess) {
+//     std::cerr << file << ':' << line << ' ' << tok << "failed ("
+//               << (unsigned)res << "): " << cudaGetErrorString(res) << std::endl;
+//     abort();
+//   }
+// }
+
+// #define CHECK_RT(x) checkRtError(x, #x, __FILE__, __LINE__);
+
+static inline void checkDrvError(CUresult res, const char *tok,
+                                 const char *file, unsigned line) {
+  if (res != CUDA_SUCCESS) {
+    const char *errStr = NULL;
+    (void)cuGetErrorString(res, &errStr);
+    std::cerr << file << ':' << line << ' ' << tok << "failed ("
+              << (unsigned)res << "): " << errStr << std::endl;
+    abort();
+  }
+}
+
+#define CHECK_DRV(x) checkDrvError(x, #x, __FILE__, __LINE__);

@@ -40,6 +40,8 @@ class gpu_graph {
   uint device_id;
 
   Jobs_result<JobType::RW, uint> *result;
+  uint vtx_offset = 0;
+  uint edge_offset = 0;
   // sample_result *result2;
   // BiasType bias;
 
@@ -104,6 +106,11 @@ class gpu_graph {
   // degree 2 [0 ,1 ]
   // < 1 [1]
   // 1
+  __device__ bool CheckValid(uint node_id) {
+    return valid[node_id - vtx_offset];
+  }
+  __device__ void SetValid(uint node_id) { valid[node_id - vtx_offset] = 1; }
+  
   __device__ bool BinarySearch(uint *ptr, uint size, int target) {
     uint tmp_size = size;
     uint *tmp_ptr = ptr;

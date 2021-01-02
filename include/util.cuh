@@ -29,6 +29,7 @@ using ll = long long;
 #define P printf("%d\n", __LINE__)
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
+#define WARP_SIZE 32
 #define SHMEM_SIZE 49152
 #define BLOCK_SIZE 256
 #define THREAD_PER_SM 1024

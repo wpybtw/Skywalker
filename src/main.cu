@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-30 16:28:04
+ * @LastEditTime: 2021-01-02 16:23:58
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -125,7 +125,23 @@ int main(int argc, char *argv[]) {
 
   uint num_device = FLAGS_ngpu;
 
-#pragma omp parallel num_threads(num_device) shared(ginst)  // proc_bind(spread)
+
+  float *prob_array;
+  uint *alias_array;
+  char *valid;
+
+  if (FLAGS_ngpu > 1) {
+    LOG("new\n");
+    H_ERR(cudaHostAlloc((void **)&prob_array,ginst->numNode * sizeof(float),
+                        cudaHostAllocWriteCombined));
+    H_ERR(cudaHostAlloc((void **)&alias_array, ginst->numEdge * sizeof(uint),
+                        cudaHostAllocWriteCombined));
+    H_ERR(cudaHostAlloc((void **)&valid, ginst->numEdge * sizeof(char),
+                        cudaHostAllocWriteCombined));
+  }
+
+#pragma omp parallel num_threads(num_device) \
+    shared(ginst, prob_array, alias_array, valid)  // proc_bind(spread)
   {
     int dev_id = omp_get_thread_num();
     int dev_num = omp_get_num_threads();
@@ -141,49 +157,61 @@ int main(int argc, char *argv[]) {
 
     gpu_graph ggraph(ginst, dev_id);
     Sampler sampler(ggraph, dev_id);
+    if (FLAGS_ol) {
+      if (!FLAGS_bias && !FLAGS_rw) {  // unbias
+        sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
+        // UnbiasedSample(sampler);
+      }
 
-    if (!FLAGS_bias && !FLAGS_rw) {  // unbias
-      sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
-      // UnbiasedSample(sampler);
-    }
-
-    if (!FLAGS_bias && FLAGS_rw) {
-      Walker walker(sampler);
-      walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
-      UnbiasedWalk(walker);
-    }
-
-    if (FLAGS_bias && FLAGS_ol) {  // online biased
-      sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
-      if (!FLAGS_rw) {
-        OnlineGBSample(sampler);
-      } else {
+      if (!FLAGS_bias && FLAGS_rw) {
         Walker walker(sampler);
         walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
-        OnlineGBWalk(walker);
+        UnbiasedWalk(walker);
+      }
+
+      if (FLAGS_bias && FLAGS_ol) {  // online biased
+        sampler.SetSeed(local_sample_size, Depth + 1, hops, offset_sample_size);
+        if (!FLAGS_rw) {
+          OnlineGBSample(sampler);
+        } else {
+          Walker walker(sampler);
+          walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
+          OnlineGBWalk(walker);
+        }
+      }
+    }
+
+    if (!FLAGS_ol) {
+      // LOG("handle offline!\n");
+      // offline need addition handle
+      if (FLAGS_bias && !FLAGS_ol) {  // offline biased
+        sampler.InitFullForConstruction(dev_num, dev_id);
+        ConstructTable(sampler, dev_num, dev_id);
+        // construt ok. How to group together?
+
+#pragma omp barrier
+        LOG("barrier0\n");
+        if (FLAGS_ngpu > 1) {
+          CUDA_RT_CALL(
+              cudaMemcpy((prob_array + ggraph.edge_offset), ggraph.prob_array,
+                         ggraph.edge_num * sizeof(float), cudaMemcpyDefault));
+        }
+#pragma omp barrier
+        LOG("barrier1\n");
+
+        if (!FLAGS_rw) {  //&& FLAGS_k != 1
+          sampler.SetSeed(sample_size, Depth + 1, hops);
+          OfflineSample(sampler);
+        } else {
+          Walker walker(sampler);
+          walker.SetSeed(sample_size, Depth + 1);
+          OfflineWalk(walker);
+        }
       }
     }
   }
 
-  if(!FLAGS_ol)
-  {
-    LOG("handle offline!\n");
-    gpu_graph ggraph(ginst, 0);
-    Sampler sampler(ggraph, 0);
-    // offline need addition handle
-    if (FLAGS_bias && !FLAGS_ol) {  // offline biased
-      sampler.InitFullForConstruction();
-      ConstructTable(sampler);
-      if (!FLAGS_rw) {  //&& FLAGS_k != 1
-        sampler.SetSeed(sample_size, Depth + 1, hops);
-        OfflineSample(sampler);
-      } else {
-        Walker walker(sampler);
-        walker.SetSeed(sample_size, Depth + 1);
-        OfflineWalk(walker);
-      }
-    }
-  }
-  
+  // collect alias table partition to host
+
   return 0;
 }

@@ -45,6 +45,55 @@ class Sampler {
     // Init();
   }
   ~Sampler() {}
+  void AllocateAliasTablePartial(uint ngpu = 1, uint index = 0) {
+    // LOG("umtable %d %d\n", device_id, omp_get_thread_num());
+    uint local_vtx_num =
+        (index == (ngpu - 1))
+            ? (ggraph.vtx_num - ggraph.vtx_num / ngpu * (ngpu - 1))
+            : ggraph.vtx_num / ngpu;
+    uint local_vtx_offset = ggraph.vtx_num / ngpu * index;
+
+    uint local_edge_offset = ggraph.xadj[local_vtx_offset];
+    uint local_edge_size =
+        ggraph.xadj[local_vtx_offset + local_vtx_num] - local_edge_offset;
+
+    if (!FLAGS_umtable && !FLAGS_hmtable) {
+      H_ERR(cudaMalloc((void **)&prob_array, local_edge_size * sizeof(float)));
+      H_ERR(cudaMalloc((void **)&alias_array, local_edge_size * sizeof(uint)));
+      H_ERR(cudaMalloc((void **)&valid, local_vtx_num * sizeof(char)));
+    }
+    if (FLAGS_umtable) {
+      H_ERR(cudaMallocManaged((void **)&prob_array,
+                              local_edge_size * sizeof(float)));
+      H_ERR(cudaMallocManaged((void **)&alias_array,
+                              local_edge_size * sizeof(uint)));
+      H_ERR(cudaMallocManaged((void **)&valid, local_vtx_num * sizeof(char)));
+
+      H_ERR(cudaMemAdvise(prob_array, local_edge_size * sizeof(float),
+                          cudaMemAdviseSetAccessedBy, device_id));
+      H_ERR(cudaMemAdvise(alias_array, local_edge_size * sizeof(uint),
+                          cudaMemAdviseSetAccessedBy, device_id));
+      H_ERR(cudaMemAdvise(valid, local_vtx_num * sizeof(char),
+                          cudaMemAdviseSetAccessedBy, device_id));
+    }
+    if (FLAGS_hmtable) {
+      LOG("host mapped table\n");
+      H_ERR(cudaHostAlloc((void **)&prob_array, local_edge_size * sizeof(float),
+                          cudaHostAllocWriteCombined));
+      H_ERR(cudaHostAlloc((void **)&alias_array, local_edge_size * sizeof(uint),
+                          cudaHostAllocWriteCombined));
+      H_ERR(cudaHostAlloc((void **)&valid, local_vtx_num * sizeof(char),
+                          cudaHostAllocWriteCombined));
+    }
+    // if (!FLAGS_ol)
+    //   H_ERR(cudaMalloc((void **)&avg_bias, ggraph.vtx_num * sizeof(float)));
+    ggraph.vtx_offset = local_vtx_offset;
+    ggraph.edge_offset = local_edge_offset;
+    ggraph.valid = valid;
+    ggraph.prob_array = prob_array;
+    ggraph.alias_array = alias_array;
+    H_ERR(cudaMemset(prob_array, 0, local_vtx_num * sizeof(float)));
+  }
   void AllocateAliasTable() {
     LOG("umtable %d %d\n", device_id, omp_get_thread_num());
     if (!FLAGS_umtable && !FLAGS_hmtable) {
@@ -104,16 +153,22 @@ class Sampler {
     // printf("first ten seed:");
     // printH(result.data,10 );
   }
-  void InitFullForConstruction() {
-    uint *seeds = new uint[ggraph.vtx_num];
-    for (int n = 0; n < ggraph.vtx_num; ++n) {
-      seeds[n] = n;
+  void InitFullForConstruction(uint ngpu = 1, uint index = 0) {
+    uint local_vtx_num =
+        (index == (ngpu - 1))
+            ? (ggraph.vtx_num - ggraph.vtx_num / ngpu * (ngpu - 1))
+            : ggraph.vtx_num / ngpu;
+    // paster(local_vtx_num);
+    uint offset = ggraph.vtx_num / ngpu * index;
+    uint *seeds = new uint[local_vtx_num];
+    for (int n = 0; n < local_vtx_num; ++n) {
+      seeds[n] = n + offset;
     }
     // uint _hops[2] = {1, 1};
     uint *_hops = new uint[2];
     _hops[0] = 1;
     _hops[1] = 1;
-    result.init(ggraph.vtx_num, 2, _hops, seeds, device_id);
+    result.init(local_vtx_num, 2, _hops, seeds, device_id);
   }
   // void Start();
 };
@@ -180,7 +235,7 @@ void OnlineGBSample(Sampler sampler);
 void StartSP(Sampler sampler);
 void Start(Sampler sampler);
 
-void ConstructTable(Sampler &sampler);
+void ConstructTable(Sampler &sampler, uint ngpu = 1, uint index = 0);
 // void Sample(Sampler sampler);
 void OfflineSample(Sampler &sampler);
 
