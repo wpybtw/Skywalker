@@ -8,7 +8,7 @@
                 "${workspaceFolder}/build/deps/gflags/include",
                 "/usr/local/cuda/include",
                 "/usr/local/cuda-11.0/targets/x86_64-linux/include",
-                "/usr/lib/gcc/x86_64-linux-gnu/7/include"
+                // "/usr/lib/gcc/x86_64-linux-gnu/7/include"
             ],
             "defines": [],
             "compilerPath": "/usr/local/cuda/bin/nvcc", // "/usr/bin/clang",

@@ -64,6 +64,7 @@ class Sampler {
       H_ERR(cudaMalloc((void **)&valid, local_vtx_num * sizeof(char)));
     }
     if (FLAGS_umtable) {
+      // LOG("UM table\n");
       H_ERR(cudaMallocManaged((void **)&prob_array,
                               local_edge_size * sizeof(float)));
       H_ERR(cudaMallocManaged((void **)&alias_array,

@@ -8,14 +8,14 @@
             "name": "(gdb) 启动",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/bin/main", //${fileBasenameNoExtension}.out
-            "args": ["-v"],
+            "program": "${workspaceFolder}/bin/main", //${fileBasenameNoExtension}.out
+            "args": [" --k 1 --d 100 --rw=0 --ol=0 --hd=4  --ngpu 4 --v --n=10"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/usr/local/cuda/bin/cuda-gdb",
+            "miDebuggerPath": "gdb", ///usr/local/cuda/bin/cuda-gdb
             "setupCommands": [
                 {
                     "description": "为 gdb 启用整齐打印",
