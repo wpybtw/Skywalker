@@ -10,8 +10,6 @@
 // #include <thrust/device_vector.h>
 #include <iostream>
 
-#include "error.cuh"
-
 using namespace cooperative_groups;
 // #define check
 // #define skip8k
@@ -61,6 +59,19 @@ using ll = long long;
       exit(cudaStatus);                                                  \
     }                                                                    \
   }
+
+static inline void checkDrvError(CUresult res, const char *tok,
+                                 const char *file, unsigned line) {
+  if (res != CUDA_SUCCESS) {
+    const char *errStr = NULL;
+    (void)cuGetErrorString(res, &errStr);
+    std::cerr << file << ':' << line << ' ' << tok << "failed ("
+              << (unsigned)res << "): " << errStr << std::endl;
+    abort();
+  }
+}
+
+#define CHECK_DRV(x) checkDrvError(x, #x, __FILE__, __LINE__);
 
 #define H_ERR(ans) \
   { gpuAssert((ans), __FILE__, __LINE__); }

@@ -21,7 +21,7 @@
 
 #include <iostream>
 
-#include "error.cuh"
+
 #include "gpu_graph.cuh"
 #include "graph.cuh"
 #include "sampler.cuh"
