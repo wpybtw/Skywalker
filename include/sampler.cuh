@@ -59,6 +59,7 @@ class Sampler {
         ggraph.xadj[local_vtx_offset + local_vtx_num] - local_edge_offset;
 
     if (!FLAGS_umtable && !FLAGS_hmtable) {
+      // LOG("GM table\n");
       H_ERR(cudaMalloc((void **)&prob_array, local_edge_size * sizeof(float)));
       H_ERR(cudaMalloc((void **)&alias_array, local_edge_size * sizeof(uint)));
       H_ERR(cudaMalloc((void **)&valid, local_vtx_num * sizeof(char)));

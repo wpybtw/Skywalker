@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-02 21:38:56
+ * @LastEditTime: 2021-01-03 18:11:25
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -128,41 +128,16 @@ int main(int argc, char *argv[]) {
   float *prob_array;
   uint *alias_array;
   char *valid;
-  // if (FLAGS_ngpu > 1)
-  // {
-  //   LOG("new\n");
-  //   H_ERR(cudaHostAlloc((void **)&prob_array, ginst->numNode * sizeof(float),
-  //                       cudaHostAllocWriteCombined));
-  //   H_ERR(cudaHostAlloc((void **)&alias_array, ginst->numEdge * sizeof(uint),
-  //                       cudaHostAllocWriteCombined));
-  //   H_ERR(cudaHostAlloc((void **)&valid, ginst->numEdge * sizeof(char),
-  //                       cudaHostAllocWriteCombined));
-  // }
-  {
-    LOG("new2\n");
-    H_ERR(cudaHostAlloc((void **)&prob_array, ginst->numNode * sizeof(float),
-                        cudaHostAllocDefault));
+  if (FLAGS_ngpu > 1) {
+    LOG("new\n");
+    H_ERR(cudaHostAlloc((void **)&prob_array, ginst->numEdge * sizeof(float),
+                        cudaHostAllocWriteCombined));
     H_ERR(cudaHostAlloc((void **)&alias_array, ginst->numEdge * sizeof(uint),
-                        cudaHostAllocDefault));
-    H_ERR(cudaHostAlloc((void **)&valid, ginst->numEdge * sizeof(char),
-                        cudaHostAllocDefault));
-    gpu_graph g(ginst, 0);
-    Sampler s(g, 0);
-    s.InitFullForConstruction(1, 0);
-    ConstructTable(s, 1, 0);
-    paster(s.ggraph.local_edge_offset);
-    paster(s.ggraph.local_edge_num);
-    printH(s.prob_array, 10);
-
-    float *prob_array2;
-    prob_array2 = (float *)malloc(ginst->numNode * sizeof(float));
-
-    CUDA_RT_CALL(cudaMemcpy(
-        (void *)(prob_array2 + s.ggraph.local_edge_offset), s.prob_array,
-        s.ggraph.local_edge_num * sizeof(float),
-        cudaMemcpyDefault));  // cudaMemcpyDefault cudaMemcpyDeviceToHost
+                        cudaHostAllocWriteCombined));
+    H_ERR(cudaHostAlloc((void **)&valid, ginst->numNode * sizeof(char),
+                        cudaHostAllocWriteCombined));
   }
-  LOG("wtf\n");
+
   gpu_graph *ggraphs = new gpu_graph[num_device];
   Sampler *samplers = new Sampler[num_device];
 
@@ -218,65 +193,32 @@ int main(int argc, char *argv[]) {
         ConstructTable(samplers[dev_id], dev_num, dev_id);
         // construt ok. How to group together?
 
-        // #pragma omp barrier
-        // #pragma omp master
-        //         {
-        //           for (size_t i = 0; i < dev_num; i++) {
-        //             CUDA_RT_CALL(
-        //                 cudaMemcpy((prob_array +
-        //                 samplers[i].ggraph.local_edge_offset),
-        //                            samplers[i].ggraph.prob_array,
-        //                            samplers[i].ggraph.local_edge_num *
-        //                            sizeof(float), cudaMemcpyDefault));  //
-        //                            cudaMemcpyDefault
-        //                                                  //
-        //                                                  cudaMemcpyDeviceToHost
-        //           }
-        //         }
-        // #pragma omp barrier
-        //         LOG("barrier1\n");
+#pragma omp barrier
 
-        if (!FLAGS_rw) {  //&& FLAGS_k != 1
-          samplers[dev_id].SetSeed(sample_size, Depth + 1, hops);
-          OfflineSample(samplers[dev_id]);
-        } else {
-          Walker walker(samplers[dev_id]);
-          walker.SetSeed(sample_size, Depth + 1);
-          OfflineWalk(walker);
+#pragma omp master
+        {
+          for (size_t i = 0; i < dev_num; i++) {
+            CUDA_RT_CALL(
+                cudaMemcpy((prob_array + samplers[i].ggraph.local_edge_offset),
+                           samplers[i].ggraph.prob_array,
+                           samplers[i].ggraph.local_edge_num * sizeof(float),
+                           cudaMemcpyDefault));
+          }
         }
+#pragma omp barrier
+        // collect alias table partition to host
+
+        // if (!FLAGS_rw) {  //&& FLAGS_k != 1
+        //   samplers[dev_id].SetSeed(sample_size, Depth + 1, hops);
+        //   OfflineSample(samplers[dev_id]);
+        // } else {
+        //   Walker walker(samplers[dev_id]);
+        //   walker.SetSeed(sample_size, Depth + 1);
+        //   OfflineWalk(walker);
+        // }
       }
     }
   }
-  // why memcopy fails?
-  // {
-  //   for (size_t i = 0; i < FLAGS_ngpu; i++) {
-  //     CUDA_RT_CALL(cudaSetDevice(i));
-  //     paster(samplers[i].ggraph.local_edge_offset);
-  //     paster(samplers[i].ggraph.local_edge_num);
-
-  //     CUDA_RT_CALL(
-  //         cudaMemset(samplers[i].prob_array, 0,
-  //                    samplers[i].ggraph.local_edge_num * sizeof(float)));
-  //     H_ERR(cudaDeviceSynchronize());
-  //     if (FLAGS_umtable)
-  //       CUDA_RT_CALL(cudaMemPrefetchAsync(
-  //           samplers[i].prob_array,
-  //           samplers[i].ggraph.local_edge_num * sizeof(float),
-  //           cudaCpuDeviceId, 0));
-  //     H_ERR(cudaDeviceSynchronize());
-  //     // memcpy((prob_array + samplers[i].ggraph.local_edge_offset),
-  //     //        samplers[i].ggraph.prob_array,
-  //     //        samplers[i].ggraph.local_edge_num * sizeof(float));
-
-  //     CUDA_RT_CALL(cudaMemcpy(
-  //         (prob_array + samplers[i].ggraph.local_edge_offset),
-  //         samplers[i].ggraph.prob_array,
-  //         samplers[i].ggraph.local_edge_num * sizeof(float),
-  //         cudaMemcpyDefault));  // cudaMemcpyDefault cudaMemcpyDeviceToHost
-  //   }
-  // }
-
-  // collect alias table partition to host
 
   return 0;
 }
