@@ -9,7 +9,7 @@
 template <typename T>
 void printH(T *ptr, int size) {
   T *ptrh = new T[size];
-  H_ERR(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
+  CUDA_RT_CALL(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
   printf("printH: ");
   for (size_t i = 0; i < size; i++) {
     // printf("%d\t", ptrh[i]);

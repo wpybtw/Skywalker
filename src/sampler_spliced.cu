@@ -163,7 +163,7 @@ void StartSP(Sampler sampler) {
     printf("buffer too small\n");
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
-  H_ERR(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
+  CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                    cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr2<<<1, 32, 0, 0>>>(sampler_ptr);
@@ -177,14 +177,14 @@ void StartSP(Sampler sampler) {
   for (size_t i = 0; i < block_num; i++) {
     buffer_pointers[i].allocate(gbuff_size);
   }
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
   Buffer_pointer *buffer_pointers_g;
-  H_ERR(cudaMalloc(&buffer_pointers_g, sizeof(Buffer_pointer) * block_num));
-  H_ERR(cudaMemcpy(buffer_pointers_g, buffer_pointers,
+  CUDA_RT_CALL(cudaMalloc(&buffer_pointers_g, sizeof(Buffer_pointer) * block_num));
+  CUDA_RT_CALL(cudaMemcpy(buffer_pointers_g, buffer_pointers,
                    sizeof(Buffer_pointer) * block_num, cudaMemcpyHostToDevice));
 
   //  Global_buffer
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
@@ -192,10 +192,10 @@ void StartSP(Sampler sampler) {
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr,
                                                  buffer_pointers_g);
 #endif
-  H_ERR(cudaDeviceSynchronize());
-  // H_ERR(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
 }

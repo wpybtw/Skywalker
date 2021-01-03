@@ -73,6 +73,7 @@
         "variant": "cpp",
         "__nullptr": "cpp",
         "ios": "cpp",
-        "locale": "cpp"
+        "locale": "cpp",
+        "__locale": "cpp"
     }
 }

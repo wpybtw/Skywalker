@@ -20,6 +20,8 @@ typedef unsigned char bit_t;
 
 enum class BiasType { Weight = 0, Degree = 1 };
 
+
+
 // template<BiasType bias=BiasType::Weight>
 class gpu_graph {
  public:
@@ -57,17 +59,17 @@ class gpu_graph {
     // printf("vtx_num: %d\t edge_num: %d\n", vtx_num, edge_num);
     avg_degree = ginst->numEdge / ginst->numNode;
 
-    H_ERR(cudaMallocManaged(&xadj, (vtx_num + 1) * sizeof(edge_t)));
-    H_ERR(cudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
+    CUDA_RT_CALL(cudaMallocManaged(&xadj, (vtx_num + 1) * sizeof(edge_t)));
+    CUDA_RT_CALL(cudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
     if (FLAGS_weight || FLAGS_randomweight)
-      H_ERR(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
+      CUDA_RT_CALL(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
 
-    H_ERR(cudaMemcpy(xadj, ginst->xadj, (vtx_num + 1) * sizeof(edge_t),
+    CUDA_RT_CALL(cudaMemcpy(xadj, ginst->xadj, (vtx_num + 1) * sizeof(edge_t),
                      cudaMemcpyHostToDevice));
-    H_ERR(cudaMemcpy(adjncy, ginst->adjncy, edge_num * sizeof(vtx_t),
+    CUDA_RT_CALL(cudaMemcpy(adjncy, ginst->adjncy, edge_num * sizeof(vtx_t),
                      cudaMemcpyHostToDevice));
     if (FLAGS_weight || FLAGS_randomweight)
-      H_ERR(cudaMemcpy(adjwgt, ginst->adjwgt, edge_num * sizeof(weight_t),
+      CUDA_RT_CALL(cudaMemcpy(adjwgt, ginst->adjwgt, edge_num * sizeof(weight_t),
                        cudaMemcpyHostToDevice));
 
     // adjncy = ginst->adjncy;
@@ -82,22 +84,22 @@ class gpu_graph {
   }
   void Set_Mem_Policy(bool needWeight = false) {
     // LOG("cudaMemAdvise %d %d\n", device_id, omp_get_thread_num());
-    H_ERR(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
+    CUDA_RT_CALL(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
                         cudaMemAdviseSetAccessedBy, device_id));
-    H_ERR(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
+    CUDA_RT_CALL(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
                         cudaMemAdviseSetAccessedBy, device_id));
 
-    H_ERR(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t), device_id,
+    CUDA_RT_CALL(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t), device_id,
                                0));
-    H_ERR(cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
+    CUDA_RT_CALL(cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
 
     if (needWeight) {
-      H_ERR(cudaMemAdvise(adjwgt, edge_num * sizeof(weight_t),
+      CUDA_RT_CALL(cudaMemAdvise(adjwgt, edge_num * sizeof(weight_t),
                           cudaMemAdviseSetAccessedBy, device_id));
-      H_ERR(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t), device_id,
+      CUDA_RT_CALL(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t), device_id,
                                  0));
     }
-    H_ERR(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaDeviceSynchronize());
   }
   __device__ __host__ ~gpu_graph() {}
   __device__ edge_t getDegree(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }
@@ -111,8 +113,10 @@ class gpu_graph {
   __device__ bool CheckValid(uint node_id) {
     return valid[node_id - local_vtx_offset];
   }
-  __device__ void SetValid(uint node_id) { valid[node_id - local_vtx_offset] = 1; }
-  
+  __device__ void SetValid(uint node_id) {
+    valid[node_id - local_vtx_offset] = 1;
+  }
+
   __device__ bool BinarySearch(uint *ptr, uint size, int target) {
     uint tmp_size = size;
     uint *tmp_ptr = ptr;
@@ -156,31 +160,29 @@ class gpu_graph {
   __device__ void UpdateWalkerState(uint idx, uint info);
 };
 
+struct AliasTable {
+  float *prob_array;
+  uint *alias_array;
+  char *valid;
+  void Alocate(size_t num_vtx, size_t num_edge) {
+    CUDA_RT_CALL(cudaHostAlloc((void **)&prob_array, num_edge * sizeof(float),
+                        cudaHostAllocWriteCombined));
+    CUDA_RT_CALL(cudaHostAlloc((void **)&alias_array, num_edge * sizeof(uint),
+                        cudaHostAllocWriteCombined));
+    CUDA_RT_CALL(cudaHostAlloc((void **)&valid, num_vtx * sizeof(char),
+                        cudaHostAllocWriteCombined));
+  }
+  void Assemble(gpu_graph g) {
+    CUDA_RT_CALL(cudaMemcpy((prob_array + g.local_edge_offset), g.prob_array,
+                            g.local_edge_num * sizeof(float),
+                            cudaMemcpyDefault));
+    CUDA_RT_CALL(cudaMemcpy((alias_array + g.local_edge_offset), g.alias_array,
+                            g.local_edge_num * sizeof(uint),
+                            cudaMemcpyDefault));
+    CUDA_RT_CALL(cudaMemcpy((valid + g.local_vtx_offset), g.valid,
+                            g.local_vtx_num * sizeof(char),
+                            cudaMemcpyDefault));
+  }
+};
+
 #endif
-//  __device__ float getBias(edge_t idx);
-// __device__ float getBias(edge_t idx, Jobs_result<JobType::RW, uint>
-// result);
-// __device__ float getBias(edge_t idx, sample_result result);
-//  {
-//   return xadj[idx + 1] - xadj[idx];
-// }
-// template <BiasType bias>
-// friend  __device__ float getBias(gpu_graph *g, edge_t idx);
-//  {
-//   return g->xadj[idx + 1] - g->xadj[idx];
-// }
-
-// template <BiasType bias = BiasType::Degree>
-// __device__ float getBiasImpl(edge_t idx);
-
-// __device__ edge_t getBias(edge_t idx) {
-//   return getBiasImpl<static_cast<BiasType>(FLAGS_dw)>(idx);
-// }
-// __device__ bool CheckConnect(int src, int dst) {
-//   uint degree = getDegree(src);
-//   for (size_t i = 0; i < degree; i++) {
-//     if (getOutNode(src, i) == dst)
-//       return true;
-//   }
-//   return false;
-// }

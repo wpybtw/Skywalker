@@ -137,21 +137,21 @@ void UnbiasedWalk(Walker &walker) {
 
   Walker *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Walker));
-  H_ERR(
+  CUDA_RT_CALL(
       cudaMemcpy(sampler_ptr, &walker, sizeof(Walker), cudaMemcpyHostToDevice));
 
   float *tp_d, tp;
   tp = FLAGS_tp;
   cudaMalloc(&tp_d, sizeof(float));
-  H_ERR(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_RT_CALL(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
 
   double start_time, total_time;
   // init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
-  H_ERR(cudaDeviceSynchronize());
-  H_ERR(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaPeekAtLastError());
 
   uint size_h, *size_d;
   cudaMalloc(&size_d, sizeof(uint));
@@ -163,7 +163,7 @@ void UnbiasedWalk(Walker &walker) {
     for (uint current_itr = 0; current_itr < walker.result.hop_num - 1;
          current_itr++) {
       GetSize<<<1, 32, 0, 0>>>(sampler_ptr, current_itr, size_d);
-      H_ERR(cudaMemcpy(&size_h, size_d, sizeof(uint), cudaMemcpyDeviceToHost));
+      CUDA_RT_CALL(cudaMemcpy(&size_h, size_d, sizeof(uint), cudaMemcpyDeviceToHost));
       if (size_h > 0) {
         UnbiasedWalkKernelPerItr<<<size_h / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
             sampler_ptr, current_itr);
@@ -174,10 +174,10 @@ void UnbiasedWalk(Walker &walker) {
     }
   }
 
-  H_ERR(cudaDeviceSynchronize());
-  // H_ERR(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
 }

@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-03 18:13:53
+ * @LastEditTime: 2021-01-03 18:51:11
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -125,25 +125,16 @@ int main(int argc, char *argv[]) {
 
   uint num_device = FLAGS_ngpu;
 
-  float *prob_array;
-  uint *alias_array;
-  char *valid;
+  AliasTable global_table;
   if (FLAGS_ngpu > 1) {
-    LOG("new\n");
-    H_ERR(cudaHostAlloc((void **)&prob_array, ginst->numEdge * sizeof(float),
-                        cudaHostAllocWriteCombined));
-    H_ERR(cudaHostAlloc((void **)&alias_array, ginst->numEdge * sizeof(uint),
-                        cudaHostAllocWriteCombined));
-    H_ERR(cudaHostAlloc((void **)&valid, ginst->numNode * sizeof(char),
-                        cudaHostAllocWriteCombined));
+    global_table.Alocate(ginst->numNode, ginst->numEdge);
   }
 
   gpu_graph *ggraphs = new gpu_graph[num_device];
   Sampler *samplers = new Sampler[num_device];
 
-#pragma omp parallel num_threads(num_device)                  \
-    shared(ginst, ggraphs, samplers, prob_array, alias_array, \
-           valid)  // proc_bind(spread)
+#pragma omp parallel num_threads(num_device) \
+    shared(ginst, ggraphs, samplers, global_table)
   {
     int dev_id = omp_get_thread_num();
     int dev_num = omp_get_num_threads();
@@ -192,36 +183,19 @@ int main(int argc, char *argv[]) {
         samplers[dev_id].InitFullForConstruction(dev_num, dev_id);
         ConstructTable(samplers[dev_id], dev_num, dev_id);
         // construt ok. How to group together?
-
-        // #pragma omp barrier
-        // #pragma omp master
-        //         {
-        //           for (size_t i = 0; i < dev_num; i++) {
-        //             CUDA_RT_CALL(
-        //                 cudaMemcpy((prob_array +
-        //                 samplers[i].ggraph.local_edge_offset),
-        //                            samplers[i].ggraph.prob_array,
-        //                            samplers[i].ggraph.local_edge_num *
-        //                            sizeof(float), cudaMemcpyDefault));
-        //           }
-        //         }
-        CUDA_RT_CALL(
-            cudaMemcpy((prob_array + samplers[dev_id].ggraph.local_edge_offset),
-                       samplers[dev_id].ggraph.prob_array,
-                       samplers[dev_id].ggraph.local_edge_num * sizeof(float),
-                       cudaMemcpyDefault));
-
+        global_table.Assemble(samplers[dev_id].ggraph);
 #pragma omp barrier
-        // collect alias table partition to host
 
-        // if (!FLAGS_rw) {  //&& FLAGS_k != 1
-        //   samplers[dev_id].SetSeed(sample_size, Depth + 1, hops);
-        //   OfflineSample(samplers[dev_id]);
-        // } else {
-        //   Walker walker(samplers[dev_id]);
-        //   walker.SetSeed(sample_size, Depth + 1);
-        //   OfflineWalk(walker);
-        // }
+        // collect alias table partition to host
+        samplers[dev_id].UseGlobalAliasTable(global_table);
+        if (!FLAGS_rw) {  //&& FLAGS_k != 1
+          samplers[dev_id].SetSeed(sample_size, Depth + 1, hops);
+          OfflineSample(samplers[dev_id]);
+        } else {
+          Walker walker(samplers[dev_id]);
+          walker.SetSeed(sample_size, Depth + 1);
+          OfflineWalk(walker);
+        }
       }
     }
   }

@@ -10,6 +10,8 @@
 // #include <thrust/device_vector.h>
 #include <iostream>
 
+#include "error.cuh"
+
 using namespace cooperative_groups;
 // #define check
 // #define skip8k
@@ -45,6 +47,20 @@ using ll = long long;
 #define ELE_PER_WARP (SHMEM_PER_WARP / MEM_PER_ELE - 12)  // 8
 
 #define ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)
+
+#define CUDA_RT_CALL(call)                                               \
+  {                                                                      \
+    cudaError_t cudaStatus = call;                                       \
+    if (cudaSuccess != cudaStatus) {                                     \
+      fprintf(stderr,                                                    \
+              "%s:%d ERROR: CUDA RT call \"%s\" failed "                 \
+              "with "                                                    \
+              "%s (%d).\n",                                              \
+              __FILE__, __LINE__, #call, cudaGetErrorString(cudaStatus), \
+              cudaStatus);                                               \
+      exit(cudaStatus);                                                  \
+    }                                                                    \
+  }
 
 #define H_ERR(ans) \
   { gpuAssert((ans), __FILE__, __LINE__); }

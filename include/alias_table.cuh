@@ -46,11 +46,11 @@ struct Buffer_pointer {
 
   void allocate(uint _size) {
     size = _size;
-    H_ERR(cudaMalloc(&b0, size * sizeof(uint)));
-    H_ERR(cudaMalloc(&b1, size * sizeof(uint)));
-    H_ERR(cudaMalloc(&b2, size * sizeof(uint)));
-    H_ERR(cudaMalloc(&b3, size * sizeof(float)));
-    H_ERR(cudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
+    CUDA_RT_CALL(cudaMalloc(&b0, size * sizeof(uint)));
+    CUDA_RT_CALL(cudaMalloc(&b1, size * sizeof(uint)));
+    CUDA_RT_CALL(cudaMalloc(&b2, size * sizeof(uint)));
+    CUDA_RT_CALL(cudaMalloc(&b3, size * sizeof(float)));
+    CUDA_RT_CALL(cudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
   }
   // __host__ ~Buffer_pointer(){
   // }

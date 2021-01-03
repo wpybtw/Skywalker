@@ -44,16 +44,6 @@
     }                                                                    \
   }
 
-// static inline void checkRtError(cudaError_t res, const char *tok,
-//                                 const char *file, unsigned line) {
-//   if (res != cudaSuccess) {
-//     std::cerr << file << ':' << line << ' ' << tok << "failed ("
-//               << (unsigned)res << "): " << cudaGetErrorString(res) << std::endl;
-//     abort();
-//   }
-// }
-
-// #define CHECK_RT(x) checkRtError(x, #x, __FILE__, __LINE__);
 
 static inline void checkDrvError(CUresult res, const char *tok,
                                  const char *file, unsigned line) {

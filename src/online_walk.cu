@@ -204,7 +204,7 @@ void OnlineGBWalk(Walker &sampler) {
 
   Walker *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Walker));
-  H_ERR(cudaMemcpy(sampler_ptr, &sampler, sizeof(Walker),
+  CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Walker),
                    cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
@@ -222,20 +222,20 @@ void OnlineGBWalk(Walker &sampler) {
   for (size_t i = 0; i < block_num; i++) {
     vector_pack_h[i].Allocate(gbuff_size);
   }
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;
-  H_ERR(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
-  H_ERR(cudaMemcpy(vector_packs, vector_pack_h,
+  CUDA_RT_CALL(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+  CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
                    sizeof(Vector_pack<uint>) * block_num,
                    cudaMemcpyHostToDevice));
 
   float *tp_d, tp;
   tp = FLAGS_tp;
   cudaMalloc(&tp_d, sizeof(float));
-  H_ERR(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_RT_CALL(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
 
   //  Global_buffer
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
   start_time = wtime();
   if (FLAGS_debug)
     OnlineWalkKernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs, tp_d);
@@ -243,10 +243,10 @@ void OnlineGBWalk(Walker &sampler) {
     OnlineWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs,
                                                       tp_d);
 
-  H_ERR(cudaDeviceSynchronize());
-  // H_ERR(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Device %d sampling time:\t%.6f\n", omp_get_thread_num(), total_time);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
 }

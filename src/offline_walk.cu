@@ -75,25 +75,25 @@ void OfflineWalk(Walker &walker) {
 
   Walker *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Walker));
-  H_ERR(
+  CUDA_RT_CALL(
       cudaMemcpy(sampler_ptr, &walker, sizeof(Walker), cudaMemcpyHostToDevice));
   double start_time, total_time;
   // init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
   BindResultKernel<<<1, 32, 0, 0>>>(sampler_ptr);
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
-  H_ERR(cudaDeviceSynchronize());
-  H_ERR(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
 #else
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
 #endif
-  H_ERR(cudaDeviceSynchronize());
-  // H_ERR(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
 }

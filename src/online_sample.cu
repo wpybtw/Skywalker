@@ -143,7 +143,7 @@ void OnlineGBSample(Sampler sampler) {
 
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
-  H_ERR(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
+  CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                    cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
@@ -158,25 +158,25 @@ void OnlineGBSample(Sampler sampler) {
   for (size_t i = 0; i < block_num; i++) {
     vector_pack_h[i].Allocate(gbuff_size);
   }
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;
-  H_ERR(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
-  H_ERR(cudaMemcpy(vector_packs, vector_pack_h,
+  CUDA_RT_CALL(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+  CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
                    sizeof(Vector_pack<uint>) * block_num,
                    cudaMemcpyHostToDevice));
 
   //  Global_buffer
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #else
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #endif
-  H_ERR(cudaDeviceSynchronize());
-  // H_ERR(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
-  H_ERR(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
 }

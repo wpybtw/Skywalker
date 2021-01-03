@@ -265,19 +265,19 @@ public:
     cudaMalloc(&capacity, sizeof(u64));
     cudaMalloc(&floor, sizeof(u64));
     u64 floor_h = 0;
-    H_ERR(cudaMemcpy(floor, &floor_h, sizeof(u64), cudaMemcpyHostToDevice));
-    H_ERR(cudaMemcpy(size, &size_h, sizeof(u64), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(floor, &floor_h, sizeof(u64), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(size, &size_h, sizeof(u64), cudaMemcpyHostToDevice));
 
     // paster(_capacity);
-    H_ERR(
+    CUDA_RT_CALL(
         cudaMemcpy(capacity, &capacity_h, sizeof(u64), cudaMemcpyHostToDevice));
 
     if (!FLAGS_umbuf) {
-      H_ERR(cudaMalloc(&data, _capacity * sizeof(T)));
+      CUDA_RT_CALL(cudaMalloc(&data, _capacity * sizeof(T)));
     } else {
       LOG("FLAGS_device not solved for vec\n");
-      // H_ERR(cudaMallocManaged(&data, _capacity * sizeof(T)));
-      // H_ERR(cudaMemAdvise(data, _capacity * sizeof(T),
+      // CUDA_RT_CALL(cudaMallocManaged(&data, _capacity * sizeof(T)));
+      // CUDA_RT_CALL(cudaMemAdvise(data, _capacity * sizeof(T),
       //                     cudaMemAdviseSetAccessedBy, FLAGS_device));
     }
   }

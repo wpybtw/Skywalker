@@ -80,9 +80,9 @@ class Graph {
     // Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
   }
   ~Graph() {
-    if (xadj != nullptr) H_ERR(cudaFree(xadj));
-    if (adjncy != nullptr) H_ERR(cudaFree(adjncy));
-    if (adjwgt != nullptr) H_ERR(cudaFree(adjwgt));
+    if (xadj != nullptr) CUDA_RT_CALL(cudaFree(xadj));
+    if (adjncy != nullptr) CUDA_RT_CALL(cudaFree(adjncy));
+    if (adjwgt != nullptr) CUDA_RT_CALL(cudaFree(adjwgt));
     // free(xadj);
     // free(adjncy);
     // if (adjwgt != nullptr)
@@ -153,17 +153,17 @@ class Graph {
     else {
       cout << "--------- " << graphFilePath << " ---------\n";
     }
-    // H_ERR(cudaMallocHost(&xadj, (num_Node + 1) * sizeof(uint)));
-    // H_ERR(cudaMallocHost(&adjncy, num_Edge * sizeof(uint)));
-    H_ERR(cudaHostAlloc(&xadj, (num_Node + 1) * sizeof(edge_t),
+    // CUDA_RT_CALL(cudaMallocHost(&xadj, (num_Node + 1) * sizeof(uint)));
+    // CUDA_RT_CALL(cudaMallocHost(&adjncy, num_Edge * sizeof(uint)));
+    CUDA_RT_CALL(cudaHostAlloc(&xadj, (num_Node + 1) * sizeof(edge_t),
                         cudaHostAllocMapped));
-    H_ERR(
+    CUDA_RT_CALL(
         cudaHostAlloc(&adjncy, num_Edge * sizeof(vtx_t), cudaHostAllocMapped));
     um_used += (num_Node + 1) * sizeof(vtx_t) + num_Edge * sizeof(vtx_t);
 
     adjwgt = nullptr;
     if (FLAGS_weight)
-      H_ERR(cudaHostAlloc(&adjwgt, num_Edge * sizeof(weight_t),
+      CUDA_RT_CALL(cudaHostAlloc(&adjwgt, num_Edge * sizeof(weight_t),
                           cudaHostAllocMapped));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
