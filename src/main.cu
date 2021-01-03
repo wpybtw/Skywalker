@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-03 18:51:11
+ * @LastEditTime: 2021-01-03 19:02:18
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -20,7 +20,6 @@
 #include <unistd.h>
 
 #include <iostream>
-
 
 #include "gpu_graph.cuh"
 #include "graph.cuh"
@@ -177,17 +176,16 @@ int main(int argc, char *argv[]) {
     }
 
     if (!FLAGS_ol) {
-      // LOG("handle offline!\n");
-      // offline need addition handle
       if (FLAGS_bias && !FLAGS_ol) {  // offline biased
         samplers[dev_id].InitFullForConstruction(dev_num, dev_id);
         ConstructTable(samplers[dev_id], dev_num, dev_id);
-        // construt ok. How to group together?
-        global_table.Assemble(samplers[dev_id].ggraph);
-#pragma omp barrier
 
-        // collect alias table partition to host
-        samplers[dev_id].UseGlobalAliasTable(global_table);
+        // use a global host mapped table for all gpus
+        if (FLAGS_ngpu > 1) {
+          global_table.Assemble(samplers[dev_id].ggraph);
+          samplers[dev_id].UseGlobalAliasTable(global_table);
+        }
+#pragma omp barrier
         if (!FLAGS_rw) {  //&& FLAGS_k != 1
           samplers[dev_id].SetSeed(sample_size, Depth + 1, hops);
           OfflineSample(samplers[dev_id]);

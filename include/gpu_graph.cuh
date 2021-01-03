@@ -20,8 +20,6 @@ typedef unsigned char bit_t;
 
 enum class BiasType { Weight = 0, Degree = 1 };
 
-
-
 // template<BiasType bias=BiasType::Weight>
 class gpu_graph {
  public:
@@ -65,12 +63,13 @@ class gpu_graph {
       CUDA_RT_CALL(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
 
     CUDA_RT_CALL(cudaMemcpy(xadj, ginst->xadj, (vtx_num + 1) * sizeof(edge_t),
-                     cudaMemcpyHostToDevice));
+                            cudaMemcpyHostToDevice));
     CUDA_RT_CALL(cudaMemcpy(adjncy, ginst->adjncy, edge_num * sizeof(vtx_t),
-                     cudaMemcpyHostToDevice));
+                            cudaMemcpyHostToDevice));
     if (FLAGS_weight || FLAGS_randomweight)
-      CUDA_RT_CALL(cudaMemcpy(adjwgt, ginst->adjwgt, edge_num * sizeof(weight_t),
-                       cudaMemcpyHostToDevice));
+      CUDA_RT_CALL(cudaMemcpy(adjwgt, ginst->adjwgt,
+                              edge_num * sizeof(weight_t),
+                              cudaMemcpyHostToDevice));
 
     // adjncy = ginst->adjncy;
     // xadj = ginst->xadj;
@@ -85,19 +84,20 @@ class gpu_graph {
   void Set_Mem_Policy(bool needWeight = false) {
     // LOG("cudaMemAdvise %d %d\n", device_id, omp_get_thread_num());
     CUDA_RT_CALL(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
-                        cudaMemAdviseSetAccessedBy, device_id));
+                               cudaMemAdviseSetAccessedBy, device_id));
     CUDA_RT_CALL(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
-                        cudaMemAdviseSetAccessedBy, device_id));
+                               cudaMemAdviseSetAccessedBy, device_id));
 
-    CUDA_RT_CALL(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t), device_id,
-                               0));
-    CUDA_RT_CALL(cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
+    CUDA_RT_CALL(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t),
+                                      device_id, 0));
+    CUDA_RT_CALL(
+        cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
 
     if (needWeight) {
       CUDA_RT_CALL(cudaMemAdvise(adjwgt, edge_num * sizeof(weight_t),
-                          cudaMemAdviseSetAccessedBy, device_id));
-      CUDA_RT_CALL(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t), device_id,
-                                 0));
+                                 cudaMemAdviseSetAccessedBy, device_id));
+      CUDA_RT_CALL(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t),
+                                        device_id, 0));
     }
     CUDA_RT_CALL(cudaDeviceSynchronize());
   }
@@ -165,12 +165,15 @@ struct AliasTable {
   uint *alias_array;
   char *valid;
   void Alocate(size_t num_vtx, size_t num_edge) {
+    AlocateHost(num_vtx, num_edge);
+  }
+  void AlocateHost(size_t num_vtx, size_t num_edge) {
     CUDA_RT_CALL(cudaHostAlloc((void **)&prob_array, num_edge * sizeof(float),
-                        cudaHostAllocWriteCombined));
+                               cudaHostAllocWriteCombined));
     CUDA_RT_CALL(cudaHostAlloc((void **)&alias_array, num_edge * sizeof(uint),
-                        cudaHostAllocWriteCombined));
+                               cudaHostAllocWriteCombined));
     CUDA_RT_CALL(cudaHostAlloc((void **)&valid, num_vtx * sizeof(char),
-                        cudaHostAllocWriteCombined));
+                               cudaHostAllocWriteCombined));
   }
   void Assemble(gpu_graph g) {
     CUDA_RT_CALL(cudaMemcpy((prob_array + g.local_edge_offset), g.prob_array,
@@ -180,8 +183,7 @@ struct AliasTable {
                             g.local_edge_num * sizeof(uint),
                             cudaMemcpyDefault));
     CUDA_RT_CALL(cudaMemcpy((valid + g.local_vtx_offset), g.valid,
-                            g.local_vtx_num * sizeof(char),
-                            cudaMemcpyDefault));
+                            g.local_vtx_num * sizeof(char), cudaMemcpyDefault));
   }
 };
 

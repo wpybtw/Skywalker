@@ -59,7 +59,7 @@ using ll = long long;
       exit(cudaStatus);                                                  \
     }                                                                    \
   }
-
+  
 static inline void checkDrvError(CUresult res, const char *tok,
                                  const char *file, unsigned line) {
   if (res != CUDA_SUCCESS) {
@@ -70,11 +70,11 @@ static inline void checkDrvError(CUresult res, const char *tok,
     abort();
   }
 }
-
 #define CHECK_DRV(x) checkDrvError(x, #x, __FILE__, __LINE__);
 
 #define H_ERR(ans) \
   { gpuAssert((ans), __FILE__, __LINE__); }
+
 inline void gpuAssert(cudaError_t code, const char *file, int line,
                       bool abort = true) {
   if (code != cudaSuccess) {
