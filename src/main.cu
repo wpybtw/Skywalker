@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-03 18:11:25
+ * @LastEditTime: 2021-01-03 18:13:53
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -193,18 +193,24 @@ int main(int argc, char *argv[]) {
         ConstructTable(samplers[dev_id], dev_num, dev_id);
         // construt ok. How to group together?
 
-#pragma omp barrier
+        // #pragma omp barrier
+        // #pragma omp master
+        //         {
+        //           for (size_t i = 0; i < dev_num; i++) {
+        //             CUDA_RT_CALL(
+        //                 cudaMemcpy((prob_array +
+        //                 samplers[i].ggraph.local_edge_offset),
+        //                            samplers[i].ggraph.prob_array,
+        //                            samplers[i].ggraph.local_edge_num *
+        //                            sizeof(float), cudaMemcpyDefault));
+        //           }
+        //         }
+        CUDA_RT_CALL(
+            cudaMemcpy((prob_array + samplers[dev_id].ggraph.local_edge_offset),
+                       samplers[dev_id].ggraph.prob_array,
+                       samplers[dev_id].ggraph.local_edge_num * sizeof(float),
+                       cudaMemcpyDefault));
 
-#pragma omp master
-        {
-          for (size_t i = 0; i < dev_num; i++) {
-            CUDA_RT_CALL(
-                cudaMemcpy((prob_array + samplers[i].ggraph.local_edge_offset),
-                           samplers[i].ggraph.prob_array,
-                           samplers[i].ggraph.local_edge_num * sizeof(float),
-                           cudaMemcpyDefault));
-          }
-        }
 #pragma omp barrier
         // collect alias table partition to host
 
