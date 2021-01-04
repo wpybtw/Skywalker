@@ -1,4 +1,5 @@
 #pragma once
+#include <assert.h>
 #include <gflags/gflags.h>
 
 #include "util.cuh"
@@ -64,7 +65,8 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size, false> {
     __syncwarp(FULL_WARP_MASK);
   }
   __device__ void Add(T t) {
-    if (Size() < _size) {
+    assert(Size() < _size);
+    {
       uint old = atomicAdd(&size, 1);
       if (old < capacity)
         data.data[old] = t;
@@ -101,16 +103,20 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
     __syncthreads();
   }
   __device__ void Add(T t) {
-    if (Size() < _size) {
+    assert(Size() < _size);
+    {
       long long old = atomicAdd((unsigned long long *)&size, 1);
-      if (old < capacity)
-        data.data[old] = t;
-      else {
-        // atomicDec(&size, 1);
-        atomicAdd((unsigned long long *)&size, -1);
-        // my_atomicSub(&size,1);
-        printf("Line  %d: vector_shmem overflow to %llu\n", __LINE__, size);
-      }
+      assert(old < capacity);
+      data.data[old] = t;
+
+      // if (old < capacity)
+      //   data.data[old] = t;
+      // else {
+      //   // atomicDec(&size, 1);
+      //   atomicAdd((unsigned long long *)&size, -1);
+      //   // my_atomicSub(&size,1);
+      //   printf("Line  %d: vector_shmem overflow to %llu\n", __LINE__, size);
+      // }
     }
   }
   __device__ T &operator[](size_t id) { return data.data[id]; }
@@ -133,7 +139,7 @@ struct Global_buffer {
     return (!old);
   }
   __device__ void release() {
-    if (lock == 0) printf("some error on lock\n");
+    assert(lock != 0);
     lock = 0;
   }
   // __device__ T &operator[](size_t id)
@@ -182,7 +188,8 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
     __syncthreads();
   }
   inline __device__ void Add(T t) {
-    if (Size() < _size + buffer_size) {
+    assert(Size() < _size + buffer_size);
+    {
       long long old = atomicAdd((unsigned long long *)&size, 1);
       if (old < capacity)
         data.data[old] = t;
@@ -332,19 +339,22 @@ class Vector_gmem {
   // __host__ __device__ u64 &SizeRef() { return *size; }
   __device__ void Add(T t) {
     u64 old = atomicAdd(size, 1);
-    if (old < *capacity)
-      data[old] = t;
-    else
-      printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__,
-             old, *capacity);
+    assert(old < *capacity);
+    // if (old < *capacity)
+    data[old] = t;
+    // else
+    // printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__,
+    //        old, *capacity);
     // printf("gvector overflow %d\n", old);
   }
   __device__ void AddTillSize(T t, u64 target_size) {
     u64 old = atomicAdd(size, 1);
-    if (old < *capacity) {
-      if (old < target_size) data[old] = t;
-    } else
-      printf("already full %d\n", old);
+    if (old < *capacity && old < target_size) {
+      data[old] = t;
+    }
+    // if (old < target_size)
+    // else
+    //   printf("already full %d\n", old);
   }
   __device__ bool Empty() {
     // return !(static_cast<bool>(*size));
@@ -352,14 +362,22 @@ class Vector_gmem {
     return false;
   }
   __device__ T &operator[](size_t id) {
-    if (id < *size)
-      return data[id];
-    else
-      printf("%s\t:%d Vector_gmem overflow, size: %llu idx: %llu\n", __FILE__,
-             __LINE__, *size, id);
+    assert(id < *size);
+    return data[id];
+    // else
+    //   printf("%s\t:%d Vector_gmem overflow, size: %llu idx: %llu\n",
+    //   __FILE__,
+    //          __LINE__, *size, id);
   }
   __device__ T Get(size_t id) {
-    // if (id < *size)
+    // todo fix this potential error
+    // if ((id >= *size))
+    //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
+    //   __FILE__,
+    //          __LINE__, *capacity, *size, (u64)id);
+    // assert(id < *size);
+
+    assert(id < *capacity);
     return data[id];
     // else
     //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
@@ -415,10 +433,11 @@ class Vector_virtual {
   __host__ __device__ void SetSize(size_t s) { size = s; }
   __device__ void Add(T t) {
     u64 old = atomicAdd(size, (T)1);
-    if (old < capacity)
-      data[old] = t;
-    else
-      printf("%s\t:%d Vector_gmem overflow to %llu\n", __FILE__, __LINE__, old);
+    assert(old < capacity);
+    data[old] = t;
+    // else
+    //   printf("%s\t:%d Vector_gmem overflow to %llu\n", __FILE__, __LINE__,
+    //   old);
   }
   __device__ bool Empty() {
     if (size == 0) return true;

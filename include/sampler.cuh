@@ -311,6 +311,7 @@ class Walker {
     // int dev_id = omp_get_thread_num();
     // int dev_num = omp_get_num_threads();
     num_seed = _num_seed;
+    // paster(num_seed);
     std::random_device rd;
     std::mt19937 gen(56);
     std::uniform_int_distribution<> dis(1, 10000);  // ggraph.vtx_num);
