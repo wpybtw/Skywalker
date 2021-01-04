@@ -164,7 +164,7 @@ void StartSP(Sampler sampler) {
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
-                   cudaMemcpyHostToDevice));
+                          cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr2<<<1, 32, 0, 0>>>(sampler_ptr);
 
@@ -172,16 +172,19 @@ void StartSP(Sampler sampler) {
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   int gbuff_size = sampler.ggraph.MaxDegree;
   ;
-  LOG("alllocate GMEM buffer %d MB\n", block_num * gbuff_size * MEM_PER_ELE/1024/1024);
+  LOG("alllocate GMEM buffer %d MB\n",
+      block_num * gbuff_size * MEM_PER_ELE / 1024 / 1024);
   Buffer_pointer *buffer_pointers = new Buffer_pointer[block_num];
   for (size_t i = 0; i < block_num; i++) {
     buffer_pointers[i].allocate(gbuff_size);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Buffer_pointer *buffer_pointers_g;
-  CUDA_RT_CALL(cudaMalloc(&buffer_pointers_g, sizeof(Buffer_pointer) * block_num));
+  CUDA_RT_CALL(
+      cudaMalloc(&buffer_pointers_g, sizeof(Buffer_pointer) * block_num));
   CUDA_RT_CALL(cudaMemcpy(buffer_pointers_g, buffer_pointers,
-                   sizeof(Buffer_pointer) * block_num, cudaMemcpyHostToDevice));
+                          sizeof(Buffer_pointer) * block_num,
+                          cudaMemcpyHostToDevice));
 
   //  Global_buffer
   CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -195,7 +198,10 @@ void StartSP(Sampler sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
+         omp_get_thread_num(), total_time,
+         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                            1000000));
   print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
 }

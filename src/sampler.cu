@@ -2,7 +2,7 @@
  * @Description: degree limited
  * @Date: 2020-11-20 20:38:55
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 16:34:00
+ * @LastEditTime: 2021-01-04 20:36:53
  * @FilePath: /sampling/src/sampler.cu
  */
 
@@ -151,7 +151,7 @@ void Start(Sampler sampler) {
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
-                   cudaMemcpyHostToDevice));
+                          cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
@@ -165,6 +165,9 @@ void Start(Sampler sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
+         omp_get_thread_num(), total_time,
+         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                            1000000));
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
 }

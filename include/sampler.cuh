@@ -329,7 +329,7 @@ void UnbiasedSample(Sampler sampler);
 void UnbiasedWalk(Walker &walker);
 
 void OnlineGBWalk(Walker &walker);
-void OnlineGBSample(Sampler sampler);
+void OnlineGBSample(Sampler &sampler);
 
 void StartSP(Sampler sampler);
 void Start(Sampler sampler);

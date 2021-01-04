@@ -49,6 +49,29 @@ void init_range(T *ptr, size_t size, size_t offset = 0) {
   init_range_d<T><<<size / 512 + 1, 512>>>(ptr, size, offset);
 }
 
+template <typename T>
+__global__ void get_sum_d(T *ptr, size_t size, size_t *result) {
+  size_t local = 0;
+  for (size_t i = TID; i < size; i += gridDim.x * blockDim.x) {
+    local += ptr[i];
+  }
+  __syncthreads();
+  size_t tmp = blockReduce<float>(local);
+  if (LTID == 0) {
+    *result = tmp;
+  }
+}
+
+template <typename T>
+size_t get_sum(T *ptr, size_t size) {
+  size_t *sum;
+  cudaMallocManaged(&sum, sizeof(size_t));
+  get_sum_d<T><<<size / 512 + 1, 512>>>(ptr, size, sum);
+  CUDA_RT_CALL(cudaDeviceSynchronize());
+  size_t t=*sum;
+  return t;
+}
+
 // static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
 //                                  uint hop) {
 //   if (TID < size) {
@@ -108,7 +131,8 @@ struct SamplerState<JobType::NODE2VEC, T> {
 //   // T *data;
 //   uint depth = 0;
 //   bool alive = true;
-//   // void Allocate(uint size) { CUDA_RT_CALL(cudaMalloc(&data, size * sizeof(T))); }
+//   // void Allocate(uint size) { CUDA_RT_CALL(cudaMalloc(&data, size *
+//   sizeof(T))); }
 // };
 
 template <typename T>
@@ -142,15 +166,15 @@ struct Jobs_result<JobType::RW, T> {
     } else {
       CUDA_RT_CALL(cudaMallocManaged(&data, size * hop_num * sizeof(uint)));
       CUDA_RT_CALL(cudaMemAdvise(data, size * hop_num * sizeof(uint),
-                          cudaMemAdviseSetAccessedBy, device_id));
+                                 cudaMemAdviseSetAccessedBy, device_id));
     }
     CUDA_RT_CALL(cudaMalloc(&alive, size * sizeof(char)));
     CUDA_RT_CALL(cudaMemset(alive, 1, size * sizeof(char)));
     CUDA_RT_CALL(cudaMalloc(&length, size * sizeof(uint)));
 
     if (FLAGS_node2vec) {
-      CUDA_RT_CALL(cudaMalloc(&state,
-                       size * sizeof(SamplerState<JobType::NODE2VEC, T>)));
+      CUDA_RT_CALL(cudaMalloc(
+          &state, size * sizeof(SamplerState<JobType::NODE2VEC, T>)));
       p = FLAGS_p;
       q = FLAGS_q;
     }
@@ -161,7 +185,7 @@ struct Jobs_result<JobType::RW, T> {
       } else {
         CUDA_RT_CALL(cudaMallocManaged(&data2, size * hop_num * sizeof(uint)));
         CUDA_RT_CALL(cudaMemAdvise(data2, size * hop_num * sizeof(uint),
-                            cudaMemAdviseSetAccessedBy, device_id));
+                                   cudaMemAdviseSetAccessedBy, device_id));
       }
 
       init_range(data2, size);
@@ -170,12 +194,13 @@ struct Jobs_result<JobType::RW, T> {
 
       Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
       for (size_t i = 0; i < hop_num; i++) {
-        high_degrees_h[i].Allocate(MAX((size / FLAGS_hd), 4000),device_id);
+        high_degrees_h[i].Allocate(MAX((size / FLAGS_hd), 4000), device_id);
       }
-      CUDA_RT_CALL(cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+      CUDA_RT_CALL(
+          cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
       CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
-                       hop_num * sizeof(Vector_gmem<uint>),
-                       cudaMemcpyHostToDevice));
+                              hop_num * sizeof(Vector_gmem<uint>),
+                              cudaMemcpyHostToDevice));
       CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
       CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
     }
@@ -185,7 +210,7 @@ struct Jobs_result<JobType::RW, T> {
       // copy seeds
       // if layout1, oor
       CUDA_RT_CALL(cudaMemcpy(frontier.data, seeds, size * sizeof(uint),
-                       cudaMemcpyHostToDevice));
+                              cudaMemcpyHostToDevice));
       setFrontierSize<<<1, 32>>>(frontier.size, size);
     }
     // uint *seeds_g;
@@ -194,12 +219,14 @@ struct Jobs_result<JobType::RW, T> {
     //                  cudaMemcpyHostToDevice));
     // initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
 
-    CUDA_RT_CALL(cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(
+        cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
   }
   __device__ void AddHighDegree(uint current_itr, uint instance_idx) {
     // printf("AddHighDegree %u %u \n",current_itr,instance_idx);
     high_degrees[current_itr].Add(instance_idx);
   }
+  __host__ size_t GetSampledNumber() { return get_sum(job_sizes, hop_num); }
   __device__ void setAddrOffset() {
     // printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
     // paster(size);
@@ -342,7 +369,7 @@ struct sample_result {
     uint64_t cum = size;
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
-      high_degrees_h[i].Allocate(MAX((cum / FLAGS_hd), 4000),device_id);
+      high_degrees_h[i].Allocate(MAX((cum / FLAGS_hd), 4000), device_id);
       offset += cum;
     }
     capacity = offset;
@@ -359,6 +386,7 @@ struct sample_result {
     cudaMalloc(&job_sizes, (hop_num) * sizeof(int));
     cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int));
   }
+  __host__ size_t GetSampledNumber() { return get_sum(job_sizes, hop_num); }
   __device__ void PrintResult() {
     if (LTID == 0) {
       printf("job_sizes \n");

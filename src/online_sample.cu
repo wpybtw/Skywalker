@@ -127,7 +127,7 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 // void Start_high_degree(Sampler sampler)
-void OnlineGBSample(Sampler sampler) {
+void OnlineGBSample(Sampler &sampler) {
   // orkut max degree 932101
 
   LOG("%s\n", __FUNCTION__);
@@ -144,26 +144,29 @@ void OnlineGBSample(Sampler sampler) {
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
-                   cudaMemcpyHostToDevice));
+                          cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
   int block_num = n_sm * 1024 / BLOCK_SIZE;
   int gbuff_size = sampler.ggraph.MaxDegree;
-  
-  LOG("alllocate GMEM buffer %d MB\n", block_num * gbuff_size * MEM_PER_ELE/1024/1024);
+
+  LOG("alllocate GMEM buffer %d MB\n",
+      block_num * gbuff_size * MEM_PER_ELE / 1024 / 1024);
 
   Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
-    vector_pack_h[i].Allocate(gbuff_size,sampler.device_id);
+    vector_pack_h[i].Allocate(gbuff_size, sampler.device_id);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
+#pragma omp barrier
   Vector_pack<uint> *vector_packs;
-  CUDA_RT_CALL(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+  CUDA_RT_CALL(
+      cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
-                   sizeof(Vector_pack<uint>) * block_num,
-                   cudaMemcpyHostToDevice));
+                          sizeof(Vector_pack<uint>) * block_num,
+                          cudaMemcpyHostToDevice));
 
   //  Global_buffer
   CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -176,7 +179,10 @@ void OnlineGBSample(Sampler sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
+         omp_get_thread_num(), total_time,
+         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                            1000000));  //
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
 }

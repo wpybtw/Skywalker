@@ -2,15 +2,15 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: PengyuWang
- # @LastEditTime: 2021-01-04 16:20:06
+ # @LastEditTime: 2021-01-04 19:46:00
  # @FilePath: /sampling/scripts/test.sh
 ### 
 # DATA=(lj orkut eu-2015-host-nat uk-2005 twitter-2010 sk-2005 friendster) # uk-union rmat29 web-ClueWeb09)
 # HD=(2   1       4                   4   1               4           1) # uk-union rmat29 web-ClueWeb09)
 
-DATA=(twitter-2010 sk-2005 friendster ) 
-HD=(1               1           1 )
-ITR=2
+DATA    =   (sk-2005 friendster ) 
+HD      =   (       1           1 )
+ITR     =   1
 
 GR=".w.gr"
 EXE="./bin/main" #main_degree
@@ -71,7 +71,7 @@ do
     do
         for i in $(seq 1  ${ITR})
         do
-            ${EXE} --k 2 --d 2 --ol=1  --input ~/data/${DATA[idx-1]}${GR} --ngpu=${ng} --hd=${HD[idx-1]} --n=400000
+            ${EXE} --k 2 --d 2 --ol=1  --input ~/data/${DATA[idx-1]}${GR} --ngpu=${ng} --hd=${HD[idx-1]} --n=40000
         done
     done
 done

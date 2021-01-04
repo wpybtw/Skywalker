@@ -1,8 +1,8 @@
 /*
- * @Description: online walk. Note that using job.node_id as sample instance id.
+ * @Description: online walk.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-04 11:23:46
+ * @LastEditTime: 2021-01-04 20:41:54
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -246,7 +246,10 @@ void OnlineGBWalk(Walker &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f\n", omp_get_thread_num(), total_time);
+  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
+         omp_get_thread_num(), total_time,
+         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                            1000000));
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
 }

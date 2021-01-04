@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-29 16:34:07
+ * @LastEditTime: 2021-01-04 20:37:59
  * @FilePath: /sampling/src/unbiased_walk.cu
  */
 #include "kernel.cuh"
@@ -163,7 +163,8 @@ void UnbiasedWalk(Walker &walker) {
     for (uint current_itr = 0; current_itr < walker.result.hop_num - 1;
          current_itr++) {
       GetSize<<<1, 32, 0, 0>>>(sampler_ptr, current_itr, size_d);
-      CUDA_RT_CALL(cudaMemcpy(&size_h, size_d, sizeof(uint), cudaMemcpyDeviceToHost));
+      CUDA_RT_CALL(
+          cudaMemcpy(&size_h, size_d, sizeof(uint), cudaMemcpyDeviceToHost));
       if (size_h > 0) {
         UnbiasedWalkKernelPerItr<<<size_h / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
             sampler_ptr, current_itr);
@@ -177,7 +178,10 @@ void UnbiasedWalk(Walker &walker) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
+         omp_get_thread_num(), total_time,
+         static_cast<float>(walker.result.GetSampledNumber() / total_time /
+                            1000000));
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
 }

@@ -1,10 +1,9 @@
 all: main main_degree node2vec
-# util sampler main
 
-
-debug: CUFLAG +=  -G -g 
-debug: LDFLAGS +=  -G -g 
+debug: CUFLAG +=  -G -g -DDEBUG
+debug: LDFLAGS +=  -G -g -DDEBUG
 debug: main  main_degree node2vec
+
 SRC_DIR:= src
 OBJ_DIR:= bin/obj
 BIN_DIR:= bin
@@ -12,7 +11,6 @@ BIN_DIR:= bin
 SRC_FILES := $(wildcard $(SRC_DIR)/*.cu)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(SRC_FILES))
 
-# SRC_FILES += $(wildcard $(SRC_DIR)/api/*.cu)
 API_SRC_DIR:= src/api
 API_OBJ_DIR:= bin/obj/api
 API_SRC_FILES := $(wildcard $(API_SRC_DIR)/*.cu)
