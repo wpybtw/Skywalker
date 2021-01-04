@@ -170,7 +170,7 @@ struct Jobs_result<JobType::RW, T> {
 
       Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
       for (size_t i = 0; i < hop_num; i++) {
-        high_degrees_h[i].Allocate(MAX((size / FLAGS_hd), 4000));
+        high_degrees_h[i].Allocate(MAX((size / FLAGS_hd), 4000),device_id);
       }
       CUDA_RT_CALL(cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
       CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
@@ -342,7 +342,7 @@ struct sample_result {
     uint64_t cum = size;
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
-      high_degrees_h[i].Allocate(MAX((cum / FLAGS_hd), 4000));
+      high_degrees_h[i].Allocate(MAX((cum / FLAGS_hd), 4000),device_id);
       offset += cum;
     }
     capacity = offset;

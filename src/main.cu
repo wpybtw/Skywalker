@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-03 19:02:18
+ * @LastEditTime: 2021-01-04 15:03:05
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -69,6 +69,8 @@ DEFINE_bool(stream, false, "streaming sample over all node");
 
 DEFINE_bool(v, false, "verbose");
 DEFINE_bool(printresult, false, "printresult");
+
+DEFINE_bool(edgecut, true, "edgecut");
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -138,9 +140,7 @@ int main(int argc, char *argv[]) {
     int dev_id = omp_get_thread_num();
     int dev_num = omp_get_num_threads();
     uint local_sample_size = sample_size / dev_num;
-    uint offset_sample_size = local_sample_size * dev_id;
-    // paster(local_sample_size);
-    // paster(offset_sample_size);
+    uint local_sample_offset = local_sample_size * dev_id;
 
     LOG("device_id %d ompid %d coreid %d\n", dev_id, omp_get_thread_num(),
         sched_getcpu());
@@ -152,24 +152,24 @@ int main(int argc, char *argv[]) {
     if (FLAGS_ol) {
       if (!FLAGS_bias && !FLAGS_rw) {  // unbias
         samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
-                                 offset_sample_size);
+                                 local_sample_offset);
         // UnbiasedSample(sampler);
       }
 
       if (!FLAGS_bias && FLAGS_rw) {
         Walker walker(samplers[dev_id]);
-        walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
+        walker.SetSeed(local_sample_size, Depth + 1, local_sample_offset);
         UnbiasedWalk(walker);
       }
 
       if (FLAGS_bias && FLAGS_ol) {  // online biased
         samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
-                                 offset_sample_size);
+                                 local_sample_offset);
         if (!FLAGS_rw) {
           OnlineGBSample(samplers[dev_id]);
         } else {
           Walker walker(samplers[dev_id]);
-          walker.SetSeed(local_sample_size, Depth + 1, offset_sample_size);
+          walker.SetSeed(local_sample_size, Depth + 1, local_sample_offset);
           OnlineGBWalk(walker);
         }
       }
@@ -187,11 +187,12 @@ int main(int argc, char *argv[]) {
         }
 #pragma omp barrier
         if (!FLAGS_rw) {  //&& FLAGS_k != 1
-          samplers[dev_id].SetSeed(sample_size, Depth + 1, hops);
+          samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
+                                   local_sample_offset);
           OfflineSample(samplers[dev_id]);
         } else {
           Walker walker(samplers[dev_id]);
-          walker.SetSeed(sample_size, Depth + 1);
+          walker.SetSeed(local_sample_size, Depth + 1, local_sample_offset);
           OfflineWalk(walker);
         }
       }

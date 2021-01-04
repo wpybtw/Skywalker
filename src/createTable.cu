@@ -129,6 +129,7 @@ void ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   int n_sm = prop.multiProcessorCount;
 
   sampler.AllocateAliasTablePartial(ngpu, index);
+  // paster(sampler.ggraph.local_edge_num );
 
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
@@ -146,7 +147,7 @@ void ConstructTable(Sampler &sampler, uint ngpu, uint index) {
 
   Vector_pack2<uint> *vector_pack_h = new Vector_pack2<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
-    vector_pack_h[i].Allocate(gbuff_size);
+    vector_pack_h[i].Allocate(gbuff_size,index);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack2<uint> *vector_packs;

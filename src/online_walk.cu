@@ -2,7 +2,7 @@
  * @Description: online walk. Note that using job.node_id as sample instance id.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2020-12-30 22:49:00
+ * @LastEditTime: 2021-01-04 11:23:46
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -220,7 +220,7 @@ void OnlineGBWalk(Walker &sampler) {
 
   Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
-    vector_pack_h[i].Allocate(gbuff_size);
+    vector_pack_h[i].Allocate(gbuff_size,sampler.device_id);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;

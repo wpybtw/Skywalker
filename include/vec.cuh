@@ -1,5 +1,6 @@
 #pragma once
 #include <gflags/gflags.h>
+
 #include "util.cuh"
 
 DECLARE_bool(v);
@@ -7,8 +8,9 @@ DECLARE_bool(umbuf);
 DECLARE_int32(device);
 enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2 };
 
-template <typename T> class Vector_itf {
-public:
+template <typename T>
+class Vector_itf {
+ public:
   Vector_itf() {}
   ~Vector_itf() {}
   virtual void init() {}
@@ -19,7 +21,10 @@ public:
   virtual T &operator[](size_t id) {}
 };
 
-template <typename T, int size> struct buf { T data[size]; };
+template <typename T, int size>
+struct buf {
+  T data[size];
+};
 
 // <typename T, int _size>
 // struct Simple_vector;
@@ -42,12 +47,10 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size, false> {
 
   __device__ uint Size() { return size; }
   __device__ void Clean() {
-    if (LID == 0)
-      size = 0;
+    if (LID == 0) size = 0;
   }
   __device__ bool Empty() {
-    if (size == 0)
-      return true;
+    if (size == 0) return true;
     return false;
   }
   __device__ void Init(size_t s = 0) {
@@ -81,12 +84,10 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
 
   __device__ long long Size() { return size; }
   __device__ void Clean() {
-    if (LID == 0)
-      size = 0;
+    if (LID == 0) size = 0;
   }
   __device__ bool Empty() {
-    if (size <= 0)
-      return true;
+    if (size <= 0) return true;
     return false;
   }
   __device__ void Init(size_t s = 0) {
@@ -116,7 +117,8 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
   __device__ T &Get(size_t id) { return data.data[id]; }
 };
 
-template <typename T> struct Global_buffer {
+template <typename T>
+struct Global_buffer {
   long long size;
   T *data;
   unsigned short int lock;
@@ -131,8 +133,7 @@ template <typename T> struct Global_buffer {
     return (!old);
   }
   __device__ void release() {
-    if (lock == 0)
-      printf("some error on lock\n");
+    if (lock == 0) printf("some error on lock\n");
     lock = 0;
   }
   // __device__ T &operator[](size_t id)
@@ -156,12 +157,10 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
 
   __device__ long long Size() { return size; }
   __device__ void Clean() {
-    if (LTID == 0)
-      size = 0;
+    if (LTID == 0) size = 0;
   }
   __device__ bool Empty() {
-    if (size <= 0)
-      return true;
+    if (size <= 0) return true;
     return false;
   }
   __device__ void LoadBuffer(T *gbuffer, uint _buffer_size) {
@@ -198,8 +197,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
     }
   }
   __device__ T &operator[](size_t idx) {
-    if (idx < capacity)
-      return data.data[idx];
+    if (idx < capacity) return data.data[idx];
     // else
     // {
     //   // if(TID==0) printf("accessing idx %d\n",idx);
@@ -237,8 +235,9 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
 // }
 // enum class MyClass { };
 
-template <typename T> class Vector_gmem {
-public:
+template <typename T>
+class Vector_gmem {
+ public:
   u64 *size, size_h, *floor;
   u64 *capacity, capacity_h;
   T *data = nullptr;
@@ -254,31 +253,33 @@ public:
     return *this;
   }
   __host__ void Free() {
-    if (data != nullptr)
-      cudaFree(data);
+    if (data != nullptr) cudaFree(data);
   }
   __device__ __host__ ~Vector_gmem() {}
-  __host__ void Allocate(int _capacity) {
+  __host__ void Allocate(int _capacity, uint gpuid) {
     capacity_h = _capacity;
     size_h = 0;
     cudaMalloc(&size, sizeof(u64));
     cudaMalloc(&capacity, sizeof(u64));
     cudaMalloc(&floor, sizeof(u64));
     u64 floor_h = 0;
-    CUDA_RT_CALL(cudaMemcpy(floor, &floor_h, sizeof(u64), cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(cudaMemcpy(size, &size_h, sizeof(u64), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(
+        cudaMemcpy(floor, &floor_h, sizeof(u64), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(
+        cudaMemcpy(size, &size_h, sizeof(u64), cudaMemcpyHostToDevice));
 
     // paster(_capacity);
     CUDA_RT_CALL(
         cudaMemcpy(capacity, &capacity_h, sizeof(u64), cudaMemcpyHostToDevice));
 
     if (!FLAGS_umbuf) {
+      // paster(  _capacity * sizeof(T));
       CUDA_RT_CALL(cudaMalloc(&data, _capacity * sizeof(T)));
     } else {
-      LOG("FLAGS_device not solved for vec\n");
-      // CUDA_RT_CALL(cudaMallocManaged(&data, _capacity * sizeof(T)));
-      // CUDA_RT_CALL(cudaMemAdvise(data, _capacity * sizeof(T),
-      //                     cudaMemAdviseSetAccessedBy, FLAGS_device));
+      // LOG("FLAGS_device not solved for vec\n");
+      CUDA_RT_CALL(cudaMallocManaged(&data, _capacity * sizeof(T)));
+      CUDA_RT_CALL(cudaMemAdvise(data, _capacity * sizeof(T),
+                                 cudaMemAdviseSetAccessedBy, gpuid));
     }
   }
   __device__ void Init(int _size = 0) {
@@ -295,7 +296,7 @@ public:
   __device__ void CleanWC() {
     if (LID == 0) {
       *size = 0;
-      *floor = 0; // oor
+      *floor = 0;  // oor
     }
   }
   __device__ void CleanData() {
@@ -341,15 +342,13 @@ public:
   __device__ void AddTillSize(T t, u64 target_size) {
     u64 old = atomicAdd(size, 1);
     if (old < *capacity) {
-      if (old < target_size)
-        data[old] = t;
+      if (old < target_size) data[old] = t;
     } else
       printf("already full %d\n", old);
   }
   __device__ bool Empty() {
     // return !(static_cast<bool>(*size));
-    if (*size == 0)
-      return true;
+    if (*size == 0) return true;
     return false;
   }
   __device__ T &operator[](size_t id) {
@@ -382,8 +381,9 @@ public:
 //   }
 // }
 
-template <typename T> class Vector_virtual {
-public:
+template <typename T>
+class Vector_virtual {
+ public:
   u64 size, floor;
   u64 capacity;
   T *data = nullptr;
@@ -421,8 +421,7 @@ public:
       printf("%s\t:%d Vector_gmem overflow to %llu\n", __FILE__, __LINE__, old);
   }
   __device__ bool Empty() {
-    if (size == 0)
-      return true;
+    if (size == 0) return true;
     return false;
   }
   inline __device__ T &operator[](size_t id) {
@@ -435,45 +434,48 @@ public:
   }
   __device__ T Get(size_t id) { return data[id]; }
 };
-template <typename T> struct Vector_pack {
+template <typename T>
+struct Vector_pack {
   Vector_gmem<T> large;
   Vector_gmem<T> small;
   Vector_gmem<T> alias;
   Vector_gmem<float> prob;
   Vector_gmem<unsigned short int> selected;
   int size = 0;
-  void Allocate(int size) {
+  void Allocate(int size, uint gpuid) {
     this->size = size;
-    large.Allocate(size);
-    small.Allocate(size);
-    alias.Allocate(size);
-    prob.Allocate(size);
-    selected.Allocate(size);
+    large.Allocate(size, gpuid);
+    small.Allocate(size, gpuid);
+    alias.Allocate(size, gpuid);
+    prob.Allocate(size, gpuid);
+    selected.Allocate(size, gpuid);
   }
 };
 
-template <typename T> struct Vector_pack2 {
+template <typename T>
+struct Vector_pack2 {
   Vector_gmem<T> large;
   Vector_gmem<T> small;
   // Vector_gmem<T> alias;
   // Vector_gmem<float> prob;
   Vector_gmem<unsigned short int> selected;
   int size = 0;
-  void Allocate(int size) {
+  void Allocate(int size, uint gpuid) {
     this->size = size;
-    large.Allocate(size);
-    small.Allocate(size);
+    large.Allocate(size, gpuid);
+    small.Allocate(size, gpuid);
     // alias.Allocate(size);
     // prob.Allocate(size);
-    selected.Allocate(size);
+    selected.Allocate(size, gpuid);
   }
 };
 
-template <typename T> struct Vector_pack_short {
+template <typename T>
+struct Vector_pack_short {
   Vector_gmem<unsigned short int> selected;
   int size = 0;
-  void Allocate(int size) {
+  void Allocate(int size, uint gpuid) {
     this->size = size;
-    selected.Allocate(size);
+    selected.Allocate(size, gpuid);
   }
 };

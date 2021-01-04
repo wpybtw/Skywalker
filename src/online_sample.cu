@@ -156,7 +156,7 @@ void OnlineGBSample(Sampler sampler) {
 
   Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
-    vector_pack_h[i].Allocate(gbuff_size);
+    vector_pack_h[i].Allocate(gbuff_size,sampler.device_id);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;

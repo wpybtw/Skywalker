@@ -109,7 +109,7 @@ void OfflineSample(Sampler &sampler) {
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
-                   cudaMemcpyHostToDevice));
+                          cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
@@ -128,8 +128,8 @@ void OfflineSample(Sampler &sampler) {
   // CUDA_RT_CALL(cudaDeviceSynchronize());
   // vector_pack_t *vector_packs;
   // CUDA_RT_CALL(cudaMalloc(&vector_packs, sizeof(vector_pack_t) * buf_num));
-  // CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h, sizeof(vector_pack_t) *
-  // buf_num,
+  // CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h, sizeof(vector_pack_t)
+  // * buf_num,
   //                  cudaMemcpyHostToDevice));
 
   //  Global_buffer
@@ -144,7 +144,7 @@ void OfflineSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f\n",omp_get_thread_num(), total_time);
+  printf("Device %d sampling time:\t%.6f\n", omp_get_thread_num(), total_time);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
 }
