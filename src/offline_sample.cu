@@ -98,7 +98,7 @@ static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 
-void OfflineSample(Sampler &sampler) {
+float OfflineSample(Sampler &sampler) {
   LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
@@ -144,10 +144,12 @@ void OfflineSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
-         omp_get_thread_num(), total_time,
+LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
+         omp_get_thread_num(), total_time * 1000,
          static_cast<float>(sampler.result.GetSampledNumber() / total_time /
                             1000000));
+  sampler.sampled_edges = sampler.result.GetSampledNumber();
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  return total_time;
 }

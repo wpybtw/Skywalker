@@ -191,3 +191,9 @@ __device__ unsigned long long my_atomicSub(unsigned long long *address,
                                            unsigned long long val);
 
 __device__ long long my_atomicAdd(long long *address, long long val);
+
+// struct Throughput
+// {
+//   float t;
+//   float tp;
+// };

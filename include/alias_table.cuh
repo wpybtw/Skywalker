@@ -52,8 +52,13 @@ struct Buffer_pointer {
     CUDA_RT_CALL(cudaMalloc(&b3, size * sizeof(float)));
     CUDA_RT_CALL(cudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
   }
-  // __host__ ~Buffer_pointer(){
-  // }
+  __host__ ~Buffer_pointer(){
+    if (b0 != nullptr) CUDA_RT_CALL(cudaFree(b0));
+    if (b1 != nullptr) CUDA_RT_CALL(cudaFree(b1));
+    if (b2 != nullptr) CUDA_RT_CALL(cudaFree(b2));
+    if (b3 != nullptr) CUDA_RT_CALL(cudaFree(b3));
+    if (b4 != nullptr) CUDA_RT_CALL(cudaFree(b4));
+  }
 };
 
 enum class BufferType { SHMEM, SPLICED, GMEM };

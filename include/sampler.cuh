@@ -48,6 +48,7 @@ class Sampler {
 
   uint device_id;
   // float *avg_bias;
+  size_t sampled_edges = 0;
 
  public:
   Sampler() {}
@@ -56,7 +57,7 @@ class Sampler {
     // Init();
   }
   ~Sampler() {}
-  void UseGlobalAliasTable(AliasTable table) {
+  void UseGlobalAliasTable(AliasTable &table) {
     if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
     if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
     if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
@@ -190,9 +191,8 @@ class Sampler {
     ggraph.alias_array = alias_array;
     CUDA_RT_CALL(cudaMemset(prob_array, 0, ggraph.vtx_num * sizeof(float)));
   }
-  void SetSeed(uint _num_seed, uint _hop_num, uint *_hops, uint offset = 0) {
-    int dev_id = omp_get_thread_num();
-    int dev_num = omp_get_num_threads();
+  void SetSeed(uint _num_seed, uint _hop_num, uint *_hops, uint dev_num = 1,
+               uint dev_id = 0) {
     num_seed = _num_seed;
     std::random_device rd;
     std::mt19937 gen(56);
@@ -204,7 +204,7 @@ class Sampler {
 #ifdef check
       // seeds[n] = n;
 #else
-      seeds[n] = offset + n;
+      seeds[n] = dev_id + n * dev_num;
 // seeds[n] = dis(gen);
 #endif  // check
     }
@@ -221,7 +221,7 @@ class Sampler {
     // uint offset = ggraph.vtx_num / ngpu * index;
 
     uint local_vtx_num, local_vtx_offset;
-    
+
     if (FLAGS_edgecut) {
       uint exact_edge_offset = ggraph.edge_num / ngpu * index;
       local_vtx_offset = lower_bound(ggraph.xadj, ggraph.xadj + ggraph.vtx_num,
@@ -237,7 +237,6 @@ class Sampler {
               : ggraph.vtx_num / ngpu;
       local_vtx_offset = ggraph.vtx_num / ngpu * index;
     }
-
 
     uint *seeds = new uint[local_vtx_num];
     for (int n = 0; n < local_vtx_num; ++n) {
@@ -263,6 +262,7 @@ class Walker {
   uint *alias_array;
   char *valid;
   uint device_id;
+  size_t sampled_edges = 0;
 
  public:
   Walker(gpu_graph graph, uint _device_id = 0) : device_id(_device_id) {
@@ -289,7 +289,7 @@ class Walker {
   //   ggraph.alias_array = alias_array;
   //   CUDA_RT_CALL(cudaMemset(prob_array, 0, ggraph.vtx_num * sizeof(float)));
   // }
-  void UseGlobalAliasTable(AliasTable table) {
+  void UseGlobalAliasTable(AliasTable &table) {
     if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
     if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
     if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
@@ -307,7 +307,8 @@ class Walker {
     ggraph.local_vtx_num = ggraph.vtx_num;
     ggraph.local_edge_num = ggraph.edge_num;
   }
-  void SetSeed(uint _num_seed, uint _hop_num, uint offset = 0) {
+  void SetSeed(uint _num_seed, uint _hop_num, uint dev_num = 1,
+               uint dev_id = 0) {
     // int dev_id = omp_get_thread_num();
     // int dev_num = omp_get_num_threads();
     num_seed = _num_seed;
@@ -318,7 +319,7 @@ class Walker {
     uint *seeds = new uint[num_seed];
     for (int n = 0; n < num_seed; ++n) {
       // // seeds[n] = dis(gen);
-      seeds[n] = offset + n;
+      seeds[n] = dev_id + n * dev_num;
     }
     result.init(num_seed, _hop_num, seeds, device_id);
   }
@@ -326,18 +327,18 @@ class Walker {
 };
 
 void UnbiasedSample(Sampler sampler);
-void UnbiasedWalk(Walker &walker);
+float UnbiasedWalk(Walker &walker);
 
-void OnlineGBWalk(Walker &walker);
-void OnlineGBSample(Sampler &sampler);
+float OnlineGBWalk(Walker &walker);
+float OnlineGBSample(Sampler &sampler);
 
 void StartSP(Sampler sampler);
 void Start(Sampler sampler);
 
-void ConstructTable(Sampler &sampler, uint ngpu = 1, uint index = 0);
+float ConstructTable(Sampler &sampler, uint ngpu = 1, uint index = 0);
 // void Sample(Sampler sampler);
-void OfflineSample(Sampler &sampler);
+float OfflineSample(Sampler &sampler);
 
-// void ConstructTable(Walker &walker);
-// void OfflineSample(Walker &walker);
-void OfflineWalk(Walker &walker);
+// float ConstructTable(Walker &walker);
+// float OfflineSample(Walker &walker);
+float OfflineWalk(Walker &walker);

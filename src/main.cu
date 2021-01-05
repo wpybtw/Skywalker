@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-04 15:03:05
+ * @LastEditTime: 2021-01-05 18:14:29
  * @FilePath: /sampling/src/main.cu
  */
 #include <arpa/inet.h>
@@ -37,7 +37,7 @@ DEFINE_int32(n, 4000, "sample size");
 DEFINE_int32(k, 2, "neightbor");
 DEFINE_int32(d, 2, "depth");
 
-DEFINE_int32(hd, 2, "high degree ratio");
+DEFINE_double(hd, 1, "high degree ratio");
 
 DEFINE_bool(ol, true, "online alias table building");
 DEFINE_bool(rw, false, "Random walk specific");
@@ -124,79 +124,103 @@ int main(int argc, char *argv[]) {
     FLAGS_n = ginst->numNode;
   }
 
-  uint num_device = FLAGS_ngpu;
+  // uint num_device = FLAGS_ngpu;
+  for (size_t num_device = 1; num_device < FLAGS_ngpu + 1; num_device++) {
+    AliasTable global_table;
+    if (FLAGS_ngpu > 1 && !FLAGS_ol) {
+      global_table.Alocate(ginst->numNode, ginst->numEdge);
+    }
 
-  AliasTable global_table;
-  if (FLAGS_ngpu > 1) {
-    global_table.Alocate(ginst->numNode, ginst->numEdge);
-  }
-
-  gpu_graph *ggraphs = new gpu_graph[num_device];
-  Sampler *samplers = new Sampler[num_device];
+    gpu_graph *ggraphs = new gpu_graph[num_device];
+    Sampler *samplers = new Sampler[num_device];
+    float time[num_device];
 
 #pragma omp parallel num_threads(num_device) \
     shared(ginst, ggraphs, samplers, global_table)
-  {
-    int dev_id = omp_get_thread_num();
-    int dev_num = omp_get_num_threads();
-    uint local_sample_size = sample_size / dev_num;
-    uint local_sample_offset = local_sample_size * dev_id;
+    {
+      int dev_id = omp_get_thread_num();
+      int dev_num = omp_get_num_threads();
+      uint local_sample_size = sample_size / dev_num;
 
-    LOG("device_id %d ompid %d coreid %d\n", dev_id, omp_get_thread_num(),
-        sched_getcpu());
-    CUDA_RT_CALL(cudaSetDevice(dev_id));
-    CUDA_RT_CALL(cudaFree(0));
+      LOG("device_id %d ompid %d coreid %d\n", dev_id, omp_get_thread_num(),
+          sched_getcpu());
+      CUDA_RT_CALL(cudaSetDevice(dev_id));
+      CUDA_RT_CALL(cudaFree(0));
 
-    ggraphs[dev_id] = gpu_graph(ginst, dev_id);
-    samplers[dev_id] = Sampler(ggraphs[dev_id], dev_id);
-    if (FLAGS_ol) {
-      if (!FLAGS_bias && !FLAGS_rw) {  // unbias
-        samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
-                                 local_sample_offset);
-        // UnbiasedSample(sampler);
-      }
+      ggraphs[dev_id] = gpu_graph(ginst, dev_id);
+      samplers[dev_id] = Sampler(ggraphs[dev_id], dev_id);
 
-      if (!FLAGS_bias && FLAGS_rw) {
-        Walker walker(samplers[dev_id]);
-        walker.SetSeed(local_sample_size, Depth + 1, local_sample_offset);
-        UnbiasedWalk(walker);
-      }
-
-      if (FLAGS_bias && FLAGS_ol) {  // online biased
-        samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
-                                 local_sample_offset);
-        if (!FLAGS_rw) {
-          OnlineGBSample(samplers[dev_id]);
-        } else {
+      if (!FLAGS_bias) {
+        if (FLAGS_rw) {
           Walker walker(samplers[dev_id]);
-          walker.SetSeed(local_sample_size, Depth + 1, local_sample_offset);
-          OnlineGBWalk(walker);
+          walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
+          time[dev_id] = UnbiasedWalk(walker);
+          samplers[dev_id].sampled_edges = walker.sampled_edges;
+        } else {  
+          samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
+                                   dev_id);
+          // UnbiasedSample(sampler);
+          printf("not impled\n");
         }
       }
-    }
 
-    if (!FLAGS_ol) {
-      if (FLAGS_bias && !FLAGS_ol) {  // offline biased
-        samplers[dev_id].InitFullForConstruction(dev_num, dev_id);
-        ConstructTable(samplers[dev_id], dev_num, dev_id);
-
-        // use a global host mapped table for all gpus
-        if (FLAGS_ngpu > 1) {
-          global_table.Assemble(samplers[dev_id].ggraph);
-          samplers[dev_id].UseGlobalAliasTable(global_table);
+      if (FLAGS_ol) {
+        if (FLAGS_bias && FLAGS_ol) {  // online biased
+          samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
+                                   dev_id);
+          if (!FLAGS_rw) {
+            time[dev_id] = OnlineGBSample(samplers[dev_id]);
+          } else {
+            Walker walker(samplers[dev_id]);
+            walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
+            time[dev_id] = OnlineGBWalk(walker);
+            samplers[dev_id].sampled_edges = walker.sampled_edges;
+          }
         }
+      }
+
+      if (!FLAGS_ol) {
+        if (FLAGS_bias && !FLAGS_ol) {  // offline biased
+          samplers[dev_id].InitFullForConstruction(dev_num, dev_id);
+          time[dev_id] = ConstructTable(samplers[dev_id], dev_num, dev_id);
+
+          // use a global host mapped table for all gpus
+          if (FLAGS_ngpu > 1) {
+            global_table.Assemble(samplers[dev_id].ggraph);
+            samplers[dev_id].UseGlobalAliasTable(global_table);
+          }
 #pragma omp barrier
-        if (!FLAGS_rw) {  //&& FLAGS_k != 1
-          samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
-                                   local_sample_offset);
-          OfflineSample(samplers[dev_id]);
-        } else {
-          Walker walker(samplers[dev_id]);
-          walker.SetSeed(local_sample_size, Depth + 1, local_sample_offset);
-          OfflineWalk(walker);
+#pragma omp master
+          {
+            printf("Max construction time \t%.5f",
+                   *max_element(time, time + num_device));
+          }
+
+          if (!FLAGS_rw) {  //&& FLAGS_k != 1
+            samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
+                                     dev_num, dev_id);
+            time[dev_id] = OfflineSample(samplers[dev_id]);
+          } else {
+            Walker walker(samplers[dev_id]);
+            walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
+            time[dev_id] = OfflineWalk(walker);
+            samplers[dev_id].sampled_edges = walker.sampled_edges;
+          }
         }
       }
     }
+    {
+      size_t sampled = 0;
+      for (size_t i = 0; i < num_device; i++) {
+        sampled += samplers[i].sampled_edges;  // / total_time /1000000
+      }
+      float max_time = *max_element(time, time + num_device);
+      printf("%u GPU, %.2f ,  %.1f \n", num_device, max_time * 1000,
+             sampled / max_time / 1000000);
+      // printf("Max time %.5f ms with %u GPU, average TP %f MSEPS\n",
+      //        max_time * 1000, num_device, sampled / max_time / 1000000);
+    }
+    if (FLAGS_ngpu > 1 && !FLAGS_ol) global_table.Free();
   }
 
   return 0;

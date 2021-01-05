@@ -127,7 +127,7 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 // void Start_high_degree(Sampler sampler)
-void OnlineGBSample(Sampler &sampler) {
+float OnlineGBSample(Sampler &sampler) {
   // orkut max degree 932101
 
   LOG("%s\n", __FUNCTION__);
@@ -179,10 +179,13 @@ void OnlineGBSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
-         omp_get_thread_num(), total_time,
+  LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
+         omp_get_thread_num(), total_time * 1000,
          static_cast<float>(sampler.result.GetSampledNumber() / total_time /
-                            1000000));  //
+                            1000000));
+  sampler.sampled_edges = sampler.result.GetSampledNumber();
+  LOG("sampled_edges %d\n",sampler.sampled_edges );
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  return total_time;
 }

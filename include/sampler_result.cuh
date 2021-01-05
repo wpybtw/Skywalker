@@ -3,7 +3,7 @@
 
 #include "vec.cuh"
 DECLARE_int32(device);
-DECLARE_int32(hd);
+DECLARE_double(hd);
 DECLARE_bool(dynamic);
 DECLARE_bool(node2vec);
 DECLARE_double(p);
@@ -65,10 +65,10 @@ __global__ void get_sum_d(T *ptr, size_t size, size_t *result) {
 template <typename T>
 size_t get_sum(T *ptr, size_t size) {
   size_t *sum;
-  cudaMallocManaged(&sum, sizeof(size_t));
-  get_sum_d<T><<<size / 512 + 1, 512>>>(ptr, size, sum);
+  CUDA_RT_CALL(cudaMallocManaged(&sum, sizeof(size_t)));
+  get_sum_d<T><<<1, BLOCK_SIZE>>>(ptr, size, sum);
   CUDA_RT_CALL(cudaDeviceSynchronize());
-  size_t t=*sum;
+  size_t t = *sum;
   return t;
 }
 
@@ -193,8 +193,9 @@ struct Jobs_result<JobType::RW, T> {
       //                  cudaMemcpyHostToDevice));
 
       Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
+
       for (size_t i = 0; i < hop_num; i++) {
-        high_degrees_h[i].Allocate(MAX((size / FLAGS_hd), 4000), device_id);
+        high_degrees_h[i].Allocate(MAX((size * FLAGS_hd), 4000), device_id);
       }
       CUDA_RT_CALL(
           cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
@@ -226,7 +227,11 @@ struct Jobs_result<JobType::RW, T> {
     // printf("AddHighDegree %u %u \n",current_itr,instance_idx);
     high_degrees[current_itr].Add(instance_idx);
   }
-  __host__ size_t GetSampledNumber() { return get_sum(job_sizes, hop_num); }
+  __host__ size_t GetSampledNumber() {
+    // paster((get_sum(length, size)));
+    // paster((get_sum(job_sizes, hop_num)));
+    return get_sum(length, size);
+  }
   __device__ void setAddrOffset() {
     // printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
     // paster(size);
@@ -358,9 +363,10 @@ struct sample_result {
     size = _size;
     hop_num = _hop_num;
     // paster(hop_num);
-    cudaMalloc(&hops, hop_num * sizeof(uint));
-    cudaMemcpy(hops, _hops, hop_num * sizeof(uint), cudaMemcpyHostToDevice);
-    cudaMalloc(&addr_offset, hop_num * sizeof(uint));
+    CUDA_RT_CALL(cudaMalloc(&hops, hop_num * sizeof(uint)));
+    CUDA_RT_CALL(cudaMemcpy(hops, _hops, hop_num * sizeof(uint),
+                            cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMalloc(&addr_offset, hop_num * sizeof(uint)));
     Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
     // for (size_t i = 0; i < hop_num; i++) {
 
@@ -369,22 +375,25 @@ struct sample_result {
     uint64_t cum = size;
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
-      high_degrees_h[i].Allocate(MAX((cum / FLAGS_hd), 4000), device_id);
+      high_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
       offset += cum;
     }
     capacity = offset;
-    cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>));
-    cudaMemcpy(high_degrees, high_degrees_h,
-               hop_num * sizeof(Vector_gmem<uint>), cudaMemcpyHostToDevice);
+    CUDA_RT_CALL(
+        cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+    CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
+                            hop_num * sizeof(Vector_gmem<uint>),
+                            cudaMemcpyHostToDevice));
 
     // paster(capacity);
-    cudaMalloc(&data, capacity * sizeof(uint));
-    cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice);
+    CUDA_RT_CALL(cudaMalloc(&data, capacity * sizeof(uint)));
+    CUDA_RT_CALL(
+        cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
 
     job_sizes_h = new int[hop_num];
     job_sizes_h[0] = size;
-    cudaMalloc(&job_sizes, (hop_num) * sizeof(int));
-    cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int));
+    CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
+    CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
   }
   __host__ size_t GetSampledNumber() { return get_sum(job_sizes, hop_num); }
   __device__ void PrintResult() {

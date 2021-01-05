@@ -71,10 +71,6 @@ class gpu_graph {
                               edge_num * sizeof(weight_t),
                               cudaMemcpyHostToDevice));
 
-    // adjncy = ginst->adjncy;
-    // xadj = ginst->xadj;
-    // adjwgt = ginst->adjwgt;
-
     MaxDegree = ginst->MaxDegree;
     Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight);
     // bias = static_cast<BiasType>(FLAGS_dw);
@@ -156,14 +152,19 @@ class gpu_graph {
   __device__ edge_t getOutNode(edge_t idx, uint offset) {
     return adjncy[xadj[idx] + offset];
   }
-  __device__ vtx_t *getNeighborPtr(edge_t idx) { return &adjncy[xadj[idx]]; }
+  __device__ vtx_t *getNeighborPtr(edge_t idx) { return adjncy + xadj[idx]; }
   __device__ void UpdateWalkerState(uint idx, uint info);
 };
 
 struct AliasTable {
-  float *prob_array;
-  uint *alias_array;
-  char *valid;
+  float *prob_array = nullptr;
+  uint *alias_array = nullptr;
+  char *valid = nullptr;
+  void Free() {
+    if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
+    if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
+    if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+  }
   void Alocate(size_t num_vtx, size_t num_edge) {
     AlocateHost(num_vtx, num_edge);
   }

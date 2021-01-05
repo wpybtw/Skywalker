@@ -120,7 +120,7 @@ __global__ void PrintTable(Sampler *sampler) {
 }
 
 // todo offset
-void ConstructTable(Sampler &sampler, uint ngpu, uint index) {
+float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
@@ -172,4 +172,5 @@ void ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   if (FLAGS_weight || FLAGS_randomweight) {
     CUDA_RT_CALL(cudaFree(sampler.ggraph.adjwgt));
   }
+  return total_time;
 }

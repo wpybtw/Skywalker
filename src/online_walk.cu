@@ -2,7 +2,7 @@
  * @Description: online walk.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-04 20:41:54
+ * @LastEditTime: 2021-01-05 17:52:35
  * @FilePath: /sampling/src/online_walk.cu
  */
 #include "alias_table.cuh"
@@ -115,7 +115,8 @@ __global__ void OnlineWalkKernel(Walker *sampler,
     __syncwarp(FULL_WARP_MASK);
     while (job.val) {
       uint node_id = result.GetData(current_itr, job.instance_idx);
-      bool stop = __shfl_sync(FULL_WARP_MASK, (curand_uniform(&state) < *tp), 0);
+      bool stop =
+          __shfl_sync(FULL_WARP_MASK, (curand_uniform(&state) < *tp), 0);
       if (!stop) {
         if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
           SampleWarpCentic(result, ggraph, state, current_itr, node_id, buffer,
@@ -148,7 +149,7 @@ __global__ void OnlineWalkKernel(Walker *sampler,
       if (tmp.val) {
         node_id = result.GetData(current_itr, high_degree_job.instance_idx);
       }
-    } 
+    }
     __syncthreads();
     while (high_degree_job.val) {
       SampleBlockCentic(result, ggraph, state, current_itr, node_id, buffer,
@@ -189,7 +190,7 @@ void init_array(T *ptr, size_t size, T v) {
 }
 
 // void Start_high_degree(Walker sampler)
-void OnlineGBWalk(Walker &sampler) {
+float OnlineGBWalk(Walker &sampler) {
   // orkut max degree 932101
   LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
@@ -205,7 +206,7 @@ void OnlineGBWalk(Walker &sampler) {
   Walker *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Walker));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Walker),
-                   cudaMemcpyHostToDevice));
+                          cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
   BindResultKernel<<<1, 32, 0, 0>>>(sampler_ptr);
@@ -220,14 +221,15 @@ void OnlineGBWalk(Walker &sampler) {
 
   Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
-    vector_pack_h[i].Allocate(gbuff_size,sampler.device_id);
+    vector_pack_h[i].Allocate(gbuff_size, sampler.device_id);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;
-  CUDA_RT_CALL(cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+  CUDA_RT_CALL(
+      cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
-                   sizeof(Vector_pack<uint>) * block_num,
-                   cudaMemcpyHostToDevice));
+                          sizeof(Vector_pack<uint>) * block_num,
+                          cudaMemcpyHostToDevice));
 
   float *tp_d, tp;
   tp = FLAGS_tp;
@@ -246,10 +248,12 @@ void OnlineGBWalk(Walker &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
-         omp_get_thread_num(), total_time,
+LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
+         omp_get_thread_num(), total_time * 1000,
          static_cast<float>(sampler.result.GetSampledNumber() / total_time /
                             1000000));
+  sampler.sampled_edges = sampler.result.GetSampledNumber();
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  return total_time;
 }

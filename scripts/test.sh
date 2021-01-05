@@ -2,15 +2,16 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: PengyuWang
- # @LastEditTime: 2021-01-04 19:46:00
+ # @LastEditTime: 2021-01-05 17:45:29
  # @FilePath: /sampling/scripts/test.sh
 ### 
-# DATA=(lj orkut eu-2015-host-nat uk-2005 twitter-2010 sk-2005 friendster) # uk-union rmat29 web-ClueWeb09)
-# HD=(2   1       4                   4   1               4           1) # uk-union rmat29 web-ClueWeb09)
+DATA=(web-Google lj orkut arabic-2005 uk-2005  sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
+HD=(0.25          0.5  1     0.25        0.25      0.5           1) # uk-union rmat29 web-ClueWeb09)
+# HD=(4             2   1     4         4       2           1) # uk-union rmat29 web-ClueWeb09)
 
-DATA    =   (sk-2005 friendster ) 
-HD      =   (       1           1 )
-ITR     =   1
+# DATA=( sk-2005 friendster) 
+# HD=(   4  1 )
+ITR=1
 
 GR=".w.gr"
 EXE="./bin/main" #main_degree
@@ -41,14 +42,14 @@ echo ${EXE}
 # done
 
 
-# echo "-------------------------------------------------------online walk 4k 100"
-# for idx in $(seq 1 ${#DATA[*]}) 
-# do
-#     for ng in $(seq 1 4)
-#     do
-#         ${EXE} --k 1 --d 100 --rw=1 --ol=1  --input ~/data/${DATA[idx-1]}${GR} --ngpu=${ng} --hd=${HD[idx-1]} --n=4000
-#     done
-# done
+echo "-------------------------------------------------------online walk 400k 100"
+for idx in $(seq 1 ${#DATA[*]}) 
+do
+    for i in $(seq 1  ${ITR})
+    do
+        ${EXE} --k 1 --d 100 --rw=1 --ol=1  --input ~/data/${DATA[idx-1]}${GR} --ngpu=4 --hd=${HD[idx-1]} --n=400000
+    done
+done
 
 
 # echo "-------------------------------------------------------online node2vec"
@@ -64,17 +65,14 @@ echo ${EXE}
 #     ${EXE} --sage=1 --ol=1 --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]}
 # done
 
-echo "-------------------------------------------------------online sample 4k 2,2"
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for ng in $(seq 1 4)
-    do
-        for i in $(seq 1  ${ITR})
-        do
-            ${EXE} --k 2 --d 2 --ol=1  --input ~/data/${DATA[idx-1]}${GR} --ngpu=${ng} --hd=${HD[idx-1]} --n=40000
-        done
-    done
-done
+# echo "-------------------------------------------------------online sample 400k 2,2"
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${ITR})
+#     do
+#         ${EXE} --k 2 --d 2 --ol=1  --input ~/data/${DATA[idx-1]}${GR} --ngpu=4 --hd=${HD[idx-1]} --n=400000
+#     done
+# done
 
 
 # echo "-------------------------------------------------------offline ppr 4k 0.15"

@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-04 20:36:44
+ * @LastEditTime: 2021-01-05 16:08:29
  * @FilePath: /sampling/src/offline_walk.cu
  */
 #include "kernel.cuh"
@@ -65,7 +65,7 @@ static __global__ void print_result(Walker *walker) {
   walker->result.PrintResult();
 }
 
-void OfflineWalk(Walker &walker) {
+float OfflineWalk(Walker &walker) {
   LOG("%s\n", __FUNCTION__);
   int device;
   cudaDeviceProp prop;
@@ -93,10 +93,12 @@ void OfflineWalk(Walker &walker) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Device %d sampling time:\t%.6f ratio:\t %.2f GSEPS\n",
+  LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS\n",
          omp_get_thread_num(), total_time,
          static_cast<float>(walker.result.GetSampledNumber() / total_time /
                             1000000));
+  walker.sampled_edges = walker.result.GetSampledNumber();
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  return total_time;
 }
