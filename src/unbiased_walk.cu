@@ -2,8 +2,8 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-05 17:51:56
- * @FilePath: /sampling/src/unbiased_walk.cu
+ * @LastEditTime: 2021-01-07 13:24:16
+ * @FilePath: /skywalker/src/unbiased_walk.cu
  */
 #include "kernel.cuh"
 #include "roller.cuh"
@@ -179,9 +179,10 @@ float UnbiasedWalk(Walker &walker) {
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS\n",
-         omp_get_thread_num(), total_time,
-         static_cast<float>(walker.result.GetSampledNumber() / total_time /
-                            1000000));
+      omp_get_thread_num(), total_time,
+      static_cast<float>(walker.result.GetSampledNumber() / total_time /
+                         1000000));
+  walker.sampled_edges = walker.result.GetSampledNumber();
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;

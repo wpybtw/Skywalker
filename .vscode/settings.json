@@ -76,6 +76,14 @@
         "locale": "cpp",
         "__locale": "cpp",
         "__config": "cpp",
-        "__string": "cpp"
+        "__string": "cpp",
+        "cassert": "cpp",
+        "ccomplex": "cpp",
+        "cfloat": "cpp",
+        "ciso646": "cpp",
+        "climits": "cpp",
+        "queue": "cpp",
+        "stack": "cpp",
+        "cstdbool": "cpp"
     }
 }

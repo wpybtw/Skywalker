@@ -59,8 +59,12 @@ static __global__ void sample_kernel(Sampler *sampler) {
       Vector_virtual<uint> alias;
       Vector_virtual<float> prob;
       uint src_degree = graph->getDegree((uint)src_id);
-      alias.Construt(graph->alias_array + graph->xadj[src_id], src_degree);
-      prob.Construt(graph->prob_array + graph->xadj[src_id], src_degree);
+      alias.Construt(
+          graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      prob.Construt(
+          graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
       alias.Init(src_degree);
       prob.Init(src_degree);
       {
@@ -144,10 +148,10 @@ float OfflineSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
-         omp_get_thread_num(), total_time * 1000,
-         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
-                            1000000));
+  LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
+      omp_get_thread_num(), total_time * 1000,
+      static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                         1000000));
   sampler.sampled_edges = sampler.result.GetSampledNumber();
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());

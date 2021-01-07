@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-05 16:08:29
+ * @LastEditTime: 2021-01-05 23:21:06
  * @FilePath: /sampling/src/offline_walk.cu
  */
 #include "kernel.cuh"
@@ -29,8 +29,12 @@ __global__ void sample_kernel(Walker *walker) {
         Vector_virtual<float> prob;
         uint src_id = result.GetData(current_itr, idx_i);
         uint src_degree = graph->getDegree((uint)src_id);
-        alias.Construt(graph->alias_array + graph->xadj[src_id], src_degree);
-        prob.Construt(graph->prob_array + graph->xadj[src_id], src_degree);
+        alias.Construt(
+            graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+            src_degree);
+        prob.Construt(
+            graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+            src_degree);
         alias.Init(src_degree);
         prob.Init(src_degree);
 
@@ -94,9 +98,9 @@ float OfflineWalk(Walker &walker) {
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS\n",
-         omp_get_thread_num(), total_time,
-         static_cast<float>(walker.result.GetSampledNumber() / total_time /
-                            1000000));
+      omp_get_thread_num(), total_time,
+      static_cast<float>(walker.result.GetSampledNumber() / total_time /
+                         1000000));
   walker.sampled_edges = walker.result.GetSampledNumber();
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());

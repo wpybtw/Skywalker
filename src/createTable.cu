@@ -168,7 +168,7 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("Construct table time:\t%.6f\n", total_time);
+  LOG("Construct table time:\t%.6f\n", total_time);
   if (FLAGS_weight || FLAGS_randomweight) {
     CUDA_RT_CALL(cudaFree(sampler.ggraph.adjwgt));
   }

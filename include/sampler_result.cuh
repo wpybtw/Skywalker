@@ -154,8 +154,21 @@ struct Jobs_result<JobType::RW, T> {
 
   SamplerState<JobType::NODE2VEC, T> *state;
   float p = 2.0, q = 0.5;
+  Vector_gmem<uint> *high_degrees_h;
 
   Jobs_result() {}
+  void Free() {
+    if (alive != nullptr) CUDA_RT_CALL(cudaFree(alive));
+    if (length != nullptr) CUDA_RT_CALL(cudaFree(length));
+    if (data != nullptr) CUDA_RT_CALL(cudaFree(data));
+    if (job_sizes != nullptr) CUDA_RT_CALL(cudaFree(job_sizes));
+    if (job_sizes_floor != nullptr) CUDA_RT_CALL(cudaFree(job_sizes_floor));
+
+    for (size_t i = 0; i < hop_num; i++) {
+      high_degrees_h[i].Free();
+    }
+    if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
+  }
   void init(uint _size, uint _hop_num, uint *seeds, uint _device_id = 0) {
     device_id = _device_id;
     size = _size;
@@ -192,7 +205,7 @@ struct Jobs_result<JobType::RW, T> {
       // CUDA_RT_CALL(cudaMemcpy(data2, seeds, size * sizeof(uint),
       //                  cudaMemcpyHostToDevice));
 
-      Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
+      high_degrees_h = new Vector_gmem<uint>[hop_num];
 
       for (size_t i = 0; i < hop_num; i++) {
         high_degrees_h[i].Allocate(MAX((size * FLAGS_hd), 4000), device_id);

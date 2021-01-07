@@ -80,9 +80,9 @@ class Graph {
     // Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
   }
   ~Graph() {
-    if (xadj != nullptr) CUDA_RT_CALL(cudaFree(xadj));
-    if (adjncy != nullptr) CUDA_RT_CALL(cudaFree(adjncy));
-    if (adjwgt != nullptr) CUDA_RT_CALL(cudaFree(adjwgt));
+    if (xadj != nullptr) CUDA_RT_CALL(cudaFreeHost(xadj));
+    if (adjncy != nullptr) CUDA_RT_CALL(cudaFreeHost(adjncy));
+    if (adjwgt != nullptr) CUDA_RT_CALL(cudaFreeHost(adjwgt));
     // free(xadj);
     // free(adjncy);
     // if (adjwgt != nullptr)

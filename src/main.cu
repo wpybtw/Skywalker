@@ -2,8 +2,8 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-05 18:14:29
- * @FilePath: /sampling/src/main.cu
+ * @LastEditTime: 2021-01-07 13:22:29
+ * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
 #include <assert.h>
@@ -31,7 +31,8 @@ using namespace std;
 // DEFINE_bool(pf, false, "use UM prefetch");
 DEFINE_string(input, "/home/pywang/data/lj.w.gr", "input");
 // DEFINE_int32(device, 0, "GPU ID");
-DEFINE_int32(ngpu, 1, "number of GPUs ");
+DEFINE_int32(ngpu, 4, "number of GPUs ");
+DEFINE_bool(s, false, "single gpu");
 
 DEFINE_int32(n, 4000, "sample size");
 DEFINE_int32(k, 2, "neightbor");
@@ -72,6 +73,8 @@ DEFINE_bool(printresult, false, "printresult");
 
 DEFINE_bool(edgecut, true, "edgecut");
 
+DEFINE_bool(itl, true, "interleave");
+
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -111,7 +114,7 @@ int main(int argc, char *argv[]) {
     hops[1] = 10;
   }
   Graph *ginst = new Graph();
-  if (ginst->numEdge > 1000000000) {
+  if (ginst->numEdge > 800000000) {
     FLAGS_umtable = 1;
     LOG("overriding um for alias table\n");
   }
@@ -125,9 +128,13 @@ int main(int argc, char *argv[]) {
   }
 
   // uint num_device = FLAGS_ngpu;
+  float *times = new float[FLAGS_ngpu];
+  float *tp = new float[FLAGS_ngpu];
+  float *table_times = new float[FLAGS_ngpu];
   for (size_t num_device = 1; num_device < FLAGS_ngpu + 1; num_device++) {
+    if (FLAGS_s) num_device = FLAGS_ngpu;
     AliasTable global_table;
-    if (FLAGS_ngpu > 1 && !FLAGS_ol) {
+    if (num_device > 1 && !FLAGS_ol) {
       global_table.Alocate(ginst->numNode, ginst->numEdge);
     }
 
@@ -156,7 +163,7 @@ int main(int argc, char *argv[]) {
           walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
           time[dev_id] = UnbiasedWalk(walker);
           samplers[dev_id].sampled_edges = walker.sampled_edges;
-        } else {  
+        } else {
           samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                    dev_id);
           // UnbiasedSample(sampler);
@@ -164,50 +171,57 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      if (FLAGS_ol) {
-        if (FLAGS_bias && FLAGS_ol) {  // online biased
-          samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
-                                   dev_id);
-          if (!FLAGS_rw) {
-            time[dev_id] = OnlineGBSample(samplers[dev_id]);
-          } else {
-            Walker walker(samplers[dev_id]);
-            walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
-            time[dev_id] = OnlineGBWalk(walker);
-            samplers[dev_id].sampled_edges = walker.sampled_edges;
-          }
+      if (FLAGS_bias && FLAGS_ol) {  // online biased
+        samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
+                                 dev_id);
+        if (!FLAGS_rw) {
+          time[dev_id] = OnlineGBSample(samplers[dev_id]);
+        } else {
+          Walker walker(samplers[dev_id]);
+          walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
+          time[dev_id] = OnlineGBWalk(walker);
+          samplers[dev_id].sampled_edges = walker.sampled_edges;
         }
       }
 
-      if (!FLAGS_ol) {
-        if (FLAGS_bias && !FLAGS_ol) {  // offline biased
-          samplers[dev_id].InitFullForConstruction(dev_num, dev_id);
-          time[dev_id] = ConstructTable(samplers[dev_id], dev_num, dev_id);
+      if (FLAGS_bias && !FLAGS_ol) {  // offline biased
+        samplers[dev_id].InitFullForConstruction(dev_num, dev_id);
+        time[dev_id] = ConstructTable(samplers[dev_id], dev_num, dev_id);
 
-          // use a global host mapped table for all gpus
-          if (FLAGS_ngpu > 1) {
-            global_table.Assemble(samplers[dev_id].ggraph);
-            samplers[dev_id].UseGlobalAliasTable(global_table);
-          }
+        // use a global host mapped table for all gpus
+        if (dev_num > 1) {
+          global_table.Assemble(samplers[dev_id].ggraph);
+          samplers[dev_id].UseGlobalAliasTable(global_table);
+        }
 #pragma omp barrier
 #pragma omp master
-          {
-            printf("Max construction time \t%.5f",
-                   *max_element(time, time + num_device));
-          }
+        {
+          LOG("Max construction time with %u gpu \t%.2f ms\n", dev_num,
+              *max_element(time, time + num_device) * 1000);
+          table_times[dev_num - 1] =
+              *max_element(time, time + num_device) * 1000;
+        }
 
-          if (!FLAGS_rw) {  //&& FLAGS_k != 1
-            samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops,
-                                     dev_num, dev_id);
-            time[dev_id] = OfflineSample(samplers[dev_id]);
-          } else {
-            Walker walker(samplers[dev_id]);
-            walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
-            time[dev_id] = OfflineWalk(walker);
-            samplers[dev_id].sampled_edges = walker.sampled_edges;
-          }
+        if (!FLAGS_rw) {  //&& FLAGS_k != 1
+          samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
+                                   dev_id);
+          time[dev_id] = OfflineSample(samplers[dev_id]);
+        } else {
+          Walker walker(samplers[dev_id]);
+          walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
+          time[dev_id] = OfflineWalk(walker);
+          samplers[dev_id].sampled_edges = walker.sampled_edges;
+        }
+        // if (dev_num == 1) {
+        samplers[dev_id].Free(dev_num == 1 ? false : true);
+        // }
+#pragma omp master
+        {
+          LOG("free global_table\n");
+          if (num_device > 1 && !FLAGS_ol) global_table.Free();
         }
       }
+      ggraphs[dev_id].Free();
     }
     {
       size_t sampled = 0;
@@ -215,13 +229,27 @@ int main(int argc, char *argv[]) {
         sampled += samplers[i].sampled_edges;  // / total_time /1000000
       }
       float max_time = *max_element(time, time + num_device);
-      printf("%u GPU, %.2f ,  %.1f \n", num_device, max_time * 1000,
-             sampled / max_time / 1000000);
+      // printf("%u GPU, %.2f ,  %.1f \n", num_device, max_time * 1000,
+      //        sampled / max_time / 1000000);
       // printf("Max time %.5f ms with %u GPU, average TP %f MSEPS\n",
       //        max_time * 1000, num_device, sampled / max_time / 1000000);
+      times[num_device - 1] = max_time * 1000;
+      tp[num_device - 1] = sampled / max_time / 1000000;
     }
-    if (FLAGS_ngpu > 1 && !FLAGS_ol) global_table.Free();
+    if (FLAGS_s) break;
   }
-
+  if (!FLAGS_ol)
+    for (size_t i = 0; i < FLAGS_ngpu; i++) {
+      printf("%0.2f\t", table_times[i]);
+    }
+  printf("\n");
+  for (size_t i = 0; i < FLAGS_ngpu; i++) {
+    printf("%0.2f\t", times[i]);
+  }
+  printf("\n");
+  for (size_t i = 0; i < FLAGS_ngpu; i++) {
+    printf("%0.2f\t", tp[i]);
+  }
+  printf("\n");
   return 0;
 }

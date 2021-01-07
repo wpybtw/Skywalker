@@ -7,6 +7,7 @@
 #include "graph.cuh"
 #include "sampler_result.cuh"
 
+DECLARE_bool(ol);
 DECLARE_bool(weight);
 DECLARE_bool(randomweight);
 
@@ -24,7 +25,7 @@ enum class BiasType { Weight = 0, Degree = 1 };
 class gpu_graph {
  public:
   vtx_t *adjncy;
-  weight_t *adjwgt;
+  weight_t *adjwgt = nullptr;
   edge_t *xadj;
   vtx_t *degree_list;
   uint *outDegree;
@@ -97,7 +98,13 @@ class gpu_graph {
     }
     CUDA_RT_CALL(cudaDeviceSynchronize());
   }
-  __device__ __host__ ~gpu_graph() {}
+  __host__ void Free() {
+    if (xadj != nullptr) CUDA_RT_CALL(cudaFree(xadj));
+    if (adjncy != nullptr) CUDA_RT_CALL(cudaFree(adjncy));
+    if (adjwgt != nullptr && (FLAGS_weight || FLAGS_randomweight) && FLAGS_ol)
+      CUDA_RT_CALL(cudaFree(adjwgt));
+  }
+
   __device__ edge_t getDegree(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }
   // __host__ edge_t getDegree_h(edge_t idx) { return outDegree[idx]; }
   // __device__ float getBias(edge_t id);
@@ -112,6 +119,9 @@ class gpu_graph {
   __device__ void SetValid(uint node_id) {
     valid[node_id - local_vtx_offset] = 1;
   }
+  // __device__ size_t GetVtxOffset(uint node_id) {
+  //   return xadj[node_id - local_vtx_offset];
+  // }
 
   __device__ bool BinarySearch(uint *ptr, uint size, int target) {
     uint tmp_size = size;
@@ -160,10 +170,14 @@ struct AliasTable {
   float *prob_array = nullptr;
   uint *alias_array = nullptr;
   char *valid = nullptr;
+  AliasTable() : prob_array(nullptr), alias_array(nullptr), valid(nullptr) {}
   void Free() {
-    if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
-    if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
-    if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+    if (prob_array != nullptr) CUDA_RT_CALL(cudaFreeHost(prob_array));
+    if (alias_array != nullptr) CUDA_RT_CALL(cudaFreeHost(alias_array));
+    if (valid != nullptr) CUDA_RT_CALL(cudaFreeHost(valid));
+    prob_array = nullptr;
+    alias_array = nullptr;
+    valid = nullptr;
   }
   void Alocate(size_t num_vtx, size_t num_edge) {
     AlocateHost(num_vtx, num_edge);

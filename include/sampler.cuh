@@ -11,6 +11,7 @@ DECLARE_bool(edgecut);
 DECLARE_bool(ol);
 DECLARE_bool(umtable);
 DECLARE_bool(hmtable);
+DECLARE_bool(itl);
 // struct sample_result;
 // class Sampler;
 
@@ -57,10 +58,30 @@ class Sampler {
     // Init();
   }
   ~Sampler() {}
+  __host__ void Free(bool UsingGlobal = false) {
+    result.Free();
+    if (!UsingGlobal) {
+      if (!FLAGS_hmtable) {
+        if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
+        if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
+        if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+      } else {
+        if (prob_array != nullptr) CUDA_RT_CALL(cudaFreeHost(prob_array));
+        if (alias_array != nullptr) CUDA_RT_CALL(cudaFreeHost(alias_array));
+        if (valid != nullptr) CUDA_RT_CALL(cudaFreeHost(valid));
+      }
+    }
+    prob_array = nullptr;
+    alias_array = nullptr;
+    valid = nullptr;
+  }
   void UseGlobalAliasTable(AliasTable &table) {
     if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
     if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
     if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+    prob_array = nullptr;
+    alias_array = nullptr;
+    valid = nullptr;
 
     prob_array = table.prob_array;
     alias_array = table.alias_array;
@@ -237,6 +258,8 @@ class Sampler {
               : ggraph.vtx_num / ngpu;
       local_vtx_offset = ggraph.vtx_num / ngpu * index;
     }
+    // paster(local_vtx_num);
+    // paster(local_vtx_offset);
 
     uint *seeds = new uint[local_vtx_num];
     for (int n = 0; n < local_vtx_num; ++n) {
@@ -277,6 +300,7 @@ class Walker {
     device_id = sampler.device_id;
   }
   ~Walker() {}
+  void Free() { result.Free(); }
   __device__ void BindResult() { ggraph.result = &result; }
   // void AllocateAliasTable() {
   //   CUDA_RT_CALL(cudaMalloc((void **)&prob_array, ggraph.edge_num *
@@ -293,6 +317,10 @@ class Walker {
     if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
     if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
     if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+
+    prob_array = nullptr;
+    alias_array = nullptr;
+    valid = nullptr;
 
     prob_array = table.prob_array;
     alias_array = table.alias_array;
@@ -317,9 +345,15 @@ class Walker {
     std::mt19937 gen(56);
     std::uniform_int_distribution<> dis(1, 10000);  // ggraph.vtx_num);
     uint *seeds = new uint[num_seed];
-    for (int n = 0; n < num_seed; ++n) {
-      // // seeds[n] = dis(gen);
-      seeds[n] = dev_id + n * dev_num;
+    if (FLAGS_itl) {
+      for (int n = 0; n < num_seed; ++n) {
+        // // seeds[n] = dis(gen);
+        seeds[n] = dev_id + n * dev_num;
+      }
+    } else {
+      for (int n = 0; n < num_seed; ++n) {
+        seeds[n] = n + dev_id * num_seed;
+      }
     }
     result.init(num_seed, _hop_num, seeds, device_id);
   }

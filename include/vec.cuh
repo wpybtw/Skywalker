@@ -261,6 +261,9 @@ class Vector_gmem {
   }
   __host__ void Free() {
     if (data != nullptr) cudaFree(data);
+    if (capacity != nullptr) cudaFree(capacity);
+    if (size != nullptr) cudaFree(size);
+    if (floor != nullptr) cudaFree(floor);
   }
   __device__ __host__ ~Vector_gmem() {}
   __host__ void Allocate(int _capacity, uint gpuid) {
