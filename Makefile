@@ -16,7 +16,7 @@ API_OBJ_DIR:= bin/obj/api
 API_SRC_FILES := $(wildcard $(API_SRC_DIR)/*.cu)
 API_OBJ_FILES := $(patsubst $(API_SRC_DIR)/%.cu,$(API_OBJ_DIR)/%.o,$(API_SRC_FILES))
 
-FLAGS= -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75 -DNDEBUG# -Xptxas -v  -Xcompiler -Werror
+FLAGS= -Xcompiler -fopenmp -Xcompiler -lnuma -lineinfo -gencode=arch=compute_75,code=sm_75 -DNDEBUG# -Xptxas -v  -Xcompiler -Werror
 
 # 
 LDFLAGS := ${FLAGS} -Xlinker -lgomp -Xlinker -lnuma  ./build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags 
@@ -33,7 +33,7 @@ node2vec: $(OBJ_FILES) $(API_OBJ_DIR)/bias_node2vec.o
 
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu 
-	nvcc  $(CUFLAG) -c -o $@ $<
+	nvcc   -c -o $@ $< $(CUFLAG)
 
 $(API_OBJ_DIR)/%.o: $(API_SRC_DIR)/%.cu 
 	@mkdir -p $(API_OBJ_DIR)

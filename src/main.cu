@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-07 13:22:29
+ * @LastEditTime: 2021-01-10 15:25:28
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -58,6 +58,7 @@ DEFINE_double(tp, 0.0, "terminate probabiility");
 
 DEFINE_bool(hmtable, false, "using host mapped mem for alias table");
 
+DEFINE_bool(umgraph, true, "using UM for graph");
 DEFINE_bool(umtable, false, "using UM for alias table");
 DEFINE_bool(umresult, false, "using UM for result");
 DEFINE_bool(umbuf, false, "using UM for global buffer");
@@ -148,6 +149,14 @@ int main(int argc, char *argv[]) {
       int dev_id = omp_get_thread_num();
       int dev_num = omp_get_num_threads();
       uint local_sample_size = sample_size / dev_num;
+
+      // if (dev_id < 2) {
+      //   numa_run_on_on_node(0);
+      //   numa_set_prefered(0);
+      // } else {
+      //   numa_run_on_on_node(1);
+      //   numa_set_prefered(1);
+      // }
 
       LOG("device_id %d ompid %d coreid %d\n", dev_id, omp_get_thread_num(),
           sched_getcpu());

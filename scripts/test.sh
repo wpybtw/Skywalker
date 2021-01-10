@@ -2,8 +2,8 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: PengyuWang
- # @LastEditTime: 2021-01-06 13:28:43
- # @FilePath: /sampling/scripts/test.sh
+ # @LastEditTime: 2021-01-10 15:09:59
+ # @FilePath: /skywalker/scripts/test.sh
 ### 
 DATA=(web-Google lj orkut arabic-2005 uk-2005  sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
 HD=(0.25          0.5  1     0.25        0.25      0.5           1) # uk-union rmat29 web-ClueWeb09)
@@ -29,11 +29,19 @@ echo ${EXE}
 # --randomweight=1 --weightrange=2 
 
 
-# echo "-------------------------------------------------------unbias rw 4000 100"
+# walker
+# echo "-------------------------------------------------------unbias rw 100"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
-#     ${EXE} --rw=1 --k 1 --d 100 --ol=1 --bias=0  --input ~/data/${DATA[idx-1]}${GR}
+#     ${EXE} --rw=1 --k 1 --d 100 --ol=1 --bias=0  --input ~/data/${DATA[idx-1]}${GR} -v --ngpu 1 --full --umresult 1 --umbuf 1 
 # done
+# walker
+echo "-------------------------------------------------------offline ppr 0.15 4k"
+for idx in $(seq 1 ${#DATA[*]}) 
+do
+    ${EXE} --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} -bias=0 --rw=1  --n=40000 --k 1 --d 100  --tp=0.15 --ngpu 1
+done
+
 
 # echo "-------------------------------------------------------online layer sampling 4k 100"
 # for idx in $(seq 1 ${#DATA[*]}) 

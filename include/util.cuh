@@ -87,8 +87,6 @@ __device__ void active_size(int n);
 __device__ int active_size2(char *txt, int n);
 #define LOG(...) \
   if (FLAGS_v) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
-#define LOG(...) \
-  if (FLAGS_v) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 
 using uint = unsigned int;
 

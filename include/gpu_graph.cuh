@@ -7,6 +7,7 @@
 #include "graph.cuh"
 #include "sampler_result.cuh"
 
+DECLARE_bool(umgraph);
 DECLARE_bool(ol);
 DECLARE_bool(weight);
 DECLARE_bool(randomweight);
@@ -58,10 +59,17 @@ class gpu_graph {
     // printf("vtx_num: %d\t edge_num: %d\n", vtx_num, edge_num);
     avg_degree = ginst->numEdge / ginst->numNode;
 
-    CUDA_RT_CALL(cudaMallocManaged(&xadj, (vtx_num + 1) * sizeof(edge_t)));
-    CUDA_RT_CALL(cudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
-    if (FLAGS_weight || FLAGS_randomweight)
-      CUDA_RT_CALL(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
+    if (FLAGS_umgraph) {
+      CUDA_RT_CALL(cudaMallocManaged(&xadj, (vtx_num + 1) * sizeof(edge_t)));
+      CUDA_RT_CALL(cudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
+      if (FLAGS_weight || FLAGS_randomweight)
+        CUDA_RT_CALL(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
+    }else{
+      CUDA_RT_CALL(cudaMalloc(&xadj, (vtx_num + 1) * sizeof(edge_t)));
+      CUDA_RT_CALL(cudaMalloc(&adjncy, edge_num * sizeof(vtx_t)));
+      if (FLAGS_weight || FLAGS_randomweight)
+        CUDA_RT_CALL(cudaMalloc(&adjwgt, edge_num * sizeof(weight_t)));
+    }
 
     CUDA_RT_CALL(cudaMemcpy(xadj, ginst->xadj, (vtx_num + 1) * sizeof(edge_t),
                             cudaMemcpyHostToDevice));
@@ -73,7 +81,7 @@ class gpu_graph {
                               cudaMemcpyHostToDevice));
 
     MaxDegree = ginst->MaxDegree;
-    Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight);
+    if (FLAGS_umgraph) Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight);
     // bias = static_cast<BiasType>(FLAGS_dw);
     // getBias= &gpu_graph::getBiasImpl;
     // (graph->*(graph->getBias))
