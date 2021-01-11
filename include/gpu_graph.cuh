@@ -54,6 +54,10 @@ class gpu_graph {
  public:
   gpu_graph() {}
   gpu_graph(Graph *ginst, uint _device_id = 0) : device_id(_device_id) {
+
+    int dev_id = omp_get_thread_num();
+    CUDA_RT_CALL(cudaSetDevice(dev_id));
+
     vtx_num = ginst->numNode;
     edge_num = ginst->numEdge;
     // printf("vtx_num: %d\t edge_num: %d\n", vtx_num, edge_num);

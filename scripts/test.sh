@@ -2,7 +2,7 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: PengyuWang
- # @LastEditTime: 2021-01-10 15:09:59
+ # @LastEditTime: 2021-01-11 23:03:54
  # @FilePath: /skywalker/scripts/test.sh
 ### 
 DATA=(web-Google lj orkut arabic-2005 uk-2005  sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
@@ -12,9 +12,11 @@ HD=(0.25          0.5  1     0.25        0.25      0.5           1) # uk-union r
 # DATA=( sk-2005 friendster) 
 # HD=(   4  1 )
 ITR=1
+NG=4
 
 GR=".w.gr"
 EXE="./bin/main" #main_degree
+SG="--ngpu=1 --s"
 
 echo ${EXE}
 # node2vec always online
@@ -35,12 +37,13 @@ echo ${EXE}
 # do
 #     ${EXE} --rw=1 --k 1 --d 100 --ol=1 --bias=0  --input ~/data/${DATA[idx-1]}${GR} -v --ngpu 1 --full --umresult 1 --umbuf 1 
 # done
+
 # walker
-echo "-------------------------------------------------------offline ppr 0.15 4k"
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    ${EXE} --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} -bias=0 --rw=1  --n=40000 --k 1 --d 100  --tp=0.15 --ngpu 1
-done
+# echo "-------------------------------------------------------offline ppr 0.15 4k"
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ${EXE} --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} -bias=0 --rw=1  --n=40000 --k 1 --d 100  --tp=0.15 --ngpu 1 --umgraph=0  --umresult=0 --umbuf=0  --weight=0
+# done
 
 
 # echo "-------------------------------------------------------online layer sampling 4k 100"
@@ -50,37 +53,35 @@ done
 # done
 
 
-# echo "-------------------------------------------------------online walk 400k 100"
+# echo "-------------------------------------------------------online walkload 4k---------------------"
+# echo "-------------------------------------------------------online walk 4k 100"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
 #     for i in $(seq 1  ${ITR})
 #     do
-#         ${EXE} --k 1 --d 100 --rw=1 --ol=1  --n=400000 --input ~/data/${DATA[idx-1]}${GR} --ngpu=4 
+#         ${EXE} --k 1 --d 100 --rw=1 --ol=1  --n=4000 --input ~/data/${DATA[idx-1]}${GR} ${SG} -v
 #     done
-# done
-
-
-# echo "-------------------------------------------------------online node2vec"
-# for idx in $(seq 1 ${#DATA[*]}) 
-# do
-#     ./bin/node2vec --node2vec --ol=1  --bias=1  --d 100 --n=400000 --ngpu=4 --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]}
 # done
 
 # echo "-------------------------------------------------------online ppr 0.15"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
-#     ${EXE}  -bias=1 --rw=1 --ol=1 --n=400000 --k 1 --d 100  --tp=0.85 --ngpu=4  --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]}
+#     ${EXE}  -bias=1 --rw=1 --ol=1 --n=4000 --k 1 --d 100  --tp=0.15  --input ~/data/${DATA[idx-1]}${GR} ${SG} --hd=${HD[idx-1]}
 # done
 
-
-
-# echo "-------------------------------------------------------online sample 400k 2,2"
+# echo "-------------------------------------------------------online sample 4k 20,2"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
 #     for i in $(seq 1  ${ITR})
 #     do
-#         ${EXE} --k 2 --d 2 --ol=1 --n=400000 --input ~/data/${DATA[idx-1]}${GR} --ngpu=4 --hd=${HD[idx-1]} 
+#         ${EXE} --k 20 --d 2 --ol=1 --n=4000 --input ~/data/${DATA[idx-1]}${GR} ${SG} --hd=${HD[idx-1]} 
 #     done
+# done
+
+# echo "-------------------------------------------------------online node2vec 4000"
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/node2vec --node2vec --ol=1  --bias=1  --d 100 --n=4000 --ngpu=4 --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]}
 # done
 
 # echo "-------------------------------------------------------online sage 4k 25,10"
@@ -101,44 +102,58 @@ done
 #     done
 # done
 
-# echo "-------------------------------------------------------offline walk 400k 100"
+
+# echo "-------------------------------------------------------online node2vec"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
-#     for i in $(seq 1  ${ITR})
-#     do
-#         ${EXE} --k 1 --d 100 --rw=1 --ol=0  --input ~/data/${DATA[idx-1]}${GR} --ngpu=4 --hd=${HD[idx-1]} --n=400000
-#     done
+#     ./bin/node2vec --node2vec --ol=1  --bias=1  --d 100 --n=40000  --input ~/data/${DATA[idx-1]}${GR} --ngpu=1 --s --hd=${HD[idx-1]}
 # done
 
 
-# echo "-------------------------------------------------------offline node2vec"
+echo "---------------------------------scale ------------------------------"
+# echo "-------------------------------------------------------unbias rw 100"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
-#     ./bin/node2vec --node2vec --ol=0  --bias=1  --d 100 --n=400000  --input ~/data/${DATA[idx-1]}${GR} --ngpu=4 --hd=${HD[idx-1]}
+#     ${EXE} --rw=1 --k 1 --d 100 --ol=1 --bias=0  --input ~/data/${DATA[idx-1]}${GR} -v --ngpu 1 --full --umresult 1 --umbuf 1 
+# done
+
+# echo "-------------------------------------------------------unbias rw 100"
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ${EXE}  --rw=1 --k 1 --d 100 --bias=0   --ol=0 --n=400000  --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} --ngpu=$i --s
+#     done
 # done
 
 # echo "-------------------------------------------------------offline ppr 0.15"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
-#     ${EXE} --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} -bias=1 --rw=1 --ol=0 --n=400000 --k 1 --d 100  --tp=0.85 
-# done
-
-
-
-# echo "-------------------------------------------------------offline sample 400k 2,2"
-# for idx in $(seq 1 ${#DATA[*]}) 
-# do
-#     for i in $(seq 1  ${ITR})
+#     for i in $(seq 1  ${NG})
 #     do
-#         ${EXE} --k 2 --d 2 --ol=0  --input ~/data/${DATA[idx-1]}${GR} --ngpu=4 --hd=${HD[idx-1]} --n=400000
+#         ${EXE}  -bias=1 --rw=1 --ol=0 --n=400000 --k 1 --d 100  --tp=0.15   --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} --ngpu=$i --s
 #     done
 # done
 
-# echo "-------------------------------------------------------offline ppr 4k 0.15"
+# echo "comparing with csaw"
+# echo "-------------------------------------------------------offline walk  100"
 # for idx in $(seq 1 ${#DATA[*]}) 
 # do
-#     ${EXE} --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} -bias=1 --rw=1 --ol=1 --n=4000 --k 1 --d 100  --tp=0.85 
+#     for i in $(seq 1  ${NG})
+#     do
+#         ${EXE} --k 1 --d 100 --rw=1 --ol=0 --n=400000 --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} --ngpu=$i --s
+#     done
 # done
+
+echo "-------------------------------------------------------offline sample  20,2"
+for idx in $(seq 1 ${#DATA[*]}) 
+do
+    for i in $(seq 1  ${NG})
+    do
+        ${EXE} --k 2 --d 2 --ol=0 --n=400000 --input ~/data/${DATA[idx-1]}${GR}  --hd=${HD[idx-1]} --ngpu=$i --s
+    done
+done
+
 
 
 # echo "-------------------------------------------------------offline rw |V| 100. no weight"

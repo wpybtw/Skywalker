@@ -2,8 +2,8 @@
  * @Description: online walk.
  * @Date: 2020-12-06 17:29:39
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-05 17:52:35
- * @FilePath: /sampling/src/online_walk.cu
+ * @LastEditTime: 2021-01-11 16:56:20
+ * @FilePath: /skywalker/src/online_walk.cu
  */
 #include "alias_table.cuh"
 #include "kernel.cuh"
@@ -253,6 +253,7 @@ LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
          static_cast<float>(sampler.result.GetSampledNumber() / total_time /
                             1000000));
   sampler.sampled_edges = sampler.result.GetSampledNumber();
+  LOG("sampled_edges %d\n",sampler.sampled_edges );
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;

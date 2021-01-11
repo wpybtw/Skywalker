@@ -75,6 +75,33 @@ class Sampler {
     alias_array = nullptr;
     valid = nullptr;
   }
+  void CopyFromGlobalAliasTable(AliasTable &table) {
+    LOG("CopyFromGlobalAliasTable\n");
+    if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
+    if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
+    if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+    prob_array = nullptr;
+    alias_array = nullptr;
+    valid = nullptr;
+
+    AllocateAliasTable();
+    CUDA_RT_CALL(cudaMemcpy((prob_array), table.prob_array,
+                            ggraph.edge_num * sizeof(float),
+                            cudaMemcpyDefault));
+    CUDA_RT_CALL(cudaMemcpy((alias_array), table.alias_array,
+                            ggraph.edge_num * sizeof(uint), cudaMemcpyDefault));
+    CUDA_RT_CALL(cudaMemcpy((valid), table.valid, ggraph.vtx_num * sizeof(char),
+                            cudaMemcpyDefault));
+
+    ggraph.valid = valid;
+    ggraph.prob_array = prob_array;
+    ggraph.alias_array = alias_array;
+
+    ggraph.local_vtx_offset = 0;
+    ggraph.local_edge_offset = 0;
+    ggraph.local_vtx_num = ggraph.vtx_num;
+    ggraph.local_edge_num = ggraph.edge_num;
+  }
   void UseGlobalAliasTable(AliasTable &table) {
     if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
     if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
@@ -97,6 +124,8 @@ class Sampler {
     ggraph.local_edge_num = ggraph.edge_num;
   }
   void AllocateAliasTablePartial(uint ngpu = 1, uint index = 0) {
+    int dev_id = omp_get_thread_num();
+    CUDA_RT_CALL(cudaSetDevice(dev_id));
     // LOG("umtable %d %d\n", device_id, omp_get_thread_num());
     uint local_vtx_num, local_vtx_offset, local_edge_offset, local_edge_size;
 
@@ -171,6 +200,9 @@ class Sampler {
   }
   void AllocateAliasTable() {
     LOG("umtable %d %d\n", device_id, omp_get_thread_num());
+    int dev_id = omp_get_thread_num();
+    CUDA_RT_CALL(cudaSetDevice(dev_id));
+
     if (!FLAGS_umtable && !FLAGS_hmtable) {
       CUDA_RT_CALL(
           cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));

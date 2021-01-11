@@ -1,6 +1,6 @@
 #pragma once
 #include <gflags/gflags.h>
-
+#include <omp.h>
 #include "vec.cuh"
 DECLARE_int32(device);
 DECLARE_double(hd);
@@ -170,6 +170,8 @@ struct Jobs_result<JobType::RW, T> {
     if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
   }
   void init(uint _size, uint _hop_num, uint *seeds, uint _device_id = 0) {
+        int dev_id = omp_get_thread_num();
+    CUDA_RT_CALL(cudaSetDevice(dev_id));
     device_id = _device_id;
     size = _size;
     hop_num = _hop_num;
@@ -371,6 +373,8 @@ struct sample_result {
   }
   void init(uint _size, uint _hop_num, uint *_hops, uint *seeds,
             uint _device_id = 0) {
+                  int dev_id = omp_get_thread_num();
+    CUDA_RT_CALL(cudaSetDevice(dev_id));
     device_id = _device_id;
     Free();
     size = _size;
@@ -382,7 +386,6 @@ struct sample_result {
     CUDA_RT_CALL(cudaMalloc(&addr_offset, hop_num * sizeof(uint)));
     Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
     // for (size_t i = 0; i < hop_num; i++) {
-
     // }
     uint64_t offset = 0;
     uint64_t cum = size;

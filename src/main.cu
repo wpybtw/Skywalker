@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-10 15:25:28
+ * @LastEditTime: 2021-01-11 22:38:33
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -57,6 +57,7 @@ DEFINE_double(q, 0.5, "hyper-parameter q for node2vec");
 DEFINE_double(tp, 0.0, "terminate probabiility");
 
 DEFINE_bool(hmtable, false, "using host mapped mem for alias table");
+DEFINE_bool(dt, true, "using duplicated table on each GPU");
 
 DEFINE_bool(umgraph, true, "using UM for graph");
 DEFINE_bool(umtable, false, "using UM for alias table");
@@ -98,6 +99,10 @@ int main(int argc, char *argv[]) {
     // FLAGS_ol=true;
     FLAGS_rw = false;
     FLAGS_d = 2;
+  }
+  if (!FLAGS_bias) {
+    FLAGS_weight = false;
+    FLAGS_randomweight = false;
   }
 
   int sample_size = FLAGS_n;
@@ -170,6 +175,7 @@ int main(int argc, char *argv[]) {
         if (FLAGS_rw) {
           Walker walker(samplers[dev_id]);
           walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
+#pragma omp barrier          
           time[dev_id] = UnbiasedWalk(walker);
           samplers[dev_id].sampled_edges = walker.sampled_edges;
         } else {
@@ -200,11 +206,19 @@ int main(int argc, char *argv[]) {
         // use a global host mapped table for all gpus
         if (dev_num > 1) {
           global_table.Assemble(samplers[dev_id].ggraph);
-          samplers[dev_id].UseGlobalAliasTable(global_table);
+          if (!FLAGS_dt)
+            samplers[dev_id].UseGlobalAliasTable(global_table);
+          else
+            samplers[dev_id].CopyFromGlobalAliasTable(global_table);
         }
 #pragma omp barrier
 #pragma omp master
         {
+          if (num_device > 1 && !FLAGS_ol && FLAGS_dt) {
+            LOG("free global_table\n");
+            global_table.Free();
+          }
+
           LOG("Max construction time with %u gpu \t%.2f ms\n", dev_num,
               *max_element(time, time + num_device) * 1000);
           table_times[dev_num - 1] =
@@ -226,8 +240,11 @@ int main(int argc, char *argv[]) {
         // }
 #pragma omp master
         {
-          LOG("free global_table\n");
-          if (num_device > 1 && !FLAGS_ol) global_table.Free();
+          //
+          if (num_device > 1 && !FLAGS_ol && !FLAGS_dt) {
+            LOG("free global_table\n");
+            global_table.Free();
+          }
         }
       }
       ggraphs[dev_id].Free();
