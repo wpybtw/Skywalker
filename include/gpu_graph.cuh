@@ -8,6 +8,10 @@
 #include "sampler_result.cuh"
 
 DECLARE_bool(umgraph);
+DECLARE_bool(gmgraph);
+DECLARE_bool(hmgraph);
+DECLARE_int32(gmid);
+
 DECLARE_bool(ol);
 DECLARE_bool(weight);
 DECLARE_bool(randomweight);
@@ -54,7 +58,6 @@ class gpu_graph {
  public:
   gpu_graph() {}
   gpu_graph(Graph *ginst, uint _device_id = 0) : device_id(_device_id) {
-
     int dev_id = omp_get_thread_num();
     CUDA_RT_CALL(cudaSetDevice(dev_id));
 
@@ -68,21 +71,33 @@ class gpu_graph {
       CUDA_RT_CALL(cudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
       if (FLAGS_weight || FLAGS_randomweight)
         CUDA_RT_CALL(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
-    }else{
+    }
+    if (FLAGS_gmgraph) {
+      LOG("GMGraph\n");
+      CUDA_RT_CALL(cudaSetDevice(FLAGS_gmid));
       CUDA_RT_CALL(cudaMalloc(&xadj, (vtx_num + 1) * sizeof(edge_t)));
       CUDA_RT_CALL(cudaMalloc(&adjncy, edge_num * sizeof(vtx_t)));
       if (FLAGS_weight || FLAGS_randomweight)
         CUDA_RT_CALL(cudaMalloc(&adjwgt, edge_num * sizeof(weight_t)));
+      
+      CUDA_RT_CALL(cudaSetDevice(dev_id));
+      CUDA_RT_CALL(cudaDeviceEnablePeerAccess(FLAGS_gmid,0));
+    }
+    if (FLAGS_hmgraph) {
+      LOG("HMGraph\n");
+      CUDA_RT_CALL(cudaMallocHost(&xadj, (vtx_num + 1) * sizeof(edge_t)));
+      CUDA_RT_CALL(cudaMallocHost(&adjncy, edge_num * sizeof(vtx_t)));
+      if (FLAGS_weight || FLAGS_randomweight)
+        CUDA_RT_CALL(cudaMallocHost(&adjwgt, edge_num * sizeof(weight_t)));
     }
 
     CUDA_RT_CALL(cudaMemcpy(xadj, ginst->xadj, (vtx_num + 1) * sizeof(edge_t),
-                            cudaMemcpyHostToDevice));
+                            cudaMemcpyDefault));
     CUDA_RT_CALL(cudaMemcpy(adjncy, ginst->adjncy, edge_num * sizeof(vtx_t),
-                            cudaMemcpyHostToDevice));
+                            cudaMemcpyDefault));
     if (FLAGS_weight || FLAGS_randomweight)
       CUDA_RT_CALL(cudaMemcpy(adjwgt, ginst->adjwgt,
-                              edge_num * sizeof(weight_t),
-                              cudaMemcpyHostToDevice));
+                              edge_num * sizeof(weight_t), cudaMemcpyDefault));
 
     MaxDegree = ginst->MaxDegree;
     if (FLAGS_umgraph) Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight);
@@ -111,10 +126,17 @@ class gpu_graph {
     CUDA_RT_CALL(cudaDeviceSynchronize());
   }
   __host__ void Free() {
-    if (xadj != nullptr) CUDA_RT_CALL(cudaFree(xadj));
-    if (adjncy != nullptr) CUDA_RT_CALL(cudaFree(adjncy));
-    if (adjwgt != nullptr && (FLAGS_weight || FLAGS_randomweight) && FLAGS_ol)
-      CUDA_RT_CALL(cudaFree(adjwgt));
+    if (!FLAGS_hmgraph) {
+      if (xadj != nullptr) CUDA_RT_CALL(cudaFree(xadj));
+      if (adjncy != nullptr) CUDA_RT_CALL(cudaFree(adjncy));
+      if (adjwgt != nullptr && (FLAGS_weight || FLAGS_randomweight) && FLAGS_ol)
+        CUDA_RT_CALL(cudaFree(adjwgt));
+    } else {
+      if (xadj != nullptr) CUDA_RT_CALL(cudaFreeHost(xadj));
+      if (adjncy != nullptr) CUDA_RT_CALL(cudaFreeHost(adjncy));
+      if (adjwgt != nullptr && (FLAGS_weight || FLAGS_randomweight) && FLAGS_ol)
+        CUDA_RT_CALL(cudaFreeHost(adjwgt));
+    }
   }
 
   __device__ edge_t getDegree(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }

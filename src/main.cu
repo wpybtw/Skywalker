@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2021-01-15 14:06:01
+ * @LastEditTime: 2021-01-15 14:20:21
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -60,6 +60,10 @@ DEFINE_bool(hmtable, false, "using host mapped mem for alias table");
 DEFINE_bool(dt, true, "using duplicated table on each GPU");
 
 DEFINE_bool(umgraph, true, "using UM for graph");
+DEFINE_bool(hmgraph, false, "using host registered mem for graph");
+DEFINE_bool(gmgraph, false, "using GPU mem for graph");
+DEFINE_int32(gmid, 1, "using mem of GPU gmid for graph");
+
 DEFINE_bool(umtable, false, "using UM for alias table");
 DEFINE_bool(umresult, false, "using UM for result");
 DEFINE_bool(umbuf, false, "using UM for global buffer");
@@ -85,6 +89,14 @@ int main(int argc, char *argv[]) {
   }
 
   // override flag
+  if (FLAGS_hmgraph) {
+    FLAGS_umgraph = false;
+    FLAGS_gmgraph = false;
+  }
+  if (FLAGS_gmgraph) {
+    FLAGS_umgraph = false;
+    FLAGS_hmgraph = false;
+  }
   if (FLAGS_node2vec) {
     FLAGS_ol = true;
     FLAGS_rw = true;
@@ -182,7 +194,6 @@ int main(int argc, char *argv[]) {
           samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                    dev_id);
           time[dev_id] = UnbiasedSample(samplers[dev_id]);
-          // printf("not impled\n");
         }
       }
 
@@ -266,7 +277,7 @@ int main(int argc, char *argv[]) {
     }
     if (FLAGS_s) break;
   }
-  if (!FLAGS_ol&&FLAGS_bias)
+  if (!FLAGS_ol && FLAGS_bias)
     for (size_t i = 0; i < FLAGS_ngpu; i++) {
       printf("%0.2f\t", table_times[i]);
     }
