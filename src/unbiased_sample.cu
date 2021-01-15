@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2021-01-15 14:03:48
+ * @LastEditTime: 2021-01-15 15:58:34
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "kernel.cuh"
@@ -151,7 +151,6 @@ float UnbiasedSample(Sampler &sampler) {
 
   uint size_h, *size_d;
   cudaMalloc(&size_d, sizeof(uint));
-  paster(block_num);
 
   start_time = wtime();
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
