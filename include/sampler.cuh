@@ -77,9 +77,9 @@ class Sampler {
   }
   void CopyFromGlobalAliasTable(AliasTable &table) {
     LOG("CopyFromGlobalAliasTable\n");
-    if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
-    if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
-    if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+    // if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
+    // if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
+    // if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
     prob_array = nullptr;
     alias_array = nullptr;
     valid = nullptr;
@@ -93,6 +93,7 @@ class Sampler {
     CUDA_RT_CALL(cudaMemcpy((valid), table.valid, ggraph.vtx_num * sizeof(char),
                             cudaMemcpyDefault));
 
+    CUDA_RT_CALL(cudaDeviceSynchronize());
     ggraph.valid = valid;
     ggraph.prob_array = prob_array;
     ggraph.alias_array = alias_array;
@@ -106,6 +107,7 @@ class Sampler {
     if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
     if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
     if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+    CUDA_RT_CALL(cudaDeviceSynchronize());
     prob_array = nullptr;
     alias_array = nullptr;
     valid = nullptr;
@@ -197,6 +199,7 @@ class Sampler {
     ggraph.prob_array = prob_array;
     ggraph.alias_array = alias_array;
     CUDA_RT_CALL(cudaMemset(prob_array, 0, local_vtx_num * sizeof(float)));
+    CUDA_RT_CALL(cudaDeviceSynchronize());
   }
   void AllocateAliasTable() {
     LOG("umtable %d %d\n", device_id, omp_get_thread_num());
@@ -224,6 +227,13 @@ class Sampler {
                                  cudaMemAdviseSetAccessedBy, device_id));
       CUDA_RT_CALL(cudaMemAdvise(valid, ggraph.vtx_num * sizeof(char),
                                  cudaMemAdviseSetAccessedBy, device_id));
+
+      H_ERR(cudaMemPrefetchAsync(prob_array,   ggraph.edge_num * sizeof(float), dev_id,
+                                 nullptr));
+      H_ERR(cudaMemPrefetchAsync(alias_array, ggraph.edge_num * sizeof(uint), dev_id,
+                                 nullptr));
+      H_ERR(cudaMemPrefetchAsync(valid, ggraph.vtx_num * sizeof(char), dev_id,
+                                 nullptr));
     }
     if (FLAGS_hmtable) {
       LOG("host mapped table\n");
@@ -392,7 +402,7 @@ class Walker {
   // void Start();
 };
 
-void UnbiasedSample(Sampler sampler);
+float UnbiasedSample(Sampler &sampler);
 float UnbiasedWalk(Walker &walker);
 
 float OnlineGBWalk(Walker &walker);

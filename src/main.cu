@@ -1,8 +1,8 @@
 /*
  * @Description:
  * @Date: 2020-11-17 13:28:27
- * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-11 22:38:33
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2021-01-15 14:06:01
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
     hops[1] = 10;
   }
   Graph *ginst = new Graph();
-  if (ginst->numEdge > 800000000) {
+  if (ginst->numEdge > 600000000) {
     FLAGS_umtable = 1;
     LOG("overriding um for alias table\n");
   }
@@ -175,14 +175,14 @@ int main(int argc, char *argv[]) {
         if (FLAGS_rw) {
           Walker walker(samplers[dev_id]);
           walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
-#pragma omp barrier          
+#pragma omp barrier
           time[dev_id] = UnbiasedWalk(walker);
           samplers[dev_id].sampled_edges = walker.sampled_edges;
         } else {
           samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                    dev_id);
-          // UnbiasedSample(sampler);
-          printf("not impled\n");
+          time[dev_id] = UnbiasedSample(samplers[dev_id]);
+          // printf("not impled\n");
         }
       }
 
@@ -208,8 +208,10 @@ int main(int argc, char *argv[]) {
           global_table.Assemble(samplers[dev_id].ggraph);
           if (!FLAGS_dt)
             samplers[dev_id].UseGlobalAliasTable(global_table);
-          else
+          else {
+            LOG("CopyFromGlobalAliasTable");
             samplers[dev_id].CopyFromGlobalAliasTable(global_table);
+          }
         }
 #pragma omp barrier
 #pragma omp master
@@ -264,7 +266,7 @@ int main(int argc, char *argv[]) {
     }
     if (FLAGS_s) break;
   }
-  if (!FLAGS_ol)
+  if (!FLAGS_ol&&FLAGS_bias)
     for (size_t i = 0; i < FLAGS_ngpu; i++) {
       printf("%0.2f\t", table_times[i]);
     }
