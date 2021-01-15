@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2021-01-15 14:20:21
+ * @LastEditTime: 2021-01-15 14:32:23
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -96,6 +96,13 @@ int main(int argc, char *argv[]) {
   if (FLAGS_gmgraph) {
     FLAGS_umgraph = false;
     FLAGS_hmgraph = false;
+
+    int can_access_peer_0_1;
+    CUDA_RT_CALL(cudaDeviceCanAccessPeer(&can_access_peer_0_1, 0, FLAGS_gmid));
+    if (can_access_peer_0_1 = 0) {
+      printf("no p2p\n");
+      return 1;
+    }
   }
   if (FLAGS_node2vec) {
     FLAGS_ol = true;
