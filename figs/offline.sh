@@ -21,7 +21,7 @@ EXE="./bin/main" #main_degree
 SG="--ngpu=1 --s"
 RW="--rw=1 --k 1 --d 100 "
 SP="--rw=0 --k 20 --d 2 "
-BATCH= "--n 40000"
+BATCH="--n 40000"
 
 # --randomweight=1 --weightrange=2 
 

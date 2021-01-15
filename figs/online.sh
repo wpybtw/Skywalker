@@ -3,7 +3,7 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: Please set LastEditors
- # @LastEditTime: 2021-01-15 15:51:42
+ # @LastEditTime: 2021-01-15 16:43:38
  # @FilePath: /skywalker/figs/online.sh
 ### 
 DATA=(web-Google lj orkut arabic-2005 uk-2005  sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
@@ -21,7 +21,7 @@ EXE="./bin/main" #main_degree
 SG="--ngpu=1 --s"
 RW="--rw=1 --k 1 --d 100 "
 SP="--rw=0 --k 20 --d 2 "
-BATCH= "--n 40000"
+BATCH="--n 40000"
 
 # --randomweight=1 --weightrange=2 
 
