@@ -3,7 +3,7 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: Please set LastEditors
- # @LastEditTime: 2021-01-15 15:53:24
+ # @LastEditTime: 2021-01-15 15:54:11
  # @FilePath: /skywalker/figs/scale.sh
 ### 
 DATA=(web-Google lj orkut arabic-2005 uk-2005  sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
@@ -15,6 +15,7 @@ NV=(916428    4847571 3072627  39459923   22744077     50636151 124836180)
 # HD=(   4  1 )
 ITR=1
 NG=8 #8
+
 
 GR=".w.gr"
 EXE="./bin/main" #main_degree
