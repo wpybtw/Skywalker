@@ -1,8 +1,8 @@
-#include "alias_table.cuh"
-#include "kernel.cuh"
-#include "sampler.cuh"
-#include "util.cuh"
-#define paster(n) printf("var: " #n " =  %d\n", n)
+// #include "alias_table.cuh"
+#include "app.cuh"
+// #include "sampler.cuh"
+// #include "util.cuh"
+// #define paster(n) printf("var: " #n " =  %d\n", n)
 
 __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
                                     gpu_graph *ggraph, curandState state,
@@ -139,7 +139,7 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
-  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int block_num = n_sm * FLAGS_m;
   int gbuff_size = sampler.ggraph.MaxDegree;
 
   LOG("alllocate GMEM buffer %d MB\n",

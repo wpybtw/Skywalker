@@ -5,13 +5,8 @@
  * @LastEditTime: 2021-01-05 23:21:06
  * @FilePath: /sampling/src/offline_walk.cu
  */
-#include "kernel.cuh"
-#include "roller.cuh"
-#include "sampler.cuh"
-#include "util.cuh"
-DECLARE_bool(v);
-DECLARE_bool(printresult);
-#define paster(n) printf("var: " #n " =  %d\n", n)
+#include "app.cuh"
+ 
 
 __global__ void sample_kernel(Walker *walker) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
@@ -85,7 +80,7 @@ float OfflineWalk(Walker &walker) {
   // init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
   BindResultKernel<<<1, 32, 0, 0>>>(sampler_ptr);
   // allocate global buffer
-  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int block_num = n_sm * FLAGS_m;
   CUDA_RT_CALL(cudaDeviceSynchronize());
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();

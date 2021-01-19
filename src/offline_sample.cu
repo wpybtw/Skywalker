@@ -1,7 +1,5 @@
-#include "kernel.cuh"
-#include "roller.cuh"
-#include "sampler.cuh"
-#include "util.cuh"
+#include "app.cuh"
+
 #define paster(n) printf("var: " #n " =  %d\n", n)
 DECLARE_bool(printresult);
 // using vector_pack_t = Vector_pack_short<uint>;
@@ -118,7 +116,7 @@ float OfflineSample(Sampler &sampler) {
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
-  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int block_num = n_sm * FLAGS_m;
   // int buf_num = block_num * WARP_PER_BLK;
   // int gbuff_size = 932100;
 

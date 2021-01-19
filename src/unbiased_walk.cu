@@ -5,14 +5,14 @@
  * @LastEditTime: 2021-01-10 15:09:28
  * @FilePath: /skywalker/src/unbiased_walk.cu
  */
-#include "kernel.cuh"
-#include "roller.cuh"
-#include "sampler.cuh"
-#include "util.cuh"
-DECLARE_bool(v);
-DEFINE_bool(dynamic, false, "invoke kernel for each itr");
-DECLARE_double(tp);
-DECLARE_bool(printresult);
+#include "app.cuh"
+// #include "roller.cuh"
+// #include "sampler.cuh"
+// #include "util.cuh"
+// DECLARE_bool(v);
+// DEFINE_bool(dynamic, false, "invoke kernel for each itr");
+// DECLARE_double(tp);
+// DECLARE_bool(printresult);
 
 // #define paster(n) printf("var: " #n " =  %d\n", n)
 __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
@@ -149,7 +149,7 @@ float UnbiasedWalk(Walker &walker) {
   // init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
-  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int block_num = n_sm * FLAGS_m;
   CUDA_RT_CALL(cudaDeviceSynchronize());
   CUDA_RT_CALL(cudaPeekAtLastError());
 

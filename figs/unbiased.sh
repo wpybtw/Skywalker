@@ -3,7 +3,7 @@
  # @Description: 
  # @Date: 2020-11-17 13:39:45
  # @LastEditors: Please set LastEditors
- # @LastEditTime: 2021-01-15 15:47:20
+ # @LastEditTime: 2021-01-17 21:38:38
  # @FilePath: /skywalker/figs/unbiased.sh
 ### 
 DATA=(web-Google lj orkut arabic-2005 uk-2005  sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
@@ -28,15 +28,26 @@ OUT='>> unbiased.csv'
 
 
 # walker
-echo "-------------------------------------------------------unbias rw 100" >> unbiased.csv
+# echo "-------------------------------------------------------unbias rw 100" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${RW} ${BATCH} >> unbiased.csv
+# done
+
+echo "-------------------------------------------------------unbias sp" >> unbiased.csv
 for idx in $(seq 1 ${#DATA[*]}) 
 do
-    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${RW} ${BATCH} >> unbiased.csv
+    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=1 >> unbiased1.csv
 done
 
 echo "-------------------------------------------------------unbias sp" >> unbiased.csv
 for idx in $(seq 1 ${#DATA[*]}) 
 do
-    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} >> unbiased.csv
+    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=2 >> unbiased2.csv
 done
 
+echo "-------------------------------------------------------unbias sp" >> unbiased.csv
+for idx in $(seq 1 ${#DATA[*]}) 
+do
+    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=3>> unbiased3.csv
+done

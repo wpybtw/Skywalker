@@ -2,19 +2,10 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2021-01-15 15:58:34
+ * @LastEditTime: 2021-01-17 21:52:01
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
-#include "kernel.cuh"
-#include "roller.cuh"
-#include "sampler.cuh"
-#include "util.cuh"
-DECLARE_bool(v);
-// DEFINE_bool(dynamic, false, "invoke kernel for each itr");
-DECLARE_double(tp);
-DECLARE_bool(printresult);
-
-// #define paster(n) printf("var: " #n " =  %d\n", n)
+#include "app.cuh"
 
 // __global__ void UnbiasedWalkKernelPerItr(Sampler *sampler, uint current_itr)
 // {
@@ -96,7 +87,7 @@ static __global__ void sample_kernel(Sampler *sampler) {
     __threadfence_block();
     // if (LID == 0)
     job = result.requireOneJob(current_itr);
-    while (job.val ) { //&& graph->CheckValid(job.node_id)
+    while (job.val) {  //&& graph->CheckValid(job.node_id)
       uint src_id = job.node_id;
       uint src_degree = graph->getDegree((uint)src_id);
       {
@@ -145,7 +136,7 @@ float UnbiasedSample(Sampler &sampler) {
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
-  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int block_num = n_sm * FLAGS_m;  // 1024 / BLOCK_SIZE
   CUDA_RT_CALL(cudaDeviceSynchronize());
   CUDA_RT_CALL(cudaPeekAtLastError());
 
@@ -153,7 +144,29 @@ float UnbiasedSample(Sampler &sampler) {
   cudaMalloc(&size_d, sizeof(uint));
 
   start_time = wtime();
-  sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+  if (true) {
+    sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+  } else {
+    int dev = 0;
+    int supportsCoopLaunch = 0;
+    cudaDeviceGetAttribute(&supportsCoopLaunch, cudaDevAttrCooperativeLaunch,
+                           dev);
+
+    int numBlocksPerSm = 0;
+    // Number of threads my_kernel will be launched with
+    int numThreads = BLOCK_SIZE;
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, 0);
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm,
+                                                  sample_kernel, numThreads, 0);
+    // launch
+    void *kernelArgs[] = {sampler_ptr};
+    dim3 dimBlock(numThreads, 1, 1);
+    dim3 dimGrid(deviceProp.multiProcessorCount * numBlocksPerSm, 1, 1);
+    // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)sample_kernel, dimGrid,
+    //                                          dimBlock, kernelArgs));
+    sample_kernel<<<dimGrid, dimBlock, 0, 0>>>(sampler_ptr);
+  }
   // if (!FLAGS_dynamic) {
   //   UnbiasedSampleKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, tp_d);
   // }

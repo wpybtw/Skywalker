@@ -5,10 +5,8 @@
  * @LastEditTime: 2021-01-11 16:56:20
  * @FilePath: /skywalker/src/online_walk.cu
  */
-#include "alias_table.cuh"
-#include "kernel.cuh"
-#include "sampler.cuh"
-#include "util.cuh"
+#include "app.cuh"
+
 #define paster(n) printf("var: " #n " =  %d\n", n)
 DECLARE_bool(v);
 DECLARE_bool(debug);
@@ -213,7 +211,7 @@ float OnlineGBWalk(Walker &sampler) {
   init_array(sampler.result.length, sampler.result.size,
              sampler.result.hop_num);
   // allocate global buffer
-  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int block_num = n_sm * FLAGS_m;
   int gbuff_size = sampler.ggraph.MaxDegree;
   ;
   LOG("alllocate GMEM buffer %d MB\n",

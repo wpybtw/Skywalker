@@ -1,10 +1,5 @@
-#include "alias_table.cuh"
-#include "kernel.cuh"
-#include "sampler.cuh"
-#include "util.cuh"
-DECLARE_bool(printresult);
-#define paster(n) printf("var: " #n " =  %d\n", n)
-DECLARE_bool(v);
+#include "app.cuh"
+ 
 static __device__ void SampleWarpCentic(sample_result &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int idx, int node_id,
@@ -149,7 +144,7 @@ float OnlineGBSample(Sampler &sampler) {
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
-  int block_num = n_sm * 1024 / BLOCK_SIZE;
+  int block_num = n_sm * FLAGS_m;
   int gbuff_size = sampler.ggraph.MaxDegree;
 
   LOG("alllocate GMEM buffer %d MB\n",
