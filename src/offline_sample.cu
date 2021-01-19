@@ -1,9 +1,5 @@
 #include "app.cuh"
 
-#define paster(n) printf("var: " #n " =  %d\n", n)
-DECLARE_bool(printresult);
-// using vector_pack_t = Vector_pack_short<uint>;
-// using Roller = alias_table_roller_shmem<uint, ExecutionPolicy::WC>;
 
 // __device__ void SampleWarpCentic(sample_result &result, gpu_graph *graph,
 //                                  curandState state, int current_itr, int idx,

@@ -1,8 +1,4 @@
-// #include "alias_table.cuh"
 #include "app.cuh"
-// #include "sampler.cuh"
-// #include "util.cuh"
-// #define paster(n) printf("var: " #n " =  %d\n", n)
 
 __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
                                     gpu_graph *ggraph, curandState state,
@@ -134,7 +130,7 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
-                   cudaMemcpyHostToDevice));
+                          cudaMemcpyHostToDevice));
   double start_time, total_time;
   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
@@ -147,14 +143,15 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
 
   Vector_pack2<uint> *vector_pack_h = new Vector_pack2<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
-    vector_pack_h[i].Allocate(gbuff_size,index);
+    vector_pack_h[i].Allocate(gbuff_size, index);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack2<uint> *vector_packs;
-  CUDA_RT_CALL(cudaMalloc(&vector_packs, sizeof(Vector_pack2<uint>) * block_num));
+  CUDA_RT_CALL(
+      cudaMalloc(&vector_packs, sizeof(Vector_pack2<uint>) * block_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
-                   sizeof(Vector_pack2<uint>) * block_num,
-                   cudaMemcpyHostToDevice));
+                          sizeof(Vector_pack2<uint>) * block_num,
+                          cudaMemcpyHostToDevice));
 
   //  Global_buffer
   CUDA_RT_CALL(cudaDeviceSynchronize());

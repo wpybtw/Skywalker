@@ -7,11 +7,7 @@
  */
 #include "app.cuh"
 
-#define paster(n) printf("var: " #n " =  %d\n", n)
-DECLARE_bool(v);
-DECLARE_bool(debug);
-DECLARE_double(tp);
-DECLARE_bool(printresult);
+ 
 
 static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                         gpu_graph *ggraph, curandState state,

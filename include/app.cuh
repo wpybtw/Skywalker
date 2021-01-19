@@ -5,6 +5,7 @@
 #include "sampler_result.cuh"
 #include "util.cuh"
 
+DECLARE_bool(debug);
 DECLARE_bool(v);
 DECLARE_double(tp);
 DECLARE_bool(printresult);

@@ -6,15 +6,7 @@
  * @FilePath: /skywalker/src/unbiased_walk.cu
  */
 #include "app.cuh"
-// #include "roller.cuh"
-// #include "sampler.cuh"
-// #include "util.cuh"
-// DECLARE_bool(v);
-// DEFINE_bool(dynamic, false, "invoke kernel for each itr");
-// DECLARE_double(tp);
-// DECLARE_bool(printresult);
 
-// #define paster(n) printf("var: " #n " =  %d\n", n)
 __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
   gpu_graph *graph = &walker->ggraph;
@@ -181,7 +173,8 @@ float UnbiasedWalk(Walker &walker) {
   LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS sampled %u\n",
       omp_get_thread_num(), total_time,
       static_cast<float>(walker.result.GetSampledNumber() / total_time /
-                         1000000),walker.result.GetSampledNumber());
+                         1000000),
+      walker.result.GetSampledNumber());
   walker.sampled_edges = walker.result.GetSampledNumber();
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
