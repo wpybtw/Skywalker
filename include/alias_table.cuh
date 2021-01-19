@@ -38,8 +38,10 @@ inline __device__ char char_atomicCAS(char *addr, char cmp, char val) {
 //     active.size(), n);
 // }
 struct Buffer_pointer {
-  uint *b0, *b1, *b2;
-  float *b3;
+  uint *b0, *b1;
+
+  offset_t *b2;
+  prob_t *b3;
   // unsigned short int *b4;
   char *b4;
   uint size;
@@ -48,11 +50,11 @@ struct Buffer_pointer {
     size = _size;
     CUDA_RT_CALL(cudaMalloc(&b0, size * sizeof(uint)));
     CUDA_RT_CALL(cudaMalloc(&b1, size * sizeof(uint)));
-    CUDA_RT_CALL(cudaMalloc(&b2, size * sizeof(uint)));
-    CUDA_RT_CALL(cudaMalloc(&b3, size * sizeof(float)));
+    CUDA_RT_CALL(cudaMalloc(&b2, size * sizeof(offset_t)));
+    CUDA_RT_CALL(cudaMalloc(&b3, size * sizeof(prob_t)));
     CUDA_RT_CALL(cudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
   }
-  __host__ ~Buffer_pointer(){
+  __host__ ~Buffer_pointer() {
     if (b0 != nullptr) CUDA_RT_CALL(cudaFree(b0));
     if (b1 != nullptr) CUDA_RT_CALL(cudaFree(b1));
     if (b2 != nullptr) CUDA_RT_CALL(cudaFree(b2));
@@ -156,7 +158,11 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
     float scale = size / weight_sum;
     for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {                                                 // size //TODO
+#ifdef USING_HALF
+    prob.data[i] = __float2half(graph->getBias(ids[i]) * scale);
+#else
       prob.data[i] = graph->getBias(ids[i]) * scale;
+#endif  // USING_HALF
     }
     __syncthreads();
   }
@@ -267,6 +273,13 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
       __syncthreads();
       float old;
       if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+
+#ifdef USING_HALF
+     if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+#else
+      if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+#endif  // USING_HALF
+
       __syncthreads();
       if (!holder && act)
         old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);

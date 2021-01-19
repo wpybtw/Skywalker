@@ -56,7 +56,13 @@ class gpu_graph {
   // float (gpu_graph::*getBias)(uint);
 
  public:
-  gpu_graph() {}
+  __device__ __host__ gpu_graph() {
+// #if defined(__CUDA_ARCH__)
+
+// #else
+//     Free();
+// #endif
+  }
   gpu_graph(Graph *ginst, uint _device_id = 0) : device_id(_device_id) {
     int dev_id = omp_get_thread_num();
     CUDA_RT_CALL(cudaSetDevice(dev_id));
@@ -79,9 +85,9 @@ class gpu_graph {
       CUDA_RT_CALL(cudaMalloc(&adjncy, edge_num * sizeof(vtx_t)));
       if (FLAGS_weight || FLAGS_randomweight)
         CUDA_RT_CALL(cudaMalloc(&adjwgt, edge_num * sizeof(weight_t)));
-      
+
       CUDA_RT_CALL(cudaSetDevice(dev_id));
-      CUDA_RT_CALL(cudaDeviceEnablePeerAccess(FLAGS_gmid,0));
+      CUDA_RT_CALL(cudaDeviceEnablePeerAccess(FLAGS_gmid, 0));
     }
     if (FLAGS_hmgraph) {
       LOG("HMGraph\n");
@@ -127,6 +133,7 @@ class gpu_graph {
   }
   __host__ void Free() {
     if (!FLAGS_hmgraph) {
+      LOG("free\n");
       if (xadj != nullptr) CUDA_RT_CALL(cudaFree(xadj));
       if (adjncy != nullptr) CUDA_RT_CALL(cudaFree(adjncy));
       if (adjwgt != nullptr && (FLAGS_weight || FLAGS_randomweight) && FLAGS_ol)

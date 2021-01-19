@@ -15,8 +15,21 @@ using namespace cooperative_groups;
 // #define skip8k
 // #define plargeitr
 
-#define u64 unsigned long long int
+// #define u64 unsigned long long int
+using u64 = unsigned long long int;
 using ll = long long;
+using uint = unsigned int;
+
+// #define USING_HALF
+#ifdef USING_HALF
+#include <cuda_fp16.h>
+using prob_t = __half;
+using offset_t = uint16_t;  //65535
+#else
+using prob_t = float;
+using offset_t = uint32_t;  
+#endif // USING_HALF
+
 
 #define TID (threadIdx.x + blockIdx.x * blockDim.x)
 #define LTID (threadIdx.x)
@@ -59,7 +72,7 @@ using ll = long long;
       exit(cudaStatus);                                                  \
     }                                                                    \
   }
-  
+
 static inline void checkDrvError(CUresult res, const char *tok,
                                  const char *file, unsigned line) {
   if (res != CUDA_SUCCESS) {
@@ -87,8 +100,6 @@ __device__ void active_size(int n);
 __device__ int active_size2(char *txt, int n);
 #define LOG(...) \
   if (FLAGS_v) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
-
-using uint = unsigned int;
 
 namespace print {
 template <typename... Args>
