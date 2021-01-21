@@ -405,8 +405,6 @@ struct sample_result {
     CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
                             hop_num * sizeof(Vector_gmem<uint>),
                             cudaMemcpyHostToDevice));
-
-    // paster(capacity);
     CUDA_RT_CALL(cudaMalloc(&data, capacity * sizeof(uint)));
     CUDA_RT_CALL(
         cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
@@ -446,11 +444,9 @@ struct sample_result {
     }
   }
   __device__ uint *getNextAddr(uint hop) {
-    // uint offset =  ;// + hops[hop] * idx;
     return &data[addr_offset[hop + 1]];
   }
   __device__ uint getNodeId(uint idx, uint hop) {
-    // paster(addr_offset[hop]);
     return data[addr_offset[hop] + idx];
   }
   __device__ uint getHopSize(uint hop) { return hops[hop]; }
@@ -463,22 +459,15 @@ struct sample_result {
   }
   __device__ void AddHighDegree(uint current_itr, uint node_id) {
     high_degrees[current_itr].Add(node_id);
-    // printf("AddHighDegree size %llu floor  %llu\n",
-    // high_degrees[current_itr].Size(),*high_degrees[current_itr].floor);
   }
   __device__ struct sample_job requireOneHighDegreeJob(uint current_itr) {
-    // if (LID == 0)
-    // printf("----%s %d\n", __FUNCTION__, __LINE__);
     sample_job job;
     // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
     job.val = false;
     int old = atomicAdd(high_degrees[current_itr].floor, 1);
     if (old < high_degrees[current_itr].Size()) {
-      // printf("poping wl ele idx %d\n", old);
-      // job.idx = (uint)0;
       job.node_id = high_degrees[current_itr].Get(old);
       job.val = true;
-      // printf("poping high degree node_id %d\n", job.node_id);
     } else {
       int old = atomicAdd(high_degrees[current_itr].floor, -1);
       // int old = my_atomicSub(high_degrees[current_itr].floor, 1);
@@ -490,14 +479,11 @@ struct sample_result {
   {
     sample_job job;
     job.val = false;
-    // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
     int old = atomicAdd(&job_sizes_floor[current_itr], 1);
     if (old < job_sizes[current_itr]) {
-      // printf("poping wl ele idx %d\n", old);
       job.idx = (uint)old;
       job.node_id = getNodeId(old, current_itr);
       job.val = true;
-      // printf("poping wl ele node_id %d\n", job.node_id);
     } else {
       int old = atomicSub(&job_sizes_floor[current_itr], 1);
     }
@@ -512,10 +498,8 @@ struct sample_result {
   __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);
     array[old] = candidate;
-    // printf("Add new ele %u with degree %d\n", candidate,  );
   }
   __device__ void NextItr(uint &current_itr) {
     current_itr++;
-    // printf("start itr %d at block %d \n", current_itr, blockIdx.x);
   }
 };
