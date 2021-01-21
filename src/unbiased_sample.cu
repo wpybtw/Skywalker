@@ -69,7 +69,49 @@
 //     }
 //   }
 // }
+static __global__ void SampleKernelPerItr(Sampler *sampler, uint current_itr) {
+  sample_result &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
 
+  // __shared__ uint current_itr;
+  // if (threadIdx.x == 0) current_itr = 0;
+  // __syncthreads();
+
+  // for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
+  if (current_itr < result.hop_num - 1)
+  {
+    // if(LID==0) paster(result.hop_num - 1);
+    sample_job job;
+    __threadfence_block();
+    // if (LID == 0)
+    job = result.requireOneJob(current_itr);
+    while (job.val) {  //&& graph->CheckValid(job.node_id)
+      uint src_id = job.node_id;
+      uint src_degree = graph->getDegree((uint)src_id);
+      {
+        uint target_size = result.hops[current_itr + 1];
+        if ((target_size > 0) && (target_size < src_degree)) {
+          //   int itr = 0;
+          for (size_t i = 0; i < target_size; i++) {
+            int col = (int)floor(curand_uniform(&state) * src_degree);
+            float p = curand_uniform(&state);
+            uint candidate = col;
+            result.AddActive(current_itr, result.getNextAddr(current_itr),
+                             graph->getOutNode(src_id, candidate));
+          }
+        } else if (target_size >= src_degree) {
+          for (size_t i = 0; i < src_degree; i++) {
+            result.AddActive(current_itr, result.getNextAddr(current_itr),
+                             graph->getOutNode(src_id, i));
+          }
+        }
+      }
+      job = result.requireOneJob(current_itr);
+    }                            
+  }
+}
 static __global__ void sample_kernel(Sampler *sampler) {
   sample_result &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
@@ -119,6 +161,12 @@ static __global__ void sample_kernel(Sampler *sampler) {
 static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
+// __global__ void Reset(Sampler *walker, uint current_itr) {
+//   if (TID == 0) walker->result.frontier.Reset(current_itr);
+// }
+__global__ void GetSize(Sampler *walker, uint current_itr, uint *size) {
+  if (TID == 0) *size = walker->result.GetJobSize(current_itr);
+}
 
 float UnbiasedSample(Sampler &sampler) {
   LOG("%s\n", __FUNCTION__);
@@ -144,48 +192,48 @@ float UnbiasedSample(Sampler &sampler) {
   cudaMalloc(&size_d, sizeof(uint));
 
   start_time = wtime();
-  if (true) {
+  // if (true) {
+  //   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+  // } else {
+  //   // to find the max occupation
+  //   int dev = 0;
+  //   int supportsCoopLaunch = 0;
+  //   cudaDeviceGetAttribute(&supportsCoopLaunch, cudaDevAttrCooperativeLaunch,
+  //                          dev);
+  //   int numBlocksPerSm = 0;
+  //   // Number of threads my_kernel will be launched with
+  //   int numThreads = BLOCK_SIZE;
+  //   cudaDeviceProp deviceProp;
+  //   cudaGetDeviceProperties(&deviceProp, 0);
+  //   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm,
+  //                                                 sample_kernel, numThreads, 0);
+  //   // launch
+  //   void *kernelArgs[] = {sampler_ptr};
+  //   dim3 dimBlock(numThreads, 1, 1);
+  //   dim3 dimGrid(deviceProp.multiProcessorCount * numBlocksPerSm, 1, 1);
+  //   // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)sample_kernel, dimGrid,
+  //   //                                          dimBlock, kernelArgs));
+  //   sample_kernel<<<dimGrid, dimBlock, 0, 0>>>(sampler_ptr);
+  // }
+  if (!FLAGS_peritr) {
     sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
-  } else {
-    int dev = 0;
-    int supportsCoopLaunch = 0;
-    cudaDeviceGetAttribute(&supportsCoopLaunch, cudaDevAttrCooperativeLaunch,
-                           dev);
-
-    int numBlocksPerSm = 0;
-    // Number of threads my_kernel will be launched with
-    int numThreads = BLOCK_SIZE;
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, 0);
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm,
-                                                  sample_kernel, numThreads, 0);
-    // launch
-    void *kernelArgs[] = {sampler_ptr};
-    dim3 dimBlock(numThreads, 1, 1);
-    dim3 dimGrid(deviceProp.multiProcessorCount * numBlocksPerSm, 1, 1);
-    // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)sample_kernel, dimGrid,
-    //                                          dimBlock, kernelArgs));
-    sample_kernel<<<dimGrid, dimBlock, 0, 0>>>(sampler_ptr);
   }
-  // if (!FLAGS_dynamic) {
-  //   UnbiasedSampleKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, tp_d);
-  // }
-  // else {
-  //   for (uint current_itr = 0; current_itr < sampler.result.hop_num - 1;
-  //        current_itr++) {
-  //     GetSize<<<1, 32, 0, 0>>>(sampler_ptr, current_itr, size_d);
-  //     CUDA_RT_CALL(
-  //         cudaMemcpy(&size_h, size_d, sizeof(uint), cudaMemcpyDeviceToHost));
-  //     if (size_h > 0) {
-  //       UnbiasedWalkKernelPerItr<<<size_h / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
-  //       0>>>(
-  //           sampler_ptr, current_itr);
-  //       Reset<<<1, 32, 0, 0>>>(sampler_ptr, current_itr);
-  //     } else {
-  //       break;
-  //     }
-  //   }
-  // }
+  else {
+    for (uint current_itr = 0; current_itr < sampler.result.hop_num - 1;
+         current_itr++) {
+      GetSize<<<1, 32, 0, 0>>>(sampler_ptr, current_itr, size_d);
+      CUDA_RT_CALL(
+          cudaMemcpy(&size_h, size_d, sizeof(uint), cudaMemcpyDeviceToHost));
+      if (size_h > 0) {
+        SampleKernelPerItr<<<block_num, BLOCK_SIZE, 0,
+        0>>>(
+            sampler_ptr, current_itr);
+        // Reset<<<1, 32, 0, 0>>>(sampler_ptr, current_itr);
+      } else {
+        break;
+      }
+    }
+  }
 
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());

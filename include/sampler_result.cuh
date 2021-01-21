@@ -6,7 +6,7 @@
 
 DECLARE_int32(device);
 DECLARE_double(hd);
-DECLARE_bool(dynamic);
+DECLARE_bool(peritr);
 DECLARE_bool(node2vec);
 DECLARE_double(p);
 DECLARE_double(q);
@@ -223,7 +223,7 @@ struct Jobs_result<JobType::RW, T> {
       CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
     }
 
-    if (FLAGS_dynamic) {
+    if (FLAGS_peritr) {
       frontier.Allocate(size);
       // copy seeds
       // if layout1, oor
@@ -368,6 +368,7 @@ struct sample_result {
   // void AssemblyFeature(float * ptr, float * feat, ){
 
   // }
+  __device__ int GetJobSize(uint itr) { return job_sizes[itr]; }
   void Free() {
     if (hops != nullptr) CUDA_RT_CALL(cudaFree(hops));
     if (addr_offset != nullptr) CUDA_RT_CALL(cudaFree(addr_offset));
@@ -443,9 +444,7 @@ struct sample_result {
       job_sizes_floor[i] = 0;
     }
   }
-  __device__ uint *getNextAddr(uint hop) {
-    return &data[addr_offset[hop + 1]];
-  }
+  __device__ uint *getNextAddr(uint hop) { return &data[addr_offset[hop + 1]]; }
   __device__ uint getNodeId(uint idx, uint hop) {
     return data[addr_offset[hop] + idx];
   }
@@ -499,7 +498,5 @@ struct sample_result {
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);
     array[old] = candidate;
   }
-  __device__ void NextItr(uint &current_itr) {
-    current_itr++;
-  }
+  __device__ void NextItr(uint &current_itr) { current_itr++; }
 };

@@ -10,4 +10,4 @@ DECLARE_bool(v);
 DECLARE_double(tp);
 DECLARE_bool(printresult);
 DECLARE_int32(m);
-DECLARE_bool(dynamic);
+DECLARE_bool(peritr);

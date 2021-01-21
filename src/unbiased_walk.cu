@@ -153,7 +153,7 @@ float UnbiasedWalk(Walker &walker) {
   cudaMalloc(&size_d, sizeof(uint));
 
   start_time = wtime();
-  if (!FLAGS_dynamic) {
+  if (!FLAGS_peritr) {
     UnbiasedWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, tp_d);
   } else {
     for (uint current_itr = 0; current_itr < walker.result.hop_num - 1;

@@ -83,7 +83,7 @@ DEFINE_bool(itl, true, "interleave");
 
 DEFINE_int32(m, 4, "block per sm");
 
-DEFINE_bool(dynamic, false, "invoke kernel for each itr");
+DEFINE_bool(peritr, false, "invoke kernel for each itr");
 
 DEFINE_bool(sp, false, "using spliced buffer");
 
