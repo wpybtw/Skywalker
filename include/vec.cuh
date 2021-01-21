@@ -205,11 +205,11 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
   }
   __device__ T &operator[](size_t idx) {
     if (idx < capacity) return data.data[idx];
-    // else
-    // {
-    //   // if(TID==0) printf("accessing idx %d\n",idx);
-    //   global_buffer[idx - capacity];
-    // }
+    else
+    {
+      // if(TID==0) printf("accessing idx %d\n",idx);
+      return gbuf_data[idx - capacity];
+    }
   }
   __forceinline__ __device__ T Get(size_t idx) {
     if (idx < capacity)

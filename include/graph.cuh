@@ -245,13 +245,26 @@ class Graph {
         readew = true;
         if (read < num_Edge) printf("Error: Partial read of edge data\n");
 
-          // LOG("convent uint weight to float\n");
+        // LOG("convent uint weight to float\n");
 
-// if(omp_get_thread_num())
-// printf("omp_get_max_threads() %d\n",omp_get_max_threads());
+        // if(omp_get_thread_num())
+        // printf("omp_get_max_threads() %d\n",omp_get_max_threads());
+        if (!FLAGS_dw) {
 #pragma omp parallel for
-        for (size_t i = 0; i < num_Edge; i++) {
-          adjwgt[i] = static_cast<float>(tmp_weight[i]);
+          for (size_t i = 0; i < num_Edge; i++) {
+            adjwgt[i] = static_cast<float>(tmp_weight[i]);
+          }
+        } else {
+          // for (size_t i = 0; i < num_Edge; i++) {
+          //   adjwgt[i] = static_cast<float>(outDegree[]);
+          // }
+          LOG("using degree as weight\n");
+#pragma omp parallel for
+          for (size_t i = 0; i < num_Node; i++) {
+            for (size_t j = xadj[i]; j < xadj[i + 1]; j++) {
+              adjwgt[j] = static_cast<float>(outDegree[i]);
+            }
+          }
         }
         delete[] tmp_weight;
         // fprintf(stderr, "read data for %lu edges\n", num_Edge);

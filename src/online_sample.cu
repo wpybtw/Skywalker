@@ -1,5 +1,5 @@
 #include "app.cuh"
- 
+
 static __device__ void SampleWarpCentic(sample_result &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int idx, int node_id,
@@ -111,6 +111,10 @@ __global__ void sample_kernel(Sampler *sampler,
     }
     __syncthreads();
     if (threadIdx.x == 0) {
+      // while (!result.checkFinish(current_itr))
+      // {
+      //   printf("waiting ");
+      // }
       result.NextItr(current_itr);
     }
     __syncthreads();
@@ -175,11 +179,11 @@ float OnlineGBSample(Sampler &sampler) {
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
-         omp_get_thread_num(), total_time * 1000,
-         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
-                            1000000));
+      omp_get_thread_num(), total_time * 1000,
+      static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                         1000000));
   sampler.sampled_edges = sampler.result.GetSampledNumber();
-  LOG("sampled_edges %d\n",sampler.sampled_edges );
+  LOG("sampled_edges %d\n", sampler.sampled_edges);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;

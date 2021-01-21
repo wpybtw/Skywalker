@@ -18,20 +18,24 @@ __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
     size_t idx_i = result.frontier.Get(current_itr, TID);
     uint src_id = result.GetData(current_itr, idx_i);
     uint src_degree = graph->getDegree((uint)src_id);
+    result.length[idx_i] = current_itr;
     if (1 < src_degree) {
       int col = (int)floor(curand_uniform(&state) * src_degree);
       uint candidate = col;
       *result.GetDataPtr(current_itr + 1, idx_i) =
           graph->getOutNode(src_id, candidate);
       result.frontier.SetActive(current_itr + 1, idx_i);
-    } else {
+    } else if(src_degree==1 ) {
       *result.GetDataPtr(current_itr + 1, idx_i) = graph->getOutNode(src_id, 0);
       result.frontier.SetActive(current_itr + 1, idx_i);
     }
+    // else{
+    //   result.length[idx_i] = current_itr;
+    // }
   }
-
   // }
 }
+
 __global__ void Reset(Walker *walker, uint current_itr) {
   if (TID == 0) walker->result.frontier.Reset(current_itr);
 }

@@ -85,6 +85,8 @@ DEFINE_int32(m, 4, "block per sm");
 
 DEFINE_bool(dynamic, false, "invoke kernel for each itr");
 
+DEFINE_bool(sp, false, "using spliced buffer");
+
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -127,6 +129,9 @@ int main(int argc, char *argv[]) {
     FLAGS_weight = false;
     FLAGS_randomweight = false;
   }
+#ifdef SPEC_EXE
+  LOG("SPEC_EXE \n");
+#endif
 
   int sample_size = FLAGS_n;
   int NeighborSize = FLAGS_k;
@@ -212,7 +217,10 @@ int main(int argc, char *argv[]) {
         samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                  dev_id);
         if (!FLAGS_rw) {
-          time[dev_id] = OnlineGBSample(samplers[dev_id]);
+          if (!FLAGS_sp)
+            time[dev_id] = OnlineGBSample(samplers[dev_id]);
+          else
+            time[dev_id] = OnlineSplicedSample(samplers[dev_id]);
         } else {
           Walker walker(samplers[dev_id]);
           walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);

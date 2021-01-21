@@ -120,7 +120,8 @@ __global__ void sample_kernel(Sampler *sampler) {
 static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
-void Start(Sampler sampler) {
+
+void Start(Sampler &sampler) {
   // allow cache
   // if (FLAGS_cache)
   //   sampler.AllocateAliasTable();

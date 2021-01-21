@@ -408,8 +408,8 @@ float UnbiasedWalk(Walker &walker);
 float OnlineGBWalk(Walker &walker);
 float OnlineGBSample(Sampler &sampler);
 
-void StartSP(Sampler sampler);
-void Start(Sampler sampler);
+float OnlineSplicedSample(Sampler &sampler);
+// void Start(Sampler &sampler);  //useless as must overflow,
 
 float ConstructTable(Sampler &sampler, uint ngpu = 1, uint index = 0);
 // void Sample(Sampler sampler);

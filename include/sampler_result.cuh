@@ -1,7 +1,9 @@
 #pragma once
 #include <gflags/gflags.h>
 #include <omp.h>
+
 #include "vec.cuh"
+
 DECLARE_int32(device);
 DECLARE_double(hd);
 DECLARE_bool(dynamic);
@@ -170,7 +172,7 @@ struct Jobs_result<JobType::RW, T> {
     if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
   }
   void init(uint _size, uint _hop_num, uint *seeds, uint _device_id = 0) {
-        int dev_id = omp_get_thread_num();
+    int dev_id = omp_get_thread_num();
     CUDA_RT_CALL(cudaSetDevice(dev_id));
     device_id = _device_id;
     size = _size;
@@ -363,6 +365,9 @@ struct sample_result {
   // uint current_itr = 0;
   sample_result() {}
   // void Free()
+  // void AssemblyFeature(float * ptr, float * feat, ){
+
+  // }
   void Free() {
     if (hops != nullptr) CUDA_RT_CALL(cudaFree(hops));
     if (addr_offset != nullptr) CUDA_RT_CALL(cudaFree(addr_offset));
@@ -373,7 +378,7 @@ struct sample_result {
   }
   void init(uint _size, uint _hop_num, uint *_hops, uint *seeds,
             uint _device_id = 0) {
-                  int dev_id = omp_get_thread_num();
+    int dev_id = omp_get_thread_num();
     CUDA_RT_CALL(cudaSetDevice(dev_id));
     device_id = _device_id;
     Free();
@@ -497,6 +502,12 @@ struct sample_result {
       int old = atomicSub(&job_sizes_floor[current_itr], 1);
     }
     return job;
+  }
+  __device__ bool checkFinish(uint current_itr) {
+    if (job_sizes_floor[current_itr] < job_sizes[current_itr] ||
+        *high_degrees[current_itr].floor < high_degrees[current_itr].Size())
+      return false;
+    return true;
   }
   __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);

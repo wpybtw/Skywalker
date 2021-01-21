@@ -30,6 +30,9 @@ using prob_t = float;
 using offset_t = uint32_t;  
 #endif // USING_HALF
 
+#define SPEC_EXE
+
+#define SASYNC_EXE
 
 #define TID (threadIdx.x + blockIdx.x * blockDim.x)
 #define LTID (threadIdx.x)

@@ -1,5 +1,6 @@
 #include "app.cuh"
- 
+
+// #define check
 
 static __device__ void SampleWarpCentic(sample_result &result,
                                         gpu_graph *ggraph, curandState state,
@@ -145,7 +146,7 @@ static __global__ void print_result(Sampler *sampler) {
 }
 
 // void Start_high_degree(Sampler sampler)
-void StartSP(Sampler sampler) {
+float OnlineSplicedSample(Sampler &sampler) {
   // orkut max degree 932101
 
   LOG("%s\n", __FUNCTION__);
@@ -164,7 +165,7 @@ void StartSP(Sampler sampler) {
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
-  init_kernel_ptr2<<<1, 32, 0, 0>>>(sampler_ptr);
+  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
 
   // allocate global buffer
   int block_num = n_sm * FLAGS_m;
@@ -186,6 +187,7 @@ void StartSP(Sampler sampler) {
 
   //  Global_buffer
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, buffer_pointers_g);
@@ -194,12 +196,15 @@ void StartSP(Sampler sampler) {
                                                  buffer_pointers_g);
 #endif
   CUDA_RT_CALL(cudaDeviceSynchronize());
-  // CUDA_RT_CALL(cudaPeekAtLastError());
+  CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f GSEPS\n",
-         omp_get_thread_num(), total_time*1000,
-         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
-                            1000000));
-  print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+      omp_get_thread_num(), total_time * 1000,
+      static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                         1000000));
+  sampler.sampled_edges = sampler.result.GetSampledNumber();
+  LOG("sampled_edges %d\n", sampler.sampled_edges);
+  if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  return total_time;
 }
