@@ -87,6 +87,8 @@ DEFINE_bool(peritr, false, "invoke kernel for each itr");
 
 DEFINE_bool(sp, false, "using spliced buffer");
 
+DEFINE_bool(async, false, "using async execution");
+
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -260,7 +262,10 @@ int main(int argc, char *argv[]) {
         if (!FLAGS_rw) {  //&& FLAGS_k != 1
           samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                    dev_id);
-          time[dev_id] = OfflineSample(samplers[dev_id]);
+          if (!FLAGS_async)
+            time[dev_id] = OfflineSample(samplers[dev_id]);
+          else
+            time[dev_id] = AsyncOfflineSample(samplers[dev_id]);
         } else {
           Walker walker(samplers[dev_id]);
           walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);

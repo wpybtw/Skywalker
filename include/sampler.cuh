@@ -414,6 +414,7 @@ float OnlineSplicedSample(Sampler &sampler);
 float ConstructTable(Sampler &sampler, uint ngpu = 1, uint index = 0);
 // void Sample(Sampler sampler);
 float OfflineSample(Sampler &sampler);
+float AsyncOfflineSample(Sampler &sampler);
 
 // float ConstructTable(Walker &walker);
 // float OfflineSample(Walker &walker);
