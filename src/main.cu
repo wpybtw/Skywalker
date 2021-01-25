@@ -87,6 +87,10 @@ DEFINE_bool(peritr, false, "invoke kernel for each itr");
 
 DEFINE_bool(sp, false, "using spliced buffer");
 
+DEFINE_bool(pf, true, "using UM prefetching");
+DEFINE_bool(ab, true, "using UM AB hint");
+// DEFINE_bool(pf, true, "using UM prefetching");
+
 DEFINE_bool(async, false, "using async execution");
 
 int main(int argc, char *argv[]) {

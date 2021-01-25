@@ -7,8 +7,6 @@
  */
 #include "app.cuh"
 
- 
-
 static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int node_id,
@@ -242,12 +240,12 @@ float OnlineGBWalk(Walker &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
-         omp_get_thread_num(), total_time * 1000,
-         static_cast<float>(sampler.result.GetSampledNumber() / total_time /
-                            1000000));
+  LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
+      omp_get_thread_num(), total_time * 1000,
+      static_cast<float>(sampler.result.GetSampledNumber() / total_time /
+                         1000000));
   sampler.sampled_edges = sampler.result.GetSampledNumber();
-  LOG("sampled_edges %d\n",sampler.sampled_edges );
+  LOG("sampled_edges %d\n", sampler.sampled_edges);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;

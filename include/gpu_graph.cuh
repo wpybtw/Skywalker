@@ -15,7 +15,8 @@ DECLARE_int32(gmid);
 DECLARE_bool(ol);
 DECLARE_bool(weight);
 DECLARE_bool(randomweight);
-
+DECLARE_bool(pf);
+DECLARE_bool(ab);
 // typedef uint edge_t;
 // typedef unsigned int vtx_t;
 // typedef float weight_t;
@@ -57,11 +58,11 @@ class gpu_graph {
 
  public:
   __device__ __host__ gpu_graph() {
-// #if defined(__CUDA_ARCH__)
+    // #if defined(__CUDA_ARCH__)
 
-// #else
-//     Free();
-// #endif
+    // #else
+    //     Free();
+    // #endif
   }
   gpu_graph(Graph *ginst, uint _device_id = 0) : device_id(_device_id) {
     int dev_id = omp_get_thread_num();
@@ -87,7 +88,9 @@ class gpu_graph {
         CUDA_RT_CALL(cudaMalloc(&adjwgt, edge_num * sizeof(weight_t)));
 
       CUDA_RT_CALL(cudaSetDevice(dev_id));
-      CUDA_RT_CALL(cudaDeviceEnablePeerAccess(FLAGS_gmid, 0));
+      if (dev_id != FLAGS_gmid) {
+        CUDA_RT_CALL(cudaDeviceEnablePeerAccess(FLAGS_gmid, 0));
+      }
     }
     if (FLAGS_hmgraph) {
       LOG("HMGraph\n");
@@ -112,22 +115,38 @@ class gpu_graph {
     // (graph->*(graph->getBias))
   }
   void Set_Mem_Policy(bool needWeight = false) {
+    LOG("Set_Mem_Policy\n");
     // LOG("cudaMemAdvise %d %d\n", device_id, omp_get_thread_num());
-    CUDA_RT_CALL(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
-                               cudaMemAdviseSetAccessedBy, device_id));
-    CUDA_RT_CALL(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
-                               cudaMemAdviseSetAccessedBy, device_id));
-
-    CUDA_RT_CALL(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t),
-                                      device_id, 0));
-    CUDA_RT_CALL(
-        cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
-
-    if (needWeight) {
-      CUDA_RT_CALL(cudaMemAdvise(adjwgt, edge_num * sizeof(weight_t),
+    if (FLAGS_ab) {
+      CUDA_RT_CALL(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
                                  cudaMemAdviseSetAccessedBy, device_id));
-      CUDA_RT_CALL(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t),
+      CUDA_RT_CALL(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
+                                 cudaMemAdviseSetAccessedBy, device_id));
+      if (needWeight)
+        CUDA_RT_CALL(cudaMemAdvise(adjwgt, edge_num * sizeof(weight_t),
+                                   cudaMemAdviseSetAccessedBy, device_id));
+    }
+
+    if (FLAGS_pf) {
+      CUDA_RT_CALL(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t),
                                         device_id, 0));
+      CUDA_RT_CALL(
+          cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
+
+      if (needWeight)
+        CUDA_RT_CALL(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t),
+                                          device_id, 0));
+
+    } else {
+      LOG("UM from host\n");
+      CUDA_RT_CALL(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t),
+                                        cudaCpuDeviceId, 0));
+      CUDA_RT_CALL(cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t),
+                                        cudaCpuDeviceId, 0));
+
+      if (needWeight)
+        CUDA_RT_CALL(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t),
+                                          cudaCpuDeviceId, 0));
     }
     CUDA_RT_CALL(cudaDeviceSynchronize());
   }
@@ -201,6 +220,16 @@ class gpu_graph {
   }
   __device__ float getBiasImpl(edge_t idx) { return xadj[idx + 1] - xadj[idx]; }
   __device__ edge_t getOutNode(edge_t idx, uint offset) {
+    // uint offset = (unsigned long long)(adjncy + xadj[idx] + offset) / 4;
+    // vtx_t *ptr =
+    //     (vtx_t *)(((unsigned long long)(adjncy + xadj[idx] + offset + 16)) & -16);
+    // int4 tmp = (reinterpret_cast<int4 *>((ptr))[0]);
+    // return tmp.x;
+
+    // vtx_t tmp;
+    // for (size_t i = 0; i < 16; i++) {
+    //   tmp += adjncy[xadj[idx] + offset + i];
+    // }
     return adjncy[xadj[idx] + offset];
   }
   __device__ vtx_t *getNeighborPtr(edge_t idx) { return adjncy + xadj[idx]; }
