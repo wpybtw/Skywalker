@@ -451,6 +451,9 @@ struct sample_result {
   __device__ uint *getAddrOfInstance(uint idx, uint hop) {
     return data + addr_offset[hop] + idx * hops[hop];
   }
+  __device__ uint getDataOfInstance(uint idx, uint hop, uint offset) {
+    return data[addr_offset[hop] + idx * hops[hop]+offset];
+  }
   __device__ uint getHopSize(uint hop) { return hops[hop]; }
   __device__ uint getFrontierSize(uint hop) {
     uint64_t cum = size;

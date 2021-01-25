@@ -7,32 +7,6 @@
  */
 #include "app.cuh"
 
-// __global__ void UnbiasedWalkKernelPerItr(Sampler *sampler, uint current_itr)
-// {
-//   Jobs_result<JobType::RW, uint> &result = sampler->result;
-//   gpu_graph *graph = &sampler->ggraph;
-//   curandState state;
-//   curand_init(TID, 0, 0, &state);
-//   // for (uint current_itr = 0; current_itr < result.hop_num - 1;
-//   current_itr++)
-//   // {
-//   if (TID < result.frontier.Size(current_itr)) {
-//     size_t idx_i = result.frontier.Get(current_itr, TID);
-//     uint src_id = result.GetData(current_itr, idx_i);
-//     uint src_degree = graph->getDegree((uint)src_id);
-//     if (1 < src_degree) {
-//       int col = (int)floor(curand_uniform(&state) * src_degree);
-//       uint candidate = col;
-//       *result.GetDataPtr(current_itr + 1, idx_i) =
-//           graph->getOutNode(src_id, candidate);
-//       result.frontier.SetActive(current_itr + 1, idx_i);
-//     } else {
-//       *result.GetDataPtr(current_itr + 1, idx_i) = graph->getOutNode(src_id,
-//       0); result.frontier.SetActive(current_itr + 1, idx_i);
-//     }
-//   }
-//   // }
-// }
 // __global__ void Reset(Sampler *sampler, uint current_itr) {
 //   if (TID == 0) sampler->result.frontier.Reset(current_itr);
 // }
@@ -40,7 +14,10 @@
 //   if (TID == 0) *size = sampler->result.frontier.Size(current_itr);
 // }
 
-// __global__ void UnbiasedSampleKernel(Sampler *sampler, float *tp) {
+// __device__ void AsyncUnbiasedSampleJob(sample_result &result, gpu_graph *graph, uint instanceID, uint hop, uint offset){
+
+// }
+// __global__ void AsyncUnbiasedSampleKernel(Sampler *sampler, float *tp) {
 //   // Jobs_result<JobType::RW, uint> &result = sampler->result;
 //   sample_result &result = sampler->result;
 //   gpu_graph *graph = &sampler->ggraph;
@@ -51,20 +28,27 @@
 //     result.length[idx_i] = result.hop_num - 1;
 //     for (uint current_itr = 0; current_itr < result.hop_num - 1;
 //          current_itr++) {
-//       uint src_id = result.GetData(current_itr, idx_i);
+//       uint src_id = result.getDataOfInstance(current_itr, idx_i);
 //       uint src_degree = graph->getDegree((uint)src_id);
+//       uint target_size = result.hops[current_itr + 1];
 //       // if(idx_i==0) printf("src_id %d src_degree %d\n",src_id,src_degree );
 //       if (src_degree == 0 || curand_uniform(&state) < *tp) {
-//         result.length[idx_i] = current_itr;
+//         // result.length[idx_i] = current_itr;
 //         break;
-//       } else if (1 < src_degree) {
-//         int col = (int)floor(curand_uniform(&state) * src_degree);
-//         uint candidate = col;
-//         *result.GetDataPtr(current_itr + 1, idx_i) =
-//             graph->getOutNode(src_id, candidate);
 //       } else {
-//         *result.GetDataPtr(current_itr + 1, idx_i) =
-//             graph->getOutNode(src_id, 0);
+//         if (target_size < src_degree) {
+//           for (size_t i = 0; i < target_size; i++) {
+//             int col = (int)floor(curand_uniform(&state) * src_degree);
+//             uint candidate = col;
+//             *(result.getAddrOfInstance(idx_i, current_itr + 1) + i) =
+//                 graph->getOutNode(src_id, candidate);
+//           }
+//         } else {
+//           for (size_t i = 0; i < src_degree; i++) {
+//             *(result.getAddrOfInstance(idx_i, current_itr + 1) + i) =
+//                 graph->getOutNode(src_id, i);
+//           }
+//         }
 //       }
 //     }
 //   }
@@ -80,8 +64,7 @@ static __global__ void SampleKernelPerItr(Sampler *sampler, uint current_itr) {
   // __syncthreads();
 
   // for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
-  if (current_itr < result.hop_num - 1)
-  {
+  if (current_itr < result.hop_num - 1) {
     // if(LID==0) paster(result.hop_num - 1);
     sample_job job;
     __threadfence_block();
@@ -109,7 +92,7 @@ static __global__ void SampleKernelPerItr(Sampler *sampler, uint current_itr) {
         }
       }
       job = result.requireOneJob(current_itr);
-    }                            
+    }
   }
 }
 static __global__ void sample_kernel(Sampler *sampler) {
@@ -206,28 +189,28 @@ float UnbiasedSample(Sampler &sampler) {
   //   cudaDeviceProp deviceProp;
   //   cudaGetDeviceProperties(&deviceProp, 0);
   //   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm,
-  //                                                 sample_kernel, numThreads, 0);
+  //                                                 sample_kernel, numThreads,
+  //                                                 0);
   //   // launch
   //   void *kernelArgs[] = {sampler_ptr};
   //   dim3 dimBlock(numThreads, 1, 1);
   //   dim3 dimGrid(deviceProp.multiProcessorCount * numBlocksPerSm, 1, 1);
-  //   // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)sample_kernel, dimGrid,
+  //   // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)sample_kernel,
+  //   dimGrid,
   //   //                                          dimBlock, kernelArgs));
   //   sample_kernel<<<dimGrid, dimBlock, 0, 0>>>(sampler_ptr);
   // }
   if (!FLAGS_peritr) {
     sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
-  }
-  else {
+  } else {
     for (uint current_itr = 0; current_itr < sampler.result.hop_num - 1;
          current_itr++) {
       GetSize<<<1, 32, 0, 0>>>(sampler_ptr, current_itr, size_d);
       CUDA_RT_CALL(
           cudaMemcpy(&size_h, size_d, sizeof(uint), cudaMemcpyDeviceToHost));
       if (size_h > 0) {
-        SampleKernelPerItr<<<block_num, BLOCK_SIZE, 0,
-        0>>>(
-            sampler_ptr, current_itr);
+        SampleKernelPerItr<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr,
+                                                            current_itr);
         // Reset<<<1, 32, 0, 0>>>(sampler_ptr, current_itr);
       } else {
         break;
