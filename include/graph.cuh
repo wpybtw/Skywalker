@@ -158,7 +158,7 @@ class Graph {
     // }
     // LOG("\n");
     LOG("alias_length %llu, using %0.4f\n", alias_length,
-           (alias_length / 4 + 0.0) / numEdge);
+        (alias_length / 4 + 0.0) / numEdge);
   }
   void ReadGraphGR() {
     // uint *vsize;
@@ -289,8 +289,9 @@ class Graph {
           //   adjwgt[i] = static_cast<float>(outDegree[]);
           // }
           LOG("using degree as weight\n");
-#pragma omp parallel for
+
           for (size_t i = 0; i < num_Node; i++) {
+#pragma omp parallel for
             for (size_t j = xadj[i]; j < xadj[i + 1]; j++) {
               adjwgt[j] = static_cast<float>(outDegree[i]);
             }
