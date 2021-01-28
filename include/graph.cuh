@@ -71,12 +71,17 @@ class Graph {
   uint64_t gmem_used = 0;
   uint64_t um_used = 0;
 
+  // alias table
+  uint64_t *alias_offset;
+  uint64_t alias_length;
+
   Graph() {
     this->graphFilePath = FLAGS_input;
     this->weighted = false;
     this->hasZeroID = false;
     this->withWeight = false;
     ReadGraphGR();
+    ComputeCompressAliasOffset();
     // Set_Mem_Policy(FLAGS_weight || FLAGS_randomweight); // FLAGS_weight||
   }
   ~Graph() {
@@ -129,7 +134,32 @@ class Graph {
     weighted = (bool)sizeEdgeTy;
     gk_fclose(fpin);
   }
+  void ComputeCompressAliasOffset() {
+    alias_offset = new uint64_t[numNode];
+    uint64_t tmp = 0;
+    alias_offset[0] = 0;
+    for (size_t i = 0; i < numNode; i++) {
+      if (outDegree[i] < 256) {
+        tmp += outDegree[i];
+      } else if (outDegree[i] < 65536) {
+        if (tmp % 2 != 0) tmp++;
+        tmp += outDegree[i] << 1;
+      } else {
+        if (tmp % 2 != 0) tmp = (tmp >> 2 + 1) << 2;
+        tmp += outDegree[i] << 2;
+      }
+      alias_offset[i + 1] = tmp;
+    }
+    alias_length = tmp;
 
+    // LOG("alias_offset: ");
+    // for (size_t i = 0; i < 10; i++) {
+    //   printf("%llu\t", alias_offset[i]);
+    // }
+    // LOG("\n");
+    LOG("alias_length %llu, using %0.4f\n", alias_length,
+           (alias_length / 4 + 0.0) / numEdge);
+  }
   void ReadGraphGR() {
     // uint *vsize;
     FILE *fpin;

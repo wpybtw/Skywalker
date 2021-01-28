@@ -26,33 +26,44 @@ BATCH="--n 40000"
 
 # --randomweight=1 --weightrange=2 
 
-echo "-------------------------------------------------------offline rw 100" >> scale.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${NG})
-    do
-        ./bin/main -bias=1 --ol=0 --ngpu=$i --s ${RW} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
-    done
-done
-
-echo "-------------------------------------------------------offline ppr 0.15" >> scale.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${NG})
-    do
-        ./bin/main  -bias=1 --ol=0 --n=40000 ${RW}  --tp=0.15   --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} --ngpu=$i --s >> scale.csv
-    done
-done
+# echo "-------------------------------------------------------unbias sp scale" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu=$i ${SP} ${BATCH} --m=1  >> scale.csv
+#     done
+# done
 
 
-echo "-------------------------------------------------------offline sp 100" >> scale.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${NG})
-    do
-        ./bin/main -bias=1 --ol=0 --ngpu=$i --s ${SP} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
-    done
-done
+
+# echo "-------------------------------------------------------offline rw 100" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/main -bias=1 --ol=0 --ngpu=$i --s ${RW} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
+#     done
+# done
+
+# echo "-------------------------------------------------------offline ppr 0.15" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/main  -bias=1 --ol=0 --n=40000 ${RW}  --tp=0.15   --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} --ngpu=$i --s >> scale.csv
+#     done
+# done
+
+
+# echo "-------------------------------------------------------offline sp 100" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/main -bias=1 --ol=0 --ngpu=$i --s ${SP} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
+#     done
+# done
 
 
 
@@ -68,30 +79,30 @@ do
     done
 done
 
-echo "-------------------------------------------------------online ppr 0.15" >> scale.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${NG})
-    do
-        ./bin/main  -bias=1 --ol=1 --n=40000 ${RW}  --tp=0.15   --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} --ngpu=$i --s >> scale.csv
-    done
-done
+# echo "-------------------------------------------------------online ppr 0.15" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/main  -bias=1 --ol=1 --n=40000 ${RW}  --tp=0.15   --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} --ngpu=$i --s >> scale.csv
+#     done
+# done
 
-echo "-------------------------------------------------------online ppr 0.15" >> scale.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${NG})
-    do
-        ./bin/node2vec  -node2vec --n=40000 ${RW}  --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} --ngpu=$i --s >> scale.csv
-    done
-done
+# echo "-------------------------------------------------------online ppr 0.15" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/node2vec  -node2vec --n=40000 ${RW}  --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} --ngpu=$i --s >> scale.csv
+#     done
+# done
 
-echo "-------------------------------------------------------online sp 100" >> scale.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${NG})
-    do
-        ./bin/main -bias=1 --ol=1 --ngpu=$i --s ${SP} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
-    done
-done
+# echo "-------------------------------------------------------online sp 100" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/main -bias=1 --ol=1 --ngpu=$i --s ${SP} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
+#     done
+# done
 

@@ -34,20 +34,21 @@ OUT='>> unbiased.csv'
 #     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${RW} ${BATCH} >> unbiased.csv
 # done
 
-echo "-------------------------------------------------------unbias sp" >> unbiased.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=1 >> unbiased1.csv
-done
 
 echo "-------------------------------------------------------unbias sp" >> unbiased.csv
 for idx in $(seq 1 ${#DATA[*]}) 
 do
-    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=2 >> unbiased2.csv
+    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=1  >> unbiased1.csv
 done
 
-echo "-------------------------------------------------------unbias sp" >> unbiased.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=3>> unbiased3.csv
-done
+# echo "-------------------------------------------------------unbias sp" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=2 >> unbiased2.csv
+# done
+
+# echo "-------------------------------------------------------unbias sp" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=3>> unbiased3.csv
+# done
