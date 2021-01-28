@@ -289,9 +289,8 @@ class Graph {
           //   adjwgt[i] = static_cast<float>(outDegree[]);
           // }
           LOG("using degree as weight\n");
-
-          for (size_t i = 0; i < num_Node; i++) {
 #pragma omp parallel for
+          for (size_t i = 0; i < num_Node; i++) {
             for (size_t j = xadj[i]; j < xadj[i + 1]; j++) {
               adjwgt[j] = static_cast<float>(outDegree[i]);
             }
