@@ -48,6 +48,7 @@ using offset_t = uint32_t;
 #define WARP_SIZE 32
 #define SHMEM_SIZE 49152
 #define BLOCK_SIZE 256
+
 #define THREAD_PER_SM 1024
 
 #define WARP_PER_BLK (BLOCK_SIZE / 32)
@@ -61,6 +62,9 @@ using offset_t = uint32_t;
 #define ELE_PER_WARP (SHMEM_PER_WARP / MEM_PER_ELE - 12)  // 8
 
 #define ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)
+
+// #define ELE_PER_WARP 59
+// #define ELE_PER_BLOCK 73 
 
 #define CUDA_RT_CALL(call)                                               \
   {                                                                      \

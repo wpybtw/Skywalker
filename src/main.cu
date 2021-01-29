@@ -99,6 +99,7 @@ int main(int argc, char *argv[]) {
   if (numa_available() < 0) {
     LOG("Your system does not support NUMA API\n");
   }
+  // cout<<"ELE_PER_BLOCK "<<ELE_PER_BLOCK<<" ELE_PER_WARP "<<ELE_PER_WARP <<endl;
 
   // override flag
   if (FLAGS_hmgraph) {

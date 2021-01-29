@@ -222,8 +222,8 @@ class gpu_graph {
   __device__ edge_t getOutNode(edge_t idx, uint offset) {
     // uint offset = (unsigned long long)(adjncy + xadj[idx] + offset) / 4;
     // vtx_t *ptr =
-    //     (vtx_t *)(((unsigned long long)(adjncy + xadj[idx] + offset + 16)) & -16);
-    // int4 tmp = (reinterpret_cast<int4 *>((ptr))[0]);
+    //     (vtx_t *)(((unsigned long long)(adjncy + xadj[idx] + offset + 8)) & -8);
+    // int2 tmp = (reinterpret_cast<int2 *>((ptr))[0]);
     // return tmp.x;
 
     // vtx_t tmp;

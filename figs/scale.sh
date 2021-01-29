@@ -70,14 +70,14 @@ BATCH="--n 40000"
 
 
 
-echo "-------------------------------------------------------online rw 100" >> scale.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${NG})
-    do
-        ./bin/main -bias=1 --ol=1 --ngpu=$i --s ${RW} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
-    done
-done
+# echo "-------------------------------------------------------online rw 100" >> scale.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${NG})
+#     do
+#         ./bin/main -bias=1 --ol=1 --ngpu=$i --s ${RW} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> scale.csv
+#     done
+# done
 
 # echo "-------------------------------------------------------online ppr 0.15" >> scale.csv
 # for idx in $(seq 1 ${#DATA[*]}) 
