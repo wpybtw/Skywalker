@@ -187,18 +187,19 @@ class Graph {
           graphFilePath.substr(graphFilePath.rfind(delimiter) + 1);
       cout << token << endl;
     }
-    // CUDA_RT_CALL(cudaMallocHost(&xadj, (num_Node + 1) * sizeof(uint)));
-    // CUDA_RT_CALL(cudaMallocHost(&adjncy, num_Edge * sizeof(uint)));
-    CUDA_RT_CALL(cudaHostAlloc(&xadj, (num_Node + 1) * sizeof(edge_t),
-                               cudaHostAllocMapped));
-    CUDA_RT_CALL(
-        cudaHostAlloc(&adjncy, num_Edge * sizeof(vtx_t), cudaHostAllocMapped));
+    xadj=(edge_t *)malloc( (num_Node + 1) * sizeof(uint));
+    adjncy=(vtx_t *)malloc( num_Edge * sizeof(uint));
+    // CUDA_RT_CALL(cudaHostAlloc(&xadj, (num_Node + 1) * sizeof(edge_t),
+    //                            cudaHostAllocMapped));
+    // CUDA_RT_CALL(
+    //     cudaHostAlloc(&adjncy, num_Edge * sizeof(vtx_t), cudaHostAllocMapped));
     um_used += (num_Node + 1) * sizeof(vtx_t) + num_Edge * sizeof(vtx_t);
 
     adjwgt = nullptr;
     if (FLAGS_weight)
-      CUDA_RT_CALL(cudaHostAlloc(&adjwgt, num_Edge * sizeof(weight_t),
-                                 cudaHostAllocMapped));
+      // CUDA_RT_CALL(cudaHostAlloc(&adjwgt, num_Edge * sizeof(weight_t),
+      //                            cudaHostAllocMapped));
+      adjwgt=(weight_t *)malloc( num_Edge * sizeof(weight_t));
     // um_used += num_Edge * sizeof(uint);
     weighted = true;
     if ((!sizeEdgeTy || FLAGS_randomweight) && FLAGS_bias) {
