@@ -92,6 +92,7 @@ DEFINE_bool(ab, true, "using UM AB hint");
 // DEFINE_bool(pf, true, "using UM prefetching");
 
 DEFINE_bool(async, false, "using async execution");
+DEFINE_bool(replica, false, "same task for all gpus");
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -99,7 +100,8 @@ int main(int argc, char *argv[]) {
   if (numa_available() < 0) {
     LOG("Your system does not support NUMA API\n");
   }
-  // cout<<"ELE_PER_BLOCK "<<ELE_PER_BLOCK<<" ELE_PER_WARP "<<ELE_PER_WARP <<endl;
+  // cout<<"ELE_PER_BLOCK "<<ELE_PER_BLOCK<<" ELE_PER_WARP "<<ELE_PER_WARP
+  // <<endl;
 
   // override flag
   if (FLAGS_hmgraph) {
@@ -189,6 +191,7 @@ int main(int argc, char *argv[]) {
       int dev_id = omp_get_thread_num();
       int dev_num = omp_get_num_threads();
       uint local_sample_size = sample_size / dev_num;
+      if (FLAGS_replica) local_sample_size = sample_size;
 
       // if (dev_id < 2) {
       //   numa_run_on_on_node(0);
@@ -241,12 +244,12 @@ int main(int argc, char *argv[]) {
         time[dev_id] = ConstructTable(samplers[dev_id], dev_num, dev_id);
 
         // use a global host mapped table for all gpus
-        if (dev_num > 1) {
+        if (dev_num > 1 && FLAGS_n > 0) {
           global_table.Assemble(samplers[dev_id].ggraph);
           if (!FLAGS_dt)
             samplers[dev_id].UseGlobalAliasTable(global_table);
           else {
-            LOG("CopyFromGlobalAliasTable");
+            // LOG("CopyFromGlobalAliasTable");
             samplers[dev_id].CopyFromGlobalAliasTable(global_table);
           }
         }

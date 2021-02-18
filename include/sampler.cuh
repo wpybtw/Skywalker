@@ -12,6 +12,8 @@ DECLARE_bool(ol);
 DECLARE_bool(umtable);
 DECLARE_bool(hmtable);
 DECLARE_bool(itl);
+
+DECLARE_bool(replica);
 // struct sample_result;
 // class Sampler;
 
@@ -92,6 +94,15 @@ class Sampler {
                             ggraph.edge_num * sizeof(uint), cudaMemcpyDefault));
     CUDA_RT_CALL(cudaMemcpy((valid), table.valid, ggraph.vtx_num * sizeof(char),
                             cudaMemcpyDefault));
+    if (FLAGS_umtable) {
+      int dev_id = omp_get_thread_num();
+      H_ERR(cudaMemPrefetchAsync(prob_array, ggraph.edge_num * sizeof(float),
+                                 dev_id, nullptr));
+      H_ERR(cudaMemPrefetchAsync(alias_array, ggraph.edge_num * sizeof(uint),
+                                 dev_id, nullptr));
+      H_ERR(cudaMemPrefetchAsync(valid, ggraph.vtx_num * sizeof(char), dev_id,
+                                 nullptr));
+    }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     ggraph.valid = valid;
@@ -228,10 +239,10 @@ class Sampler {
       CUDA_RT_CALL(cudaMemAdvise(valid, ggraph.vtx_num * sizeof(char),
                                  cudaMemAdviseSetAccessedBy, device_id));
 
-      H_ERR(cudaMemPrefetchAsync(prob_array,   ggraph.edge_num * sizeof(float), dev_id,
-                                 nullptr));
-      H_ERR(cudaMemPrefetchAsync(alias_array, ggraph.edge_num * sizeof(uint), dev_id,
-                                 nullptr));
+      H_ERR(cudaMemPrefetchAsync(prob_array, ggraph.edge_num * sizeof(float),
+                                 dev_id, nullptr));
+      H_ERR(cudaMemPrefetchAsync(alias_array, ggraph.edge_num * sizeof(uint),
+                                 dev_id, nullptr));
       H_ERR(cudaMemPrefetchAsync(valid, ggraph.vtx_num * sizeof(char), dev_id,
                                  nullptr));
     }
@@ -263,13 +274,19 @@ class Sampler {
     uint *seeds = new uint[num_seed];
     // for (int n = num_seed / dev_num * dev_id;
     //      n < num_seed / dev_num * (dev_id + 1); ++n)
-    for (int n = 0; n < num_seed; ++n) {
+    if (!FLAGS_replica) {
+      for (int n = 0; n < num_seed; ++n) {
 #ifdef check
-      // seeds[n] = n;
+        // seeds[n] = n;
 #else
-      seeds[n] = dev_id + n * dev_num;
+        seeds[n] = dev_id + n * dev_num;
 // seeds[n] = dis(gen);
 #endif  // check
+      }
+    } else {
+      for (int n = 0; n < num_seed; ++n) {
+        seeds[n] = n;
+      }
     }
     result.init(num_seed, _hop_num, _hops, seeds, device_id);
     // printf("first ten seed:");
