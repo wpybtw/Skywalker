@@ -221,7 +221,7 @@ float UnbiasedSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("start time %f \t",start_time);
+  printf("start time %0.3f \t",start_time);
 #pragma omp barrier
   LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS sampled %u\n",
       omp_get_thread_num(), total_time,
