@@ -173,7 +173,7 @@ float UnbiasedSample(Sampler &sampler) {
 
   uint size_h, *size_d;
   cudaMalloc(&size_d, sizeof(uint));
-
+#pragma omp barrier
   start_time = wtime();
   // if (true) {
   //   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
@@ -221,6 +221,8 @@ float UnbiasedSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+  printf("start time %f \t",start_time);
+#pragma omp barrier
   LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS sampled %u\n",
       omp_get_thread_num(), total_time,
       static_cast<float>(sampler.result.GetSampledNumber() / total_time /
