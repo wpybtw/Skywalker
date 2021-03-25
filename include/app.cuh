@@ -1,7 +1,7 @@
 #include "roller.cuh"
 #include "kernel.cuh"
 #include "sampler.cuh"
-#include "alias_table.cuh"
+// #include "alias_table.cuh"
 #include "sampler_result.cuh"
 #include "util.cuh"
 

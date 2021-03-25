@@ -243,18 +243,6 @@ class Graph {
     for (size_t i = 0; i < num_Node; i++) {
       outDegree[i] = xadj[i + 1] - xadj[i];
     }
-    // int tmp = 25729;
-    // if (FLAGS_v)
-    //   printf("%d has  out degree %d\n", tmp, outDegree[tmp]);
-    // for (size_t i = 0; i < outDegree[tmp]; i++)
-    // {
-    //   printf("%u \t",adjncy[xadj[tmp]+i ] );
-    // }
-    // printf("%d has  out degree %d\n", tmp, outDegree[tmp]);
-
-    // tmp = 3025271;
-    // if (FLAGS_v)
-    //   printf("%d has  out degree %d\n", tmp, outDegree[tmp]);
     uint maxD = std::distance(
         outDegree, std::max_element(outDegree, outDegree + num_Node));
     // if (FLAGS_v)
@@ -280,23 +268,12 @@ class Graph {
 
         // if(omp_get_thread_num())
         // printf("omp_get_max_threads() %d\n",omp_get_max_threads());
-        if (!FLAGS_dw) {
+        {
 #pragma omp parallel for
           for (size_t i = 0; i < num_Edge; i++) {
             adjwgt[i] = static_cast<float>(tmp_weight[i]);
           }
-        } else {
-          // for (size_t i = 0; i < num_Edge; i++) {
-          //   adjwgt[i] = static_cast<float>(outDegree[]);
-          // }
-          LOG("using degree as weight\n");
-#pragma omp parallel for
-          for (size_t i = 0; i < num_Node; i++) {
-            for (size_t j = xadj[i]; j < xadj[i + 1]; j++) {
-              adjwgt[j] = static_cast<float>(outDegree[i]);
-            }
-          }
-        }
+        } 
         delete[] tmp_weight;
         // fprintf(stderr, "read data for %lu edges\n", num_Edge);
       } else {
