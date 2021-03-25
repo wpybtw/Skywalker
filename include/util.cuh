@@ -133,17 +133,6 @@ __host__ __device__ __forceinline__ void myprintf(const char *file, int line,
 // }
 }  // namespace print
 
-// increment the value at ptr by 1 and return the old value
-// inline __device__ int atomicAggInc(int *ptr) {
-//     int mask = __match_any_sync(__activemask(), (unsigned long long)ptr);
-//     int leader = __ffs(mask) – 1; // select a leader
-//     int res;
-//     if(lane_id() == leader)                  // leader does the update
-//         res = atomicAdd(ptr, __popc(mask));
-//     res = __shfl_sync(mask, res, leader);    // get leader’s old value
-//     return res + __popc(mask & ((1 << lane_id()) – 1)); //compute old value
-// }
-
 __device__ void __conv();
 #include <stdlib.h>
 #include <sys/time.h>

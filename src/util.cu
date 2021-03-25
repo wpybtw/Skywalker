@@ -1,36 +1,5 @@
 #include "util.cuh"
 
-// __device__ char char_atomicCAS(char *addr, char cmp, char val) {
-//   unsigned *al_addr = reinterpret_cast<unsigned *>(((unsigned long long)addr)
-//   &
-//                                                    (0xFFFFFFFFFFFFFFFCULL));
-//   unsigned al_offset = ((unsigned)(((unsigned long long)addr) & 3)) * 8;
-//   unsigned mask = 0xFFU;
-//   mask <<= al_offset;
-//   mask = ~mask;
-//   unsigned sval = val;
-//   sval <<= al_offset;
-//   unsigned old = *al_addr, assumed, setval;
-//   do {
-//     assumed = old;
-//     setval = assumed & mask;
-//     setval |= sval;
-//     old = atomicCAS(al_addr, assumed, setval);
-//   } while (assumed != old);
-//   return (char)((assumed >> al_offset) & 0xFFU);
-// }
-
-// template <typename T>
-// __inline__ __device__ T warpPrefixSum(T val, int lane_id) {
-//   T val_shuffled;
-//   for (int offset = 1; offset < warpSize; offset *= 2) {
-//     val_shuffled = __shfl_up(val, offset);
-//     if (lane_id >= offset) {
-//       val += val_shuffled;
-//     }
-//   }
-//   return val;
-// }
 
 double wtime() {
   double time[2];
@@ -97,38 +66,6 @@ __device__ float my_atomicSub(float *address, float val) {
   return __int_as_float(old);
 }
 
-// __device__ long long my_atomicSub(long long *address, long long val) {
-//   unsigned long long int *address_as_ull = (unsigned long long int *)address;
-//   unsigned long long int old = *address_as_ull, assumed;
-//   do {
-//     assumed = old;
-//     old = atomicCAS(address_as_ull, assumed,
-//                     ((assumed)-val));  // Note: uses integer comparison to avoid
-//                                        // hang in case of NaN (since NaN != NaN)
-//   } while (assumed != old);
-//   return (old);
-// }
-
-// __device__ unsigned long long my_atomicSub(unsigned long long *address,
-//                                            unsigned long long val) {
-//   unsigned long long int *address_as_ull = (unsigned long long int *)address;
-//   unsigned long long int old = *address_as_ull, assumed;
-//   do {
-//     assumed = old;
-//     old = atomicCAS(address_as_ull, assumed, ((assumed)-val));
-//   } while (assumed != old);
-//   return (old);
-// }
-
-// __device__ long long my_atomicAdd(long long *address, long long val) {
-//   unsigned long long int *address_as_ull = (unsigned long long int *)address;
-//   unsigned long long int old = *address_as_ull, assumed;
-//   do {
-//     assumed = old;
-//     old = atomicCAS(address_as_ull, assumed, ((assumed) + val));
-//   } while (assumed != old);
-//   return (old);
-// }
 
 template <>
 __device__ void printD<float>(float *ptr, size_t size) {
@@ -156,20 +93,3 @@ __device__ void printD<uint>(uint *ptr, size_t size) {
   printf("\n");
 }
 
-// template <typename T> __global__ void init_range_d(T *ptr, size_t size) {
-//   if (TID < size) {
-//     ptr[TID] = TID;
-//   }
-// }
-// template <typename T> void init_range(T *ptr, size_t size) {
-//   init_range_d<T><<<size / 512 + 1, 512>>>(ptr, size);
-// }
-// template <typename T> __global__ void init_array_d(T *ptr, size_t size, T v)
-// {
-//   if (TID < size) {
-//     ptr[TID] = v;
-//   }
-// }
-// template <typename T> void init_array(T *ptr, size_t size, T v) {
-//   init_array_d<T><<<size / 512 + 1, 512>>>(ptr, size, v);
-// }

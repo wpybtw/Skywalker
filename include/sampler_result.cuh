@@ -74,12 +74,6 @@ size_t get_sum(T *ptr, size_t size) {
   return t;
 }
 
-// static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
-//                                  uint hop) {
-//   if (TID < size) {
-//     data[TID * hop] = seeds[TID];
-//   }
-// }
 
 static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
                                  uint hop) {
@@ -88,264 +82,8 @@ static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
   }
 }
 
-// template <JobType job, typename T>
-// static __global__ void initStateSeed(SamplerState<job, T> *states, uint
-// *seeds,
-//                                      size_t size);
-
 template <JobType job, typename T>
 struct Jobs_result;
-
-template <typename T>
-struct Frontier {
-  u64 *size;
-  T *data;
-  u64 capacity;
-  void Allocate(size_t _size) {
-    capacity = _size;
-    CUDA_RT_CALL(cudaMalloc(&data, 3 * capacity * sizeof(T)));
-    CUDA_RT_CALL(cudaMalloc(&size, 3 * sizeof(u64)));
-  }
-  __device__ void CheckActive(uint itr) {}
-  __device__ void SetActive(uint itr, T idx) {
-    size_t old = atomicAdd(&size[itr % 3], 1);
-    data[capacity * (itr % 3) + old] = idx;
-  }
-  __device__ void Reset(uint itr) { size[itr % 3] = 0; }
-  __device__ u64 Size(uint itr) { return size[itr % 3]; }
-  __device__ T Get(uint itr, uint idx) {
-    return data[capacity * (itr % 3) + idx];
-  }
-};
-static __global__ void setFrontierSize(u64 *data, uint size) {
-  if (TID == 0) data[0] = size;
-}
-
-template <JobType job, typename T>
-struct SamplerState;
-
-template <typename T>
-struct SamplerState<JobType::NODE2VEC, T> {
-  T last = 0;
-  // bool alive = true;
-};
-// template <typename T> struct SamplerState<JobType::NODE2VEC, uint> {
-//   // T *data;
-//   uint depth = 0;
-//   bool alive = true;
-//   // void Allocate(uint size) { CUDA_RT_CALL(cudaMalloc(&data, size *
-//   sizeof(T))); }
-// };
-
-template <typename T>
-struct Jobs_result<JobType::RW, T> {
-  // using task_t = Task<JobType::RW, T>;
-  u64 size;
-  uint hop_num;
-  uint capacity;
-  uint *data;
-  char *alive;
-  uint *length;
-  // uint *frontier;
-  Frontier<T> frontier;
-  Vector_gmem<uint> *high_degrees;
-  int *job_sizes_floor = nullptr;
-  int *job_sizes = nullptr;
-  uint *data2;
-  uint device_id;
-
-  SamplerState<JobType::NODE2VEC, T> *state;
-  float p = 2.0, q = 0.5;
-  Vector_gmem<uint> *high_degrees_h;
-
-  Jobs_result() {}
-  void Free() {
-    if (alive != nullptr) CUDA_RT_CALL(cudaFree(alive));
-    if (length != nullptr) CUDA_RT_CALL(cudaFree(length));
-    if (data != nullptr) CUDA_RT_CALL(cudaFree(data));
-    if (job_sizes != nullptr) CUDA_RT_CALL(cudaFree(job_sizes));
-    if (job_sizes_floor != nullptr) CUDA_RT_CALL(cudaFree(job_sizes_floor));
-
-    for (size_t i = 0; i < hop_num; i++) {
-      high_degrees_h[i].Free();
-    }
-    if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
-  }
-  void init(uint _size, uint _hop_num, uint *seeds, uint _device_id = 0) {
-    int dev_id = omp_get_thread_num();
-    CUDA_RT_CALL(cudaSetDevice(dev_id));
-    device_id = _device_id;
-    size = _size;
-    hop_num = _hop_num;
-    if (size * hop_num > 400000000) FLAGS_umresult = true;
-    if (!FLAGS_umresult) {
-      CUDA_RT_CALL(cudaMalloc(&data, size * hop_num * sizeof(uint)));
-    } else {
-      CUDA_RT_CALL(cudaMallocManaged(&data, size * hop_num * sizeof(uint)));
-      CUDA_RT_CALL(cudaMemAdvise(data, size * hop_num * sizeof(uint),
-                                 cudaMemAdviseSetAccessedBy, device_id));
-    }
-    CUDA_RT_CALL(cudaMalloc(&alive, size * sizeof(char)));
-    CUDA_RT_CALL(cudaMemset(alive, 1, size * sizeof(char)));
-    CUDA_RT_CALL(cudaMalloc(&length, size * sizeof(uint)));
-
-    if (FLAGS_node2vec) {
-      CUDA_RT_CALL(cudaMalloc(
-          &state, size * sizeof(SamplerState<JobType::NODE2VEC, T>)));
-      p = FLAGS_p;
-      q = FLAGS_q;
-    }
-
-    {
-      if (!FLAGS_umresult) {
-        CUDA_RT_CALL(cudaMalloc(&data2, size * hop_num * sizeof(uint)));
-      } else {
-        CUDA_RT_CALL(cudaMallocManaged(&data2, size * hop_num * sizeof(uint)));
-        CUDA_RT_CALL(cudaMemAdvise(data2, size * hop_num * sizeof(uint),
-                                   cudaMemAdviseSetAccessedBy, device_id));
-      }
-
-      init_range(data2, size);
-      // CUDA_RT_CALL(cudaMemcpy(data2, seeds, size * sizeof(uint),
-      //                  cudaMemcpyHostToDevice));
-
-      high_degrees_h = new Vector_gmem<uint>[hop_num];
-
-      for (size_t i = 0; i < hop_num; i++) {
-        high_degrees_h[i].Allocate(MAX((size * FLAGS_hd), 4000), device_id);
-      }
-      CUDA_RT_CALL(
-          cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
-      CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
-                              hop_num * sizeof(Vector_gmem<uint>),
-                              cudaMemcpyHostToDevice));
-      CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
-      CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
-    }
-
-    if (FLAGS_peritr) {
-      frontier.Allocate(size);
-      // copy seeds
-      // if layout1, oor
-      CUDA_RT_CALL(cudaMemcpy(frontier.data, seeds, size * sizeof(uint),
-                              cudaMemcpyHostToDevice));
-      setFrontierSize<<<1, 32>>>(frontier.size, size);
-    }
-    // uint *seeds_g;
-    // CUDA_RT_CALL(cudaMalloc(&seeds_g, size * sizeof(uint)));
-    // CUDA_RT_CALL(cudaMemcpy(seeds_g, seeds, size * sizeof(uint),
-    //                  cudaMemcpyHostToDevice));
-    // initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
-
-    CUDA_RT_CALL(
-        cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
-  }
-  __device__ void AddHighDegree(uint current_itr, uint instance_idx) {
-    // printf("AddHighDegree %u %u \n",current_itr,instance_idx);
-    high_degrees[current_itr].Add(instance_idx);
-  }
-  __host__ size_t GetSampledNumber() {
-    // paster((get_sum(length, size)));
-    // paster((get_sum(job_sizes, hop_num)));
-    return get_sum(length, size);
-  }
-  __device__ void setAddrOffset() {
-    // printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
-    // paster(size);
-    job_sizes[0] = size;
-    // uint64_t offset = 0;
-    // uint64_t cum = size;
-    // hops_acc[0]=1;
-    for (size_t i = 0; i < hop_num; i++) {
-      // if (i!=0) hops_acc[i]
-      // addr_offset[i] = offset;
-      // cum *= hops[i];
-      // offset += cum;
-      job_sizes_floor[i] = 0;
-    }
-  }
-
-  __device__ void PrintResult() {
-    if (LTID == 0) {
-      printf("seeds \n");
-      for (size_t i = 0; i < MIN(5, size); i++) {
-        printf("%u \t", GetData(0, i));
-      }
-      for (int j = 0; j < MIN(2, size); j++) {
-        printf("\n%drd path len %u \n", j, length[j]);
-        for (size_t i = 0; i < MIN(length[j], hop_num); i++) {
-          printf("%u \t", GetData(i, j));
-        }
-        printf("\n");
-      }
-    }
-  }
-  __device__ T *GetDataPtr(size_t itr, size_t idx) {
-    return data + itr * size + idx;
-  }
-  __device__ T GetData(size_t itr, size_t idx) {
-    return data[itr * size + idx];
-  }
-  __device__ uint getNodeId(uint idx, uint hop) {
-    // paster(addr_offset[hop]);
-    return data[hop * size + idx];
-  }
-  __device__ uint getNodeId2(uint idx, uint hop) {
-    // paster(addr_offset[hop]);
-    return data2[hop * size + idx];
-  }
-
-  //   struct sample_job_new {
-  //   uint idx_in_frontier;
-  //   uint instance_idx;
-  //   bool val;  //= false
-  // };
-  __device__ struct sample_job_new requireOneHighDegreeJob(uint current_itr) {
-    sample_job_new job;
-    job.val = false;
-    int old = atomicAdd(high_degrees[current_itr].floor, 1);
-    if (old < high_degrees[current_itr].Size()) {
-      job.instance_idx = high_degrees[current_itr].Get(old);
-      job.val = true;
-    } else {
-      int old = atomicAdd(high_degrees[current_itr].floor, -1);
-      // int old = my_atomicSub(high_degrees[current_itr].floor, 1);
-    }
-    return job;
-  }
-  __device__ struct sample_job_new requireOneJob(uint current_itr)  // uint hop
-  {
-    sample_job_new job;
-    job.val = false;
-    // printf("requireOneJob for itr %u\n", current_itr);
-    // paster(job_sizes[current_itr]);
-    // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
-    int old = atomicAdd(&job_sizes_floor[current_itr], 1);
-    if (old < job_sizes[current_itr]) {
-      // printf("poping wl ele idx %d\n", old);
-      job.idx_in_frontier = (uint)old;
-      job.instance_idx = getNodeId2(old, current_itr);
-      job.val = true;
-      // printf("poping wl ele node_id %d\n", job.node_id);
-    } else {
-      int old = atomicSub(&job_sizes_floor[current_itr], 1);
-    }
-    return job;
-  }
-  __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
-    int old = atomicAdd(&job_sizes[current_itr + 1], 1);
-    array[old] = candidate;
-    // printf("Add new ele %u with degree %d\n", candidate,  );
-  }
-  __device__ void NextItr(uint &current_itr) {
-    current_itr++;
-    // printf("start itr %d at block %d \n", current_itr, blockIdx.x);
-  }
-  __device__ uint *getNextAddr(uint hop) {
-    // uint offset =  ;// + hops[hop] * idx;
-    return &data2[(hop + 1) * size];
-  }
-};
 
 struct sample_result {
   uint size;
@@ -364,10 +102,6 @@ struct sample_result {
 
   // uint current_itr = 0;
   sample_result() {}
-  // void Free()
-  // void AssemblyFeature(float * ptr, float * feat, ){
-
-  // }
   __device__ int GetJobSize(uint itr) { return job_sizes[itr]; }
   void Free() {
     if (hops != nullptr) CUDA_RT_CALL(cudaFree(hops));
@@ -425,10 +159,6 @@ struct sample_result {
         total += job_sizes[total];
       }
       printf("total sampled %u \n", total);
-      // printf("job_sizes_floor \n");
-      // printD(job_sizes_floor, hop_num);
-      // printf("result: \n");
-      // printD(data, MIN(capacity, 30));
     }
   }
   __device__ void setAddrOffset() {
