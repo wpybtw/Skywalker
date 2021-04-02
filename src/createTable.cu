@@ -5,7 +5,7 @@ __device__ void ConstructWarpCentic(Sampler *sampler, sample_result &result,
                                     int current_itr, int idx, int node_id,
                                     void *buffer) {
   using WCTable = alias_table_constructor_shmem<
-      uint, ExecutionPolicy::WC,
+      uint, thread_block_tile<32>,
       BufferType::SHMEM>;  //, AliasTableStorePolicy::STORE
   WCTable *tables = (WCTable *)buffer;
   WCTable *table = &tables[WID];
@@ -26,7 +26,7 @@ __device__ void ConstructBlockCentic(Sampler *sampler, sample_result &result,
                                      int current_itr, int node_id, void *buffer,
                                      Vector_pack2<uint> *vector_packs) {
   using BCTable =
-      alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
+      alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM,
                                     AliasTableStorePolicy::STORE>;
   BCTable *tables = (BCTable *)buffer;
   BCTable *table = &tables[0];
@@ -51,7 +51,7 @@ __global__ void ConstructAliasTableKernel(Sampler *sampler,
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack2<uint> *vector_packs = &vector_pack[BID];
   using WCTable = alias_table_constructor_shmem<
-      uint, ExecutionPolicy::WC,
+      uint, thread_block_tile<32>,
       BufferType::SHMEM>;  //, AliasTableStorePolicy::STORE
   __shared__ WCTable table[WARP_PER_BLK];
   void *buffer = &table[0];
@@ -126,10 +126,10 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
 
   sampler.AllocateAliasTablePartial(ngpu, index);
 
-  // paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC,
+  // paster(sizeof(alias_table_constructor_shmem<uint, thread_block_tile<32>,
   //                                             BufferType::SHMEM>));
   // paster(sizeof(
-  //     alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
+  //     alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM,
   //                                   AliasTableStorePolicy::STORE>));
 
   Sampler *sampler_ptr;

@@ -11,9 +11,9 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int node_id,
                                         void *buffer, uint instance_id = 0) {
-  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
-      (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
+  alias_table_constructor_shmem<uint, thread_block_tile<32>> *tables =
+      (alias_table_constructor_shmem<uint, thread_block_tile<32>> *)buffer;
+  alias_table_constructor_shmem<uint, thread_block_tile<32>> *table =
       &tables[WID];
   bool not_all_zero = table->loadFromGraph(ggraph->getNeighborPtr(node_id),
                                            ggraph, ggraph->getDegree(node_id),
@@ -46,10 +46,10 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
                                          void *buffer,
                                          Vector_pack<uint> *vector_packs,
                                          uint instance_id = 0) {
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
-      *tables = (alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
+      *tables = (alias_table_constructor_shmem<uint, thread_block,
                                                BufferType::GMEM> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
       *table = &tables[0];
   table->loadGlobalBuffer(vector_packs);
   __syncthreads();
@@ -86,7 +86,7 @@ __global__ void OnlineWalkKernel(Walker *sampler,
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack<uint> *vector_packs = &vector_pack[BID];
-  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
       table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;

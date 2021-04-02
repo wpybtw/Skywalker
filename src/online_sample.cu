@@ -4,9 +4,9 @@ static __device__ void SampleWarpCentic(sample_result &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int idx, int node_id,
                                         void *buffer) {
-  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
-      (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
+  alias_table_constructor_shmem<uint, thread_block_tile<32>> *tables =
+      (alias_table_constructor_shmem<uint, thread_block_tile<32>> *)buffer;
+  alias_table_constructor_shmem<uint, thread_block_tile<32>> *table =
       &tables[WID];
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(node_id), ggraph,
@@ -23,10 +23,10 @@ static __device__ void SampleBlockCentic(sample_result &result,
                                          int current_itr, int node_id,
                                          void *buffer,
                                          Vector_pack<uint> *vector_packs) {
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
-      *tables = (alias_table_constructor_shmem<uint, ExecutionPolicy::BC,
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
+      *tables = (alias_table_constructor_shmem<uint, thread_block,
                                                BufferType::GMEM> *)buffer;
-  alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM>
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
       *table = &tables[0];
   table->loadGlobalBuffer(vector_packs);
   __syncthreads();
@@ -50,7 +50,7 @@ __global__ void sample_kernel(Sampler *sampler,
   sample_result &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack<uint> *vector_packs = &vector_pack[BID];
-  __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
       table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;
