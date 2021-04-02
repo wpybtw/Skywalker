@@ -47,6 +47,7 @@ using offset_t = uint32_t;
 #define P printf("%d\n", __LINE__)
 #define paster(n) printf("var: " #n " =  %d\n", n)
 
+#define SUBWARP_SIZE 4
 #define WARP_SIZE 32
 #define SHMEM_SIZE 49152
 #define BLOCK_SIZE 256
@@ -61,13 +62,14 @@ using offset_t = uint32_t;
 #define MEM_PER_ELE (4 + 4 + 4 + 4 + 2)
 // #define MEM_PER_ELE (4 + 4 + 4 + 4 + 1)
 // alignment
-#define ELE_PER_WARP (SHMEM_PER_WARP / MEM_PER_ELE - 12)  // 8
+#define ALLOWED_ELE_PER_SUBWARP (SHMEM_PER_WARP*SUBWARP_SIZE/32/MEM_PER_ELE-5)
+#define ALLOWED_ELE_PER_WARP (SHMEM_PER_WARP / MEM_PER_ELE - 12)  // 73
 
-#define ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)
+#define ALLOWED_ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)  // 656
 
 #define ELE_PER_SUBWARP 8
-// #define ELE_PER_WARP 59
-// #define ELE_PER_BLOCK 73 
+#define ELE_PER_WARP 64
+#define ELE_PER_BLOCK  656 
 
 #define CUDA_RT_CALL(call)                                               \
   {                                                                      \

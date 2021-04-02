@@ -37,11 +37,11 @@ struct buf {
 //   uint capacity;
 // };
 
-template <typename T, ExecutionPolicy policy, uint _size, bool use_gmem = false>
+template <typename T, typename G, uint _size, bool use_gmem = false>
 struct Vector_shmem;
 
 template <typename T, uint _size>
-struct Vector_shmem<T, ExecutionPolicy::WC, _size, false> {
+struct Vector_shmem<T, thread_block_tile<32>, _size, false> {
   uint size;
   uint capacity;
   buf<T, _size> data;
@@ -79,7 +79,7 @@ struct Vector_shmem<T, ExecutionPolicy::WC, _size, false> {
 };
 
 template <typename T, uint _size>
-struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
+struct Vector_shmem<T, thread_block, _size, false> {
   long long size;
   uint capacity;
   buf<T, _size> data;
@@ -123,6 +123,7 @@ struct Vector_shmem<T, ExecutionPolicy::BC, _size, false> {
   __device__ T &Get(size_t id) { return data.data[id]; }
 };
 
+
 template <typename T>
 struct Global_buffer {
   long long size;
@@ -152,82 +153,82 @@ struct Global_buffer {
   __forceinline__ __device__ T *GetPtr(size_t id) { return data + id; }
 };
 
-template <typename T, uint _size>
-struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
-  long long size;
-  uint capacity;
-  buf<T, _size> data;
-  // Global_buffer<T> global_buffer;
-  long long buffer_size;
-  T *gbuf_data;
+// template <typename T, uint _size>
+// struct Vector_shmem<T, ExecutionPolicy::BC, _size, true> {
+//   long long size;
+//   uint capacity;
+//   buf<T, _size> data;
+//   // Global_buffer<T> global_buffer;
+//   long long buffer_size;
+//   T *gbuf_data;
 
-  __device__ long long Size() { return size; }
-  __device__ void Clean() {
-    if (LTID == 0) size = 0;
-  }
-  __device__ bool Empty() {
-    if (size <= 0) return true;
-    return false;
-  }
-  __device__ void LoadBuffer(T *gbuffer, uint _buffer_size) {
-    gbuf_data = gbuffer;
-    buffer_size = _buffer_size;
-    // global_buffer.load(gbuffer, _buffer_size);
-    // global_buffer.init();
-    // if (!global_buffer.claim())
-    //   printf("claim error \n");
-  }
-  __device__ void Init(size_t s = 0) {
-    if (LTID == 0) {
-      capacity = _size;
-      size = s;
-    }
-    for (size_t i = LTID; i < _size; i += blockDim.x) {
-      data.data[i] = 0;
-    }
-    __syncthreads();
-  }
-  inline __device__ void Add(T t) {
-    assert(Size() < _size + buffer_size);
-    {
-      long long old = atomicAdd((unsigned long long *)&size, 1);
-      if (old < capacity)
-        data.data[old] = t;
-      else if (old < capacity + buffer_size) {
-        gbuf_data[old - capacity] = t;
-      } else {
-        atomicAdd((unsigned long long *)&size, -1);
-        // my_atomicSub(&size,1);
-        // atomicDec(&size, 1);
-        // printf("Vector_shmem overflow %d \n", __LINE__);
-      }
-    }
-  }
-  __device__ T &operator[](size_t idx) {
-    if (idx < capacity) return data.data[idx];
-    else
-    {
-      // if(TID==0) printf("accessing idx %d\n",idx);
-      return gbuf_data[idx - capacity];
-    }
-  }
-  __forceinline__ __device__ T Get(size_t idx) {
-    if (idx < capacity)
-      return data.data[idx];
-    else {
-      // if(TID==0) printf("accessing idx %d\n",idx);
-      return gbuf_data[idx - capacity];
-    }
-  }
-  inline __device__ T *GetPtr(size_t idx) {
-    if (idx < capacity)
-      return (data.data + idx);
-    else {
-      // if(TID==0) printf("accessing idx %d\n",idx);
-      return (gbuf_data + idx - capacity);
-    }
-  }
-};
+//   __device__ long long Size() { return size; }
+//   __device__ void Clean() {
+//     if (LTID == 0) size = 0;
+//   }
+//   __device__ bool Empty() {
+//     if (size <= 0) return true;
+//     return false;
+//   }
+//   __device__ void LoadBuffer(T *gbuffer, uint _buffer_size) {
+//     gbuf_data = gbuffer;
+//     buffer_size = _buffer_size;
+//     // global_buffer.load(gbuffer, _buffer_size);
+//     // global_buffer.init();
+//     // if (!global_buffer.claim())
+//     //   printf("claim error \n");
+//   }
+//   __device__ void Init(size_t s = 0) {
+//     if (LTID == 0) {
+//       capacity = _size;
+//       size = s;
+//     }
+//     for (size_t i = LTID; i < _size; i += blockDim.x) {
+//       data.data[i] = 0;
+//     }
+//     __syncthreads();
+//   }
+//   inline __device__ void Add(T t) {
+//     assert(Size() < _size + buffer_size);
+//     {
+//       long long old = atomicAdd((unsigned long long *)&size, 1);
+//       if (old < capacity)
+//         data.data[old] = t;
+//       else if (old < capacity + buffer_size) {
+//         gbuf_data[old - capacity] = t;
+//       } else {
+//         atomicAdd((unsigned long long *)&size, -1);
+//         // my_atomicSub(&size,1);
+//         // atomicDec(&size, 1);
+//         // printf("Vector_shmem overflow %d \n", __LINE__);
+//       }
+//     }
+//   }
+//   __device__ T &operator[](size_t idx) {
+//     if (idx < capacity) return data.data[idx];
+//     else
+//     {
+//       // if(TID==0) printf("accessing idx %d\n",idx);
+//       return gbuf_data[idx - capacity];
+//     }
+//   }
+//   __forceinline__ __device__ T Get(size_t idx) {
+//     if (idx < capacity)
+//       return data.data[idx];
+//     else {
+//       // if(TID==0) printf("accessing idx %d\n",idx);
+//       return gbuf_data[idx - capacity];
+//     }
+//   }
+//   inline __device__ T *GetPtr(size_t idx) {
+//     if (idx < capacity)
+//       return (data.data + idx);
+//     else {
+//       // if(TID==0) printf("accessing idx %d\n",idx);
+//       return (gbuf_data + idx - capacity);
+//     }
+//   }
+// };
 
 // template <typename T> __global__ void myMemsetKernel(T *ptr, size_t size){
 //   for (size_t i = TID; i < size; i+=blockDim.x)
