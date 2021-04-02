@@ -80,10 +80,12 @@ struct alias_table_constructor_shmem;
 // struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
 //                                      AliasTableStorePolicy::STORE>{};
 // template <typename T>
-// struct alias_table_constructor_shmem<T, thread_block_tile<32>, BufferType::GMEM,
+// struct alias_table_constructor_shmem<T, thread_block_tile<32>,
+// BufferType::GMEM,
 //                                      AliasTableStorePolicy::STORE>{};
 // template <typename T>
-// struct alias_table_constructor_shmem<T, thread_block_tile<4>, BufferType::GMEM,
+// struct alias_table_constructor_shmem<T, thread_block_tile<4>,
+// BufferType::GMEM,
 //                                      AliasTableStorePolicy::STORE>{};
 
 // store version cache alias table
@@ -239,124 +241,139 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM,
   }
   __device__ void constructBC() {
     __shared__ uint smallsize;
+    // __shared__ bool using_spec;
     if (LTID == 0) smallsize = 0;
     for (size_t i = LTID; i < size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (prob.Get(i) > 1)
         large.Add(i);
-      else if (prob.Get(i) < 1){
+      else if (prob.Get(i) < 1) {
         small.Add(i);
         atomicAdd(&smallsize, 1);
       }
     }
     __syncthreads();
     int itr = 0;
-// todo block lock step
-#ifdef SPEC_EXE
-    // if(LTID==0) printf("spec! large %llu \tsmall %llu \n",large.Size() ,small.Size());
+    // todo block lock step
     while ((!small.Empty()) && (!large.Empty())) {
-      thread_block tb = this_thread_block();
-      long long old_small_idx = small.Size() - LTID - 1;
-      long long old_small_size = small.Size();
-      bool act = (old_small_idx >= 0);
-      int active_size = MIN(old_small_size, blockDim.x);
-      // if (old_small_idx >= 0) {
-      __syncthreads();
-      // coalesced_group active = coalesced_threads();
-      if (LTID == 0) {
-        *small.size -= active_size;
+      // if (LTID == 0 && (large.Size() * 1.5 < small.Size()))
+      //   using_spec = true;
+      // else
+      //   using_spec = false;
+      // __syncthreads();
+      #ifdef SPEC_EXE
+      // if (using_spec) 
+      {
+        thread_block tb = this_thread_block();
+        long long old_small_idx = small.Size() - LTID - 1;
+        long long old_small_size = small.Size();
+        bool act = (old_small_idx >= 0);
+        int active_size = MIN(old_small_size, blockDim.x);
+        // if (old_small_idx >= 0) {
+        __syncthreads();
+        // coalesced_group active = coalesced_threads();
+        if (LTID == 0) {
+          *small.size -= active_size;
+        }
+        __syncthreads();
+        // u64 tmp4 = (u64)small.size;
+        T smallV, largeV;
+        if (act) smallV = small.Get(old_small_idx);
+        // T largeV;
+        bool holder =
+            ((LTID < MIN(large.Size(), old_small_size)) ? true : false);
+        if (act) {
+          if (large.Size() < active_size) {
+            int res = old_small_idx % large.Size();
+            largeV = large.Get(large.Size() - res - 1);
+            // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
+            // largeV);
+          } else {
+            largeV = large.Get(large.Size() - LTID - 1);
+          }
+        }
+        __syncthreads();
+        if (LTID == 0) {
+          *large.size -= MIN(MIN(large.Size(), old_small_size), active_size);
+        }
+        __syncthreads();
+        float old;
+        if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+        __syncthreads();
+        if (!holder && act)
+          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+        __syncthreads();
+        if (act) {
+          if (old + prob.Get(smallV) - 1.0 < 0) {
+            atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
+            small.Add(smallV);
+          } else {
+            alias.data[smallV] = largeV;
+            if (holder) {
+              if (prob.Get(largeV) < 1.0) {
+                small.Add(largeV);
+              } else if (prob.Get(largeV) > 1.0) {
+                large.Add(largeV);
+              }
+            }
+          }
+        }
+        // __syncthreads();
+        if (LTID == 0) itr++;
+        __syncthreads();
       }
-      __syncthreads();
-      // u64 tmp4 = (u64)small.size;
-      T smallV, largeV;
-      if (act) smallV = small.Get(old_small_idx);
-      // T largeV;
-      bool holder = ((LTID < MIN(large.Size(), old_small_size)) ? true : false);
-      if (act) {
-        if (large.Size() < active_size) {
-          int res = old_small_idx % large.Size();
-          largeV = large.Get(large.Size() - res - 1);
-          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
-          // largeV);
-        } else {
+      #else
+      // else 
+      {
+        thread_block tb = this_thread_block();
+        long long old_small_idx = small.Size() - LTID - 1;
+        long long old_small_size = small.Size();
+        bool act = (old_small_idx >= 0);
+        int tmp = MIN(old_small_size, blockDim.x);
+        int active_size = MIN(tmp, large.Size());
+        __syncthreads();
+        if (LTID == 0) {
+          *small.size -= active_size;
+        }
+        __syncthreads();
+        // u64 tmp4 = (u64)small.size;
+        T smallV, largeV;
+        if (act) smallV = small.Get(old_small_idx);
+        // T largeV;
+        bool holder =
+            ((LTID < MIN(large.Size(), old_small_size)) ? true : false);
+        if (act && holder) {
           largeV = large.Get(large.Size() - LTID - 1);
         }
-      }
-      __syncthreads();
-      if (LTID == 0) {
-        *large.size -= MIN(MIN(large.Size(), old_small_size), active_size);
-      }
-      __syncthreads();
-      float old;
-      if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
-      __syncthreads();
-      if (!holder && act)
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
-      __syncthreads();
-      if (act) {
-        if (old + prob.Get(smallV) - 1.0 < 0) {
-          atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
-          small.Add(smallV);
-        } else {
-          alias.data[smallV] = largeV;
-          if (holder) {
-            if (prob.Get(largeV) < 1.0) {
-              small.Add(largeV);
-            } else if (prob.Get(largeV) > 1.0) {
-              large.Add(largeV);
+        __syncthreads();
+        if (LTID == 0) {
+          *large.size -= MIN(MIN(large.Size(), old_small_size), active_size);
+        }
+        // __syncthreads();
+        float old;
+        if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+        __syncthreads();
+        if (act && holder) {
+          if (old + prob.Get(smallV) - 1.0 < 0) {
+            printf("%d not possiable\n", __LINE__);
+            atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
+            small.Add(smallV);
+          } else {
+            alias.data[smallV] = largeV;
+            if (holder) {
+              if (prob.Get(largeV) < 1.0) {
+                small.Add(largeV);
+              } else if (prob.Get(largeV) > 1.0) {
+                large.Add(largeV);
+              }
             }
           }
         }
+        // __syncthreads();
+        if (LTID == 0) itr++;
+        __syncthreads();
       }
-#else
-    while ((!small.Empty()) && (!large.Empty())) {
-      thread_block tb = this_thread_block();
-      long long old_small_idx = small.Size() - LTID - 1;
-      long long old_small_size = small.Size();
-      bool act = (old_small_idx >= 0);
-      int tmp = MIN(old_small_size, blockDim.x);
-      int active_size = MIN(tmp, large.Size());
-      __syncthreads();
-      if (LTID == 0) {
-        *small.size -= active_size;
-      }
-      __syncthreads();
-      // u64 tmp4 = (u64)small.size;
-      T smallV, largeV;
-      if (act) smallV = small.Get(old_small_idx);
-      // T largeV;
-      bool holder = ((LTID < MIN(large.Size(), old_small_size)) ? true : false);
-      if (act && holder) {
-        largeV = large.Get(large.Size() - LTID - 1);
-      }
-      __syncthreads();
-      if (LTID == 0) {
-        *large.size -= MIN(MIN(large.Size(), old_small_size), active_size);
-      }
-      // __syncthreads();
-      float old;
-      if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
-      __syncthreads();
-      if (act && holder) {
-        if (old + prob.Get(smallV) - 1.0 < 0) {
-          printf("%d not possiable\n", __LINE__);
-          atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
-          small.Add(smallV);
-        } else {
-          alias.data[smallV] = largeV;
-          if (holder) {
-            if (prob.Get(largeV) < 1.0) {
-              small.Add(largeV);
-            } else if (prob.Get(largeV) > 1.0) {
-              large.Add(largeV);
-            }
-          }
-        }
-      }
-#endif
-      // __syncthreads();
-      if (LTID == 0) itr++;
-      __syncthreads();
+      #endif
     }
   }
   __device__ void construct() {
@@ -664,9 +681,10 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
 
       size_t old_small_size = small.Size();
       size_t old_large_size = large.Size();
-      uint tmp=MIN(old_small_size, old_large_size);
+      uint tmp = MIN(old_small_size, old_large_size);
       uint act_size = MIN(BLOCK_SIZE, tmp);
-      // if(LTID==0) printf("small.Size() %llu large.Size() %llu act_size %u\n",small.Size(),large.Size(),act_size);
+      // if(LTID==0) printf("small.Size() %llu large.Size() %llu act_size
+      // %u\n",small.Size(),large.Size(),act_size);
       bool act = (LTID < act_size);
       __syncthreads();
       if (LTID == 0) {
@@ -676,22 +694,27 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC, BufferType::GMEM> {
       __syncthreads();
       T smallV, largeV;
       if (act) {
-        smallV = small.Get(old_small_size + LTID - act_size );
-        largeV = large.Get(old_large_size + LTID - act_size );
-        // printf("%d %d %u\n",old_large_size - act_size + LTID, large.Get(old_large_size + LTID - act_size ),largeV);
-        // if(old_large_size - act_size + LTID<0) printf("%d\n",old_large_size - act_size + LTID);
-        // if(old_large_size - act_size + LTID>*large.capacity ) printf("%d\n",old_large_size - act_size + LTID);
+        smallV = small.Get(old_small_size + LTID - act_size);
+        largeV = large.Get(old_large_size + LTID - act_size);
+        // printf("%d %d %u\n",old_large_size - act_size + LTID,
+        // large.Get(old_large_size + LTID - act_size ),largeV);
+        // if(old_large_size - act_size + LTID<0) printf("%d\n",old_large_size -
+        // act_size + LTID); if(old_large_size - act_size + LTID>*large.capacity
+        // ) printf("%d\n",old_large_size - act_size + LTID);
       }
       __syncthreads();
       float old;
       if (act) {
-        // printf("prob.data[largeV] %f  prob.Get(smallV) - 1.0) %f  result %f \t\t\t\t",prob.data[largeV], prob.Get(smallV) - 1.0, prob.data[largeV]+ prob.Get(smallV) - 1.0);
-        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);}
+        // printf("prob.data[largeV] %f  prob.Get(smallV) - 1.0) %f  result %f
+        // \t\t\t\t",prob.data[largeV], prob.Get(smallV) - 1.0,
+        // prob.data[largeV]+ prob.Get(smallV) - 1.0);
+        old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+      }
       __syncthreads();
       if (act) {
         if (old + prob.Get(smallV) - 1.0 < 0) {
-          // printf("%d not possiable %f\n", __LINE__, old + prob.Get(smallV) - 1.0 );
-          // atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
+          // printf("%d not possiable %f\n", __LINE__, old + prob.Get(smallV)
+          // - 1.0 ); atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
           // small.Add(smallV);
         } else {
           alias.data[smallV] = largeV;
@@ -1268,7 +1291,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
 };
 
 // template <typename T>
-// struct alias_table_constructor_shmem<T, ExecutionPolicy::WC, BufferType::SHMEM,
+// struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
+// BufferType::SHMEM,
 //                                      AliasTableStorePolicy::STORE> {
 //   uint size;
 //   float weight_sum;
@@ -1421,7 +1445,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
 //         T largeV;
 //         bool holder =
 //             ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
-//                                                                        : false);
+//                                                                        :
+//                                                                        false);
 //         if (large.Size() < active.size()) {
 //           int res = old_small_idx % large.Size();
 //           largeV = large[large.Size() - res - 1];
@@ -1431,7 +1456,8 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::BC,
 //           largeV = large[large.Size() - active.thread_rank() - 1];
 //         }
 //         if (active.thread_rank() == 0) {
-//           large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
+//           large.size -= MIN(MIN(large.Size(), old_small_size),
+//           active.size());
 //         }
 //         float old;
 //         if (holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
@@ -1626,81 +1652,94 @@ struct alias_table_constructor_shmem<T, ExecutionPolicy::WC,
   }
 
   __device__ void construct() {
+    // __shared__ bool using_spec[WARP_PER_BLK];
     for (size_t i = LID; i < size; i += 32) {
       if (prob[i] > 1)
         large.Add(i);
-      else if(prob[i] < 1)
+      else if (prob[i] < 1)
         small.Add(i);
     }
     __syncwarp(0xffffffff);
     int itr = 0;
-    // if(LID==0) printf("warp spec! large %u \tsmall %u \n",large.Size() ,small.Size());
     while (!small.Empty() && !large.Empty()) {
+      // if (LID == 0 && (large.Size() * 1.5 < small.Size()))
+      //   using_spec[WID] = true;
+      // else
+      //   using_spec[WID] = false;
+        // if (LTID == 0 && blockIdx.x < 10) printf("warp spec %d\t", using_spec[WID]);
+      // __syncwarp(0xffffffff);
 #ifdef SPEC_EXE
-      ++itr;
-      int old_small_idx = small.Size() - LID - 1;
-      int old_small_size = small.Size();
-      // printf("old_small_idx %d\n", old_small_idx);
-      if (old_small_idx >= 0) {
-        coalesced_group active = coalesced_threads();
-        if (active.thread_rank() == 0) {
-          small.size -= MIN(small.Size(), active.size());
+      // if (using_spec[WID]) 
+      {
+        ++itr;
+        int old_small_idx = small.Size() - LID - 1;
+        int old_small_size = small.Size();
+        // printf("old_small_idx %d\n", old_small_idx);
+        if (old_small_idx >= 0) {
+          coalesced_group active = coalesced_threads();
+          if (active.thread_rank() == 0) {
+            small.size -= MIN(small.Size(), active.size());
+          }
+          T smallV = small[old_small_idx];
+          T largeV;
+          bool holder =
+              ((active.thread_rank() < MIN(large.Size(), active.size()))
+                   ? true
+                   : false);
+          if (large.Size() < active.size()) {
+            int res = old_small_idx % large.Size();
+            largeV = large[large.Size() - res - 1];
+            // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
+            // largeV);
+          } else {
+            largeV = large[large.Size() - active.thread_rank() - 1];
+          }
+          if (active.thread_rank() == 0) {
+            large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
+          }
+          float old;
+          if (holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+          if (!holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+          if (old + prob[smallV] - 1.0 < 0) {
+            // active_size2("prob<0 ", __LINE__);
+            atomicAdd(&prob[largeV], 1 - prob[smallV]);
+            small.Add(smallV);
+          } else {
+            alias[smallV] = largeV;
+            if (holder) {
+              if (prob[largeV] < 1) {
+                small.Add(largeV);
+              } else if (prob[largeV] > 1) {
+                large.Add(largeV);
+              }
+            }
+          }
         }
-        T smallV = small[old_small_idx];
-        T largeV;
-        bool holder =
-            ((active.thread_rank() < MIN(large.Size(), active.size())) ? true
-                                                                       : false);
-        if (large.Size() < active.size()) {
-          int res = old_small_idx % large.Size();
-          largeV = large[large.Size() - res - 1];
-          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
-          // largeV);
-        } else {
-          largeV = large[large.Size() - active.thread_rank() - 1];
-        }
-        if (active.thread_rank() == 0) {
-          large.size -= MIN(MIN(large.Size(), old_small_size), active.size());
-        }
-        float old;
-        if (holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        if (!holder) old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        if (old + prob[smallV] - 1.0 < 0) {
-          // active_size2("prob<0 ", __LINE__);
-          atomicAdd(&prob[largeV], 1 - prob[smallV]);
-          small.Add(smallV);
-        } else {
-          alias[smallV] = largeV;
-          if (holder) {
+      }
+      #else
+      // else 
+      {
+        int old_small_idx = small.Size() - LID - 1;
+        int old_large_idx = large.Size() - LID - 1;
+        int old_small_size = small.Size();
+        int act_size = MIN(small.Size(), large.Size());
+        act_size = MIN(act_size, 32);
+        if (LID < act_size) {
+          coalesced_group active = coalesced_threads();
+          if (active.thread_rank() == 0) {
+            small.size -= act_size;
+            large.size -= act_size;
+          }
+          T smallV = small[old_small_idx];
+          T largeV = large[old_large_idx];
+          float old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
+          {
+            alias[smallV] = largeV;
             if (prob[largeV] < 1) {
               small.Add(largeV);
             } else if (prob[largeV] > 1) {
               large.Add(largeV);
             }
-          }
-        }
-      }
-#else
-      int old_small_idx = small.Size() - LID - 1;
-      int old_large_idx = large.Size() - LID - 1;
-      int old_small_size = small.Size();
-      int act_size = MIN(small.Size(), large.Size());
-      act_size = MIN(act_size, 32);
-      if (LID < act_size) {
-        coalesced_group active = coalesced_threads();
-        if (active.thread_rank() == 0) {
-          small.size -= act_size;
-          large.size -= act_size;
-        }
-        T smallV = small[old_small_idx];
-        T largeV = large[old_large_idx];
-        float old = atomicAdd(&prob[largeV], prob[smallV] - 1.0);
-        {
-          alias[smallV] = largeV;
-          if (prob[largeV] < 1) {
-            small.Add(largeV);
-          } else if (prob[largeV] > 1) {
-            large.Add(largeV);
           }
         }
       }

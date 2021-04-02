@@ -84,6 +84,7 @@
         "climits": "cpp",
         "queue": "cpp",
         "stack": "cpp",
-        "cstdbool": "cpp"
+        "cstdbool": "cpp",
+        "__threading_support": "cpp"
     }
 }

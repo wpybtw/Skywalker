@@ -126,11 +126,11 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
 
   sampler.AllocateAliasTablePartial(ngpu, index);
 
-  paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC,
-                                              BufferType::SHMEM>));
-  paster(sizeof(
-      alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
-                                    AliasTableStorePolicy::STORE>));
+  // paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC,
+  //                                             BufferType::SHMEM>));
+  // paster(sizeof(
+  //     alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
+  //                                   AliasTableStorePolicy::STORE>));
 
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));
