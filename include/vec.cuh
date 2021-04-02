@@ -79,6 +79,45 @@ struct Vector_shmem<T, thread_block_tile<32>, _size, false> {
 };
 
 template <typename T, uint _size>
+struct Vector_shmem<T, thread_block_tile<SUBWARP_SIZE>, _size, false> {
+  uint size;
+  uint capacity;
+  buf<T, _size> data;
+
+  __device__ uint Size() { return size; }
+  __device__ void Clean() {
+    if (SWIDX == 0) size = 0;
+  }
+  __device__ bool Empty() {
+    if (size == 0) return true;
+    return false;
+  }
+  __device__ void Init(size_t s = 0) {
+    if (SWIDX == 0) {
+      capacity = _size;
+      size = s;
+    }
+    for (size_t i = SWIDX; i < _size; i += SUBWARP_SIZE) {
+      data.data[i] = 0;
+    }
+    // __syncwarp(FULL_WARP_MASK); //potential
+  }
+  __device__ void Add(T t) {
+    assert(Size() < _size);
+    {
+      uint old = atomicAdd(&size, 1);
+      if (old < capacity)
+        data.data[old] = t;
+      else
+        atomicDec(&size, 1);
+    }
+  }
+  __device__ T &operator[](size_t id) { return data.data[id]; }
+  __device__ T Get(size_t id) { return data.data[id]; }
+};
+
+
+template <typename T, uint _size>
 struct Vector_shmem<T, thread_block, _size, false> {
   long long size;
   uint capacity;

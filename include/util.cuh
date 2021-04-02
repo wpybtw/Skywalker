@@ -52,8 +52,12 @@ using offset_t = uint32_t;
 #define SHMEM_SIZE 49152
 #define BLOCK_SIZE 256
 
+#define SWID (threadIdx.x / SUBWARP_SIZE)
+#define SWIDX (threadIdx.x % SUBWARP_SIZE)
+
 #define THREAD_PER_SM 1024
 
+#define SUBWARP_PER_BLK (BLOCK_SIZE / SUBWARP_SIZE)
 #define WARP_PER_BLK (BLOCK_SIZE / 32)
 #define WARP_PER_SM (THREAD_PER_SM / 32)
 #define SHMEM_PER_WARP (SHMEM_SIZE / WARP_PER_SM)
