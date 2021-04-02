@@ -228,7 +228,7 @@ int main(int argc, char *argv[]) {
                                  dev_id);
         if (!FLAGS_rw) {
           if (!FLAGS_sp)
-            time[dev_id] = OnlineGBSample(samplers[dev_id]);
+            time[dev_id] = OnlineGBSampleTWC(samplers[dev_id]);
           else
             time[dev_id] = OnlineSplicedSample(samplers[dev_id]);
         } else {

@@ -21,7 +21,7 @@ EXE="./bin/main" #main_degree
 SG="--ngpu=1 --s"
 RW="--rw=1 --k 1 --d 100 "
 SP="--rw=0 --k 20 --d 2 "
-BATCH="--n 40000"
+BATCH="--n 4000 -v"
 
 # --randomweight=1 --weightrange=2 
 
@@ -34,23 +34,23 @@ do
     done
 done
 
-echo "-------------------------------------------------------online ppr 0.15" >> online.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${ITR})
-    do
-        ./bin/main  -bias=1 --ol=1 --n=40000 ${RW}  --tp=0.15   --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${SG} >> online.csv
-    done
-done
+# echo "-------------------------------------------------------online ppr 0.15" >> online.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${ITR})
+#     do
+#         ./bin/main  -bias=1 --ol=1  ${RW}  --tp=0.15   --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${SG} >> online.csv
+#     done
+# done
 
-echo "-------------------------------------------------------online ppr 0.15" >> online.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${ITR})
-    do
-        ./bin/node2vec  -node2vec --n=40000 ${RW}  --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${SG} >> online.csv
-    done
-done
+# echo "-------------------------------------------------------online ppr 0.15" >> online.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${ITR})
+#     do
+#         ./bin/node2vec  -node2vec  ${RW}  --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${SG} >> online.csv
+#     done
+# done
 
 echo "-------------------------------------------------------online sp 100" >> online.csv
 for idx in $(seq 1 ${#DATA[*]}) 

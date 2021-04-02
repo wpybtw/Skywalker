@@ -30,7 +30,9 @@ using prob_t = float;
 using offset_t = uint32_t;  
 #endif // USING_HALF
 
-#define SPEC_EXE
+// #define SPEC_EXE
+#define RECORD_SPEC_FAIL
+
 
 #define SASYNC_EXE
 
@@ -63,6 +65,7 @@ using offset_t = uint32_t;
 
 #define ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)
 
+#define ELE_PER_SUBWARP 8
 // #define ELE_PER_WARP 59
 // #define ELE_PER_BLOCK 73 
 

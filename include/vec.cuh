@@ -7,7 +7,7 @@
 DECLARE_bool(v);
 DECLARE_bool(umbuf);
 DECLARE_int32(device);
-enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2 };
+enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2, SWC=3 };
 
 template <typename T>
 class Vector_itf {

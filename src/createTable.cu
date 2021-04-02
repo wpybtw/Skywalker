@@ -125,7 +125,12 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   int n_sm = prop.multiProcessorCount;
 
   sampler.AllocateAliasTablePartial(ngpu, index);
-  // paster(sampler.ggraph.local_edge_num );
+
+  paster(sizeof(alias_table_constructor_shmem<uint, ExecutionPolicy::WC,
+                                              BufferType::SHMEM>));
+  paster(sizeof(
+      alias_table_constructor_shmem<uint, ExecutionPolicy::BC, BufferType::GMEM,
+                                    AliasTableStorePolicy::STORE>));
 
   Sampler *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler));

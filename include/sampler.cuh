@@ -424,6 +424,7 @@ float UnbiasedWalk(Walker &walker);
 
 float OnlineGBWalk(Walker &walker);
 float OnlineGBSample(Sampler &sampler);
+float OnlineGBSampleTWC(Sampler &sampler);
 
 float OnlineSplicedSample(Sampler &sampler);
 // void Start(Sampler &sampler);  //useless as must overflow,
