@@ -21,13 +21,13 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
   if (not_all_zero) {
     table->construct();
     if (LID == 0) {
-      int col = (int)floor(curand_uniform(&state) * table->size);
+      int col = (int)floor(curand_uniform(&state) * table->Size());
       float p = curand_uniform(&state);
       uint candidate;
-      if (p < table->prob.Get(col))
+      if (p < table->GetProb(col))
         candidate = col;
       else
-        candidate = table->alias.Get(col);
+        candidate = table->GetAlias(col);
       result.AddActive(current_itr, result.getNextAddr(current_itr),
                        instance_id);
       *result.GetDataPtr(current_itr + 1, instance_id) =
@@ -61,13 +61,13 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
     table->constructBC();
     __syncthreads();
     if (LTID == 0) {
-      int col = (int)floor(curand_uniform(&state) * table->size);
+      int col = (int)floor(curand_uniform(&state) * table->Size());
       float p = curand_uniform(&state);
       uint candidate;
-      if (p < table->prob.Get(col))
+      if (p < table->GetProb(col))
         candidate = col;
       else
-        candidate = table->alias.Get(col);
+        candidate = table->GetAlias(col);
       result.AddActive(current_itr, result.getNextAddr(current_itr),
                        instance_id);
       *result.GetDataPtr(current_itr + 1, instance_id) =
