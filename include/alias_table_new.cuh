@@ -1,3 +1,4 @@
+#include <cooperative_groups/reduce.h>
 #include <curand_kernel.h>
 
 #include "gpu_graph.cuh"
@@ -8,6 +9,8 @@
 // #include "sampler.cuh"
 #define verbose
 
+namespace cg = cooperative_groups;
+// using namespace cooperative_groups;
 // template <typename T>
 // struct alias_table;
 
@@ -159,10 +162,10 @@ template <>
 inline __device__ void Sync<thread_block_tile<32>>() {
   __syncwarp(0xffffffff);
 };
-template <>
-inline __device__ void Sync<thread_block_tile<SUBWARP_SIZE>>() {
-  __syncwarp(0xffffffff);
-};
+// template <>
+// inline __device__ void Sync<thread_block_tile<SUBWARP_SIZE>>() {
+//   __syncwarp(0xffffffff);
+// };
 
 // store version cache alias table
 template <typename T>
@@ -1029,7 +1032,7 @@ template <typename T>
 struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
                                      BufferType::SHMEM,
                                      AliasTableStorePolicy::NONE> {
-  alias_table_constructor_shmem() = default;
+  // alias_table_constructor_shmem() = default;
   buffer_group<T, thread_block_tile<SUBWARP_SIZE>, BufferType::SHMEM> buffer;
   // thread_group wg;
   uint mask;
@@ -1043,10 +1046,17 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
   __device__ bool loadFromGraph(T *_ids, gpu_graph *graph, int _size,
                                 uint _current_itr, uint _src_id,
                                 uint _idx = 0) {
+    thread_block tb = this_thread_block();
+    auto warp = tiled_partition<32>(tb);
+    auto subwarp = tiled_partition<4>(warp);
+    uint mask_tmp;
     if (LID % SUBWARP_SIZE == 0) {
-      mask = 0xf << (LID / SUBWARP_SIZE * 4);
-      printf("LID %d mask %u \d\t ", LID,mask);
+      mask_tmp = 0xf << (LID / SUBWARP_SIZE * 4);
+      mask = mask_tmp;
     }
+    subwarp.sync();
+    mask_tmp = subwarp.shfl(mask_tmp, 0);
+    MySync();
     // if (LID % SUBWARP_SIZE == 0) {
     //   thread_block block = this_thread_block();
     //   thread_block_tile<32> tile32 = tiled_partition<32>(block);
@@ -1061,13 +1071,15 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
       buffer.ids = _ids;
       buffer.src_id = _src_id;
     }
+    MySync();
     Init(graph->getDegree((uint)_src_id));
     float local_sum = 0.0, tmp;
     for (size_t i = SWIDX; i < buffer.size; i += SUBWARP_SIZE) {
       local_sum += graph->getBias(buffer.ids[i], _src_id, _idx);
     }
-    tmp = warpReduce<float>(local_sum);
-    // printf("local_sum %f\t",local_sum);
+    // tmp = warpReduce<float>(local_sum);
+    tmp = cg::reduce(subwarp, local_sum, cg::plus<float>());
+    // printf("local_sum %f\t",tmp);
     if (SWIDX == 0) {
       buffer.weight_sum = tmp;
     }
@@ -1139,7 +1151,8 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
       if (SWIDX == 0) *local_size = 0;
       MySync();
       while (*local_size < target_size) {
-        for (size_t i = *local_size + SWIDX; i < 32 * (target_size / 32 + 1);
+        for (size_t i = *local_size + SWIDX;
+             i < SUBWARP_SIZE * (target_size / SUBWARP_SIZE + 1);
              i += SUBWARP_SIZE) {
           roll_once(array, local_size, state, target_size, result);
         }
@@ -1248,7 +1261,7 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
         int old_small_size = buffer.small.Size();
         int act_size = MIN(buffer.small.Size(), buffer.large.Size());
         act_size = MIN(act_size, SUBWARP_SIZE);
-        if (LID < act_size) {
+        if (LID % SUBWARP_SIZE < act_size) {
           // coalesced_group active = coalesced_threads();
           if (SWIDX == 0) {
             buffer.small.size -= act_size;

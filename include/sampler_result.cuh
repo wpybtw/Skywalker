@@ -361,6 +361,7 @@ struct sample_result {
   uint device_id;
 
   Vector_gmem<uint> *high_degrees;
+  Vector_gmem<uint> *mid_degrees;
 
   // uint current_itr = 0;
   sample_result() {}
@@ -391,6 +392,7 @@ struct sample_result {
                             cudaMemcpyHostToDevice));
     CUDA_RT_CALL(cudaMalloc(&addr_offset, hop_num * sizeof(uint)));
     Vector_gmem<uint> *high_degrees_h = new Vector_gmem<uint>[hop_num];
+    Vector_gmem<uint> *mid_degrees_h = new Vector_gmem<uint>[hop_num];
     // for (size_t i = 0; i < hop_num; i++) {
     // }
     uint64_t offset = 0;
@@ -398,12 +400,18 @@ struct sample_result {
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
       high_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
+      mid_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
       offset += cum;
     }
     capacity = offset;
     CUDA_RT_CALL(
         cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
     CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
+                            hop_num * sizeof(Vector_gmem<uint>),
+                            cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(
+        cudaMalloc(&mid_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+    CUDA_RT_CALL(cudaMemcpy(mid_degrees, mid_degrees_h,
                             hop_num * sizeof(Vector_gmem<uint>),
                             cudaMemcpyHostToDevice));
     CUDA_RT_CALL(cudaMalloc(&data, capacity * sizeof(uint)));
@@ -452,7 +460,7 @@ struct sample_result {
     return data + addr_offset[hop] + idx * hops[hop];
   }
   __device__ uint getDataOfInstance(uint idx, uint hop, uint offset) {
-    return data[addr_offset[hop] + idx * hops[hop]+offset];
+    return data[addr_offset[hop] + idx * hops[hop] + offset];
   }
   __device__ uint getHopSize(uint hop) { return hops[hop]; }
   __device__ uint getFrontierSize(uint hop) {
@@ -465,6 +473,9 @@ struct sample_result {
   __device__ void AddHighDegree(uint current_itr, uint node_id) {
     high_degrees[current_itr].Add(node_id);
   }
+  __device__ void AddMidDegree(uint current_itr, uint node_id) {
+    mid_degrees[current_itr].Add(node_id);
+  }
   __device__ struct sample_job requireOneHighDegreeJob(uint current_itr) {
     sample_job job;
     // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
@@ -476,6 +487,21 @@ struct sample_result {
     } else {
       int old = atomicAdd(high_degrees[current_itr].floor, -1);
       // int old = my_atomicSub(high_degrees[current_itr].floor, 1);
+      // job.val = false;
+    }
+    return job;
+  }
+  __device__ struct sample_job requireOneMidDegreeJob(uint current_itr) {
+    sample_job job;
+    // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
+    job.val = false;
+    int old = atomicAdd(mid_degrees[current_itr].floor, 1);
+    if (old < mid_degrees[current_itr].Size()) {
+      job.node_id = mid_degrees[current_itr].Get(old);
+      job.val = true;
+    } else {
+      int old = atomicAdd(mid_degrees[current_itr].floor, -1);
+      // int old = my_atomicSub(mid_degrees[current_itr].floor, 1);
       // job.val = false;
     }
     return job;

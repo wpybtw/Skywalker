@@ -100,9 +100,9 @@ int main(int argc, char *argv[]) {
   if (numa_available() < 0) {
     LOG("Your system does not support NUMA API\n");
   }
-  // cout << "ELE_PER_BLOCK " << ELE_PER_BLOCK << " ELE_PER_WARP " << ELE_PER_WARP
+  // cout << "ELE_PER_BLOCK " << ELE_PER_BLOCK << " ELE_PER_WARP " <<
+  // ELE_PER_WARP
   //      << "ALLOWED_ELE_PER_SUBWARP " << ALLOWED_ELE_PER_SUBWARP << endl;
-
 
   // override flag
   if (FLAGS_hmgraph) {
@@ -228,7 +228,9 @@ int main(int argc, char *argv[]) {
         samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                  dev_id);
         if (!FLAGS_rw) {
-          if (!FLAGS_sp) time[dev_id] = OnlineGBSampleTWC(samplers[dev_id]);
+          if (!FLAGS_sp)
+            // time[dev_id] = OnlineGBSample(samplers[dev_id]);
+            time[dev_id] = OnlineGBSampleTWC(samplers[dev_id]);
           // else
           // time[dev_id] = OnlineSplicedSample(samplers[dev_id]); //to add
           // spliced
