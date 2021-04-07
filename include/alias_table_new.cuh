@@ -334,55 +334,55 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
       // if (using_spec)
       {
         thread_block tb = this_thread_block();
-        long long old_small_idx = small.Size() - LTID - 1;
-        long long old_small_size = small.Size();
+        long long old_small_idx = buffer.small.Size() - LTID - 1;
+        long long old_small_size = buffer.small.Size();
         bool act = (old_small_idx >= 0);
         int active_size = MIN(old_small_size, blockDim.x);
         // if (old_small_idx >= 0) {
         MySync();
         // coalesced_group active = coalesced_threads();
         if (LTID == 0) {
-          *small.size -= active_size;
+          *buffer.small.size -= active_size;
         }
         MySync();
-        // u64 tmp4 = (u64)small.size;
+        // u64 tmp4 = (u64)buffer.small.size;
         T smallV, largeV;
-        if (act) smallV = small.Get(old_small_idx);
+        if (act) smallV = buffer.small.Get(old_small_idx);
         // T largeV;
         bool holder =
-            ((LTID < MIN(large.Size(), old_small_size)) ? true : false);
+            ((LTID < MIN(buffer.large.Size(), old_small_size)) ? true : false);
         if (act) {
-          if (large.Size() < active_size) {
-            int res = old_small_idx % large.Size();
-            largeV = large.Get(large.Size() - res - 1);
+          if (buffer.large.Size() < active_size) {
+            int res = old_small_idx % buffer.large.Size();
+            largeV = buffer.large.Get(buffer.large.Size() - res - 1);
             // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
             // largeV);
           } else {
-            largeV = large.Get(large.Size() - LTID - 1);
+            largeV = buffer.large.Get(buffer.large.Size() - LTID - 1);
           }
         }
         MySync();
         if (LTID == 0) {
-          *large.size -= MIN(MIN(large.Size(), old_small_size), active_size);
+          *buffer.large.size -= MIN(MIN(buffer.large.Size(), old_small_size), active_size);
         }
         MySync();
         float old;
-        if (holder) old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+        if (holder) old = atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
         MySync();
         if (!holder && act)
-          old = atomicAdd(&prob.data[largeV], prob.Get(smallV) - 1.0);
+          old = atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
         MySync();
         if (act) {
-          if (old + prob.Get(smallV) - 1.0 < 0) {
-            atomicAdd(&prob.data[largeV], 1 - prob.Get(smallV));
-            small.Add(smallV);
+          if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
+            atomicAdd(&buffer.prob.data[largeV], 1 - buffer.prob.Get(smallV));
+            buffer.small.Add(smallV);
           } else {
-            alias.data[smallV] = largeV;
+            buffer.alias.data[smallV] = largeV;
             if (holder) {
-              if (prob.Get(largeV) < 1.0) {
-                small.Add(largeV);
-              } else if (prob.Get(largeV) > 1.0) {
-                large.Add(largeV);
+              if (buffer.prob.Get(largeV) < 1.0) {
+                buffer.small.Add(largeV);
+              } else if (buffer.prob.Get(largeV) > 1.0) {
+                buffer.large.Add(largeV);
               }
             }
           }
@@ -1057,11 +1057,6 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
     subwarp.sync();
     mask_tmp = subwarp.shfl(mask_tmp, 0);
     MySync();
-    // if (LID % SUBWARP_SIZE == 0) {
-    //   thread_block block = this_thread_block();
-    //   thread_block_tile<32> tile32 = tiled_partition<32>(block);
-    //   wg = tiled_partition(tile32, SUBWARP_SIZE);
-    // }
 
     if (SWIDX == 0) {
       // printf("%s:%d %s for %d\n", __FILE__, __LINE__, __FUNCTION__,_src_id);
@@ -1238,7 +1233,6 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
           if (!holder)
             old = atomicAdd(&buffer.prob[largeV], buffer.prob[smallV] - 1.0);
           if (old + buffer.prob[smallV] - 1.0 < 0) {
-            // active_size2(" buffer.prob<0 ", __LINE__);
             atomicAdd(&buffer.prob[largeV], 1 - buffer.prob[smallV]);
             buffer.small.Add(smallV);
           } else {
@@ -1293,8 +1287,5 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
 #endif
       MySync();
     }
-    // if (LID == 0) {
-    //   printf("witr, %d\n", itr);
-    // }
   }
 };

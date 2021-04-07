@@ -6,7 +6,57 @@
  * @FilePath: /sampling/src/offline_walk.cu
  */
 #include "app.cuh"
- 
+
+__global__ void sample_kernel_static(Walker *walker) {
+  Jobs_result<JobType::RW, uint> &result = walker->result;
+  gpu_graph *graph = &walker->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+
+  size_t idx_i = TID;
+  if (idx_i < result.size) {
+    result.length[idx_i] = result.hop_num - 1;
+    for (uint current_itr = 0; current_itr < result.hop_num - 1;
+         current_itr++) {
+      if (result.alive[idx_i] != 0) {
+        Vector_virtual<uint> alias;
+        Vector_virtual<float> prob;
+        uint src_id = result.GetData(current_itr, idx_i);
+        uint src_degree = graph->getDegree((uint)src_id);
+        alias.Construt(
+            graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+            src_degree);
+        prob.Construt(
+            graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+            src_degree);
+        alias.Init(src_degree);
+        prob.Init(src_degree);
+        const uint target_size = 1;
+        if (target_size < src_degree) {
+          //   int itr = 0;
+          // for (size_t i = 0; i < target_size; i++) {
+          int col = (int)floor(curand_uniform(&state) * src_degree);
+          float p = curand_uniform(&state);
+          uint candidate;
+          if (p < prob[col])
+            candidate = col;
+          else
+            candidate = alias[col];
+          *result.GetDataPtr(current_itr + 1, idx_i) =
+              graph->getOutNode(src_id, candidate);
+          // }
+        } else if (src_degree == 0) {
+          result.alive[idx_i] = 0;
+          result.length[idx_i] = current_itr;
+          break;
+        } else {
+          *result.GetDataPtr(current_itr + 1, idx_i) =
+              graph->getOutNode(src_id, 0);
+        }
+      }
+    }
+  }
+}
 
 __global__ void sample_kernel(Walker *walker) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
@@ -32,7 +82,6 @@ __global__ void sample_kernel(Walker *walker) {
             src_degree);
         alias.Init(src_degree);
         prob.Init(src_degree);
-
         const uint target_size = 1;
         if (target_size < src_degree) {
           //   int itr = 0;
@@ -87,7 +136,11 @@ float OfflineWalk(Walker &walker) {
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
 #else
-  sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+  if (FLAGS_static)
+    sample_kernel_static<<<walker.num_seed / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
+                           0>>>(sampler_ptr);
+  else
+    sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
 #endif
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
@@ -97,6 +150,7 @@ float OfflineWalk(Walker &walker) {
       static_cast<float>(walker.result.GetSampledNumber() / total_time /
                          1000000));
   walker.sampled_edges = walker.result.GetSampledNumber();
+  LOG("sampled_edges %d\n", walker.sampled_edges);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;

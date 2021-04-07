@@ -30,13 +30,8 @@
 static __global__ void sample_kernel(Sampler *sampler) {
   sample_result &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
-  // vector_pack_t *vector_packs = &vector_pack[GWID]; // GWID
-  // __shared__ Roller rollers[WARP_PER_BLK];
-  // Roller *roller = &rollers[WID];
-  // void *buffer = &table[0];
   curandState state;
   curand_init(TID, 0, 0, &state);
-
   __shared__ uint current_itr;
   if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
@@ -147,6 +142,7 @@ float OfflineSample(Sampler &sampler) {
       static_cast<float>(sampler.result.GetSampledNumber() / total_time /
                          1000000));
   sampler.sampled_edges = sampler.result.GetSampledNumber();
+  LOG("sampled_edges %d\n", sampler.sampled_edges);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;

@@ -15,3 +15,5 @@ DECLARE_double(tp);
 DECLARE_bool(printresult);
 DECLARE_int32(m);
 DECLARE_bool(peritr);
+
+DECLARE_bool(static);

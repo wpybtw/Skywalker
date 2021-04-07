@@ -30,7 +30,7 @@ using prob_t = float;
 using offset_t = uint32_t;  
 #endif // USING_HALF
 
-// #define SPEC_EXE
+#define SPEC_EXE
 #define RECORD_SPEC_FAIL
 
 

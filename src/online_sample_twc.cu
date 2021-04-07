@@ -138,12 +138,8 @@ static __global__ void sample_kernel(Sampler *sampler,
     job.node_id = warp.shfl(job.node_id, 0);
     warp.sync();
     while (job.val) {
-      if (ggraph->getDegree(job.node_id) < ELE_PER_WARP) {
-        SampleWarpCentic(result, ggraph, state, current_itr, job.idx,
-                         job.node_id, buffer);
-      } else {
-        printf("impossable\n");
-      }
+      SampleWarpCentic(result, ggraph, state, current_itr, job.idx, job.node_id,
+                       buffer);
       warp.sync();
       if (warp.thread_rank() == 0)
         job = result.requireOneMidDegreeJob(current_itr);

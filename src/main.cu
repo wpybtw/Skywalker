@@ -80,6 +80,8 @@ DEFINE_bool(printresult, false, "printresult");
 DEFINE_bool(edgecut, true, "edgecut");
 
 DEFINE_bool(itl, true, "interleave");
+DEFINE_bool(twc, true, "using twc");
+DEFINE_bool(static, false, "using static scheduling");
 
 DEFINE_int32(m, 4, "block per sm");
 
@@ -154,8 +156,8 @@ int main(int argc, char *argv[]) {
     hops[i] = NeighborSize;
   }
   if (FLAGS_sage) {
+    hops[0] = 10;
     hops[1] = 25;
-    hops[1] = 10;
   }
   Graph *ginst = new Graph();
   if (ginst->numEdge > 600000000) {
@@ -170,6 +172,7 @@ int main(int argc, char *argv[]) {
     sample_size = ginst->numNode;
     FLAGS_n = ginst->numNode;
   }
+  
 
   // uint num_device = FLAGS_ngpu;
   float *times = new float[FLAGS_ngpu];
@@ -228,8 +231,10 @@ int main(int argc, char *argv[]) {
         samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                  dev_id);
         if (!FLAGS_rw) {
-          if (!FLAGS_sp)
-            // time[dev_id] = OnlineGBSample(samplers[dev_id]);
+          // if (!FLAGS_sp)
+          if (!FLAGS_twc)
+            time[dev_id] = OnlineGBSample(samplers[dev_id]);
+          else
             time[dev_id] = OnlineGBSampleTWC(samplers[dev_id]);
           // else
           // time[dev_id] = OnlineSplicedSample(samplers[dev_id]); //to add

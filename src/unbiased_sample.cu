@@ -14,7 +14,8 @@
 //   if (TID == 0) *size = sampler->result.frontier.Size(current_itr);
 // }
 
-// __device__ void AsyncUnbiasedSampleJob(sample_result &result, gpu_graph *graph, uint instanceID, uint hop, uint offset){
+// __device__ void AsyncUnbiasedSampleJob(sample_result &result, gpu_graph
+// *graph, uint instanceID, uint hop, uint offset){
 
 // }
 // __global__ void AsyncUnbiasedSampleKernel(Sampler *sampler, float *tp) {
@@ -58,17 +59,9 @@ static __global__ void SampleKernelPerItr(Sampler *sampler, uint current_itr) {
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-
-  // __shared__ uint current_itr;
-  // if (threadIdx.x == 0) current_itr = 0;
-  // __syncthreads();
-
-  // for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
   if (current_itr < result.hop_num - 1) {
-    // if(LID==0) paster(result.hop_num - 1);
     sample_job job;
     __threadfence_block();
-    // if (LID == 0)
     job = result.requireOneJob(current_itr);
     while (job.val) {  //&& graph->CheckValid(job.node_id)
       uint src_id = job.node_id;
@@ -79,7 +72,7 @@ static __global__ void SampleKernelPerItr(Sampler *sampler, uint current_itr) {
           //   int itr = 0;
           for (size_t i = 0; i < target_size; i++) {
             int col = (int)floor(curand_uniform(&state) * src_degree);
-            float p = curand_uniform(&state);
+            // float p = curand_uniform(&state);
             uint candidate = col;
             result.AddActive(current_itr, result.getNextAddr(current_itr),
                              graph->getOutNode(src_id, candidate));
@@ -100,17 +93,14 @@ static __global__ void sample_kernel(Sampler *sampler) {
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-
   __shared__ uint current_itr;
   if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
 
   for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
   {
-    // if(LID==0) paster(result.hop_num - 1);
     sample_job job;
     __threadfence_block();
-    // if (LID == 0)
     job = result.requireOneJob(current_itr);
     while (job.val) {  //&& graph->CheckValid(job.node_id)
       uint src_id = job.node_id;
@@ -121,7 +111,7 @@ static __global__ void sample_kernel(Sampler *sampler) {
           //   int itr = 0;
           for (size_t i = 0; i < target_size; i++) {
             int col = (int)floor(curand_uniform(&state) * src_degree);
-            float p = curand_uniform(&state);
+            // float p = curand_uniform(&state);
             uint candidate = col;
             result.AddActive(current_itr, result.getNextAddr(current_itr),
                              graph->getOutNode(src_id, candidate));
@@ -175,31 +165,6 @@ float UnbiasedSample(Sampler &sampler) {
   cudaMalloc(&size_d, sizeof(uint));
 #pragma omp barrier
   start_time = wtime();
-  // if (true) {
-  //   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
-  // } else {
-  //   // to find the max occupation
-  //   int dev = 0;
-  //   int supportsCoopLaunch = 0;
-  //   cudaDeviceGetAttribute(&supportsCoopLaunch, cudaDevAttrCooperativeLaunch,
-  //                          dev);
-  //   int numBlocksPerSm = 0;
-  //   // Number of threads my_kernel will be launched with
-  //   int numThreads = BLOCK_SIZE;
-  //   cudaDeviceProp deviceProp;
-  //   cudaGetDeviceProperties(&deviceProp, 0);
-  //   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm,
-  //                                                 sample_kernel, numThreads,
-  //                                                 0);
-  //   // launch
-  //   void *kernelArgs[] = {sampler_ptr};
-  //   dim3 dimBlock(numThreads, 1, 1);
-  //   dim3 dimGrid(deviceProp.multiProcessorCount * numBlocksPerSm, 1, 1);
-  //   // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)sample_kernel,
-  //   dimGrid,
-  //   //                                          dimBlock, kernelArgs));
-  //   sample_kernel<<<dimGrid, dimBlock, 0, 0>>>(sampler_ptr);
-  // }
   if (!FLAGS_peritr) {
     sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
   } else {
@@ -221,14 +186,13 @@ float UnbiasedSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
-  printf("start time %0.3f \t",start_time);
 #pragma omp barrier
-  LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS sampled %u\n",
+  LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS\n",
       omp_get_thread_num(), total_time,
       static_cast<float>(sampler.result.GetSampledNumber() / total_time /
-                         1000000),
-      sampler.result.GetSampledNumber());
+                         1000000));
   sampler.sampled_edges = sampler.result.GetSampledNumber();
+  LOG("sampled_edges %d\n", sampler.sampled_edges);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;
