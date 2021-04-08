@@ -154,7 +154,7 @@ float UnbiasedSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
-  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
+  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr,false);
 
   // allocate global buffer
   int block_num = n_sm * FLAGS_m;  // 1024 / BLOCK_SIZE

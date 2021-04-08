@@ -200,7 +200,7 @@ float OnlineGBWalk(Walker &sampler) {
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Walker),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
-  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr);
+  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr,true);
   BindResultKernel<<<1, 32, 0, 0>>>(sampler_ptr);
   init_array(sampler.result.length, sampler.result.size,
              sampler.result.hop_num);

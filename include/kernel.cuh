@@ -1,8 +1,8 @@
 #include "sampler.cuh"
 #include "sampler_result.cuh"
 
-__global__ void init_kernel_ptr(Sampler *sampler);
-__global__ void init_kernel_ptr(Walker *sampler);
+__global__ void init_kernel_ptr(Sampler *sampler, bool biasInit);
+__global__ void init_kernel_ptr(Walker *sampler, bool biasInit);
 // __global__ void initSeed(ResultBase<uint> *results, uint *seeds, size_t
 // size);
 
