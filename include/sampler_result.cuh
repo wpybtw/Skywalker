@@ -386,7 +386,6 @@ struct sample_result {
     Free();
     size = _size;
     hop_num = _hop_num;
-    // paster(hop_num);
     CUDA_RT_CALL(cudaMalloc(&hops, hop_num * sizeof(uint)));
     CUDA_RT_CALL(cudaMemcpy(hops, _hops, hop_num * sizeof(uint),
                             cudaMemcpyHostToDevice));
@@ -399,8 +398,10 @@ struct sample_result {
     uint64_t cum = size;
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
-      high_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
-      mid_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
+      if (FLAGS_bias) {
+        high_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
+        mid_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
+      }
       offset += cum;
     }
     capacity = offset;
@@ -409,15 +410,13 @@ struct sample_result {
     CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
                             hop_num * sizeof(Vector_gmem<uint>),
                             cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(
-        cudaMalloc(&mid_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+    CUDA_RT_CALL(cudaMalloc(&mid_degrees, hop_num * sizeof(Vector_gmem<uint>)));
     CUDA_RT_CALL(cudaMemcpy(mid_degrees, mid_degrees_h,
                             hop_num * sizeof(Vector_gmem<uint>),
                             cudaMemcpyHostToDevice));
     CUDA_RT_CALL(cudaMalloc(&data, capacity * sizeof(uint)));
     CUDA_RT_CALL(
         cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
-
     job_sizes_h = new int[hop_num];
     job_sizes_h[0] = size;
     CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
@@ -430,7 +429,7 @@ struct sample_result {
       printD(job_sizes, hop_num);
       uint total = 0;
       for (size_t i = 0; i < hop_num; i++) {
-        total += job_sizes[total];
+        total += job_sizes[i];
       }
       printf("total sampled %u \n", total);
       // printf("job_sizes_floor \n");
@@ -515,6 +514,7 @@ struct sample_result {
       job.idx = (uint)old;
       job.node_id = getNodeId(old, current_itr);
       job.val = true;
+      // printf("send one job %d in itr %u\n", job.node_id, current_itr);
     } else {
       int old = atomicSub(&job_sizes_floor[current_itr], 1);
     }

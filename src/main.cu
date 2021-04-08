@@ -157,8 +157,8 @@ int main(int argc, char *argv[]) {
     hops[i] = NeighborSize;
   }
   if (FLAGS_sage) {
-    hops[0] = 10;
-    hops[1] = 25;
+    hops[1] = 10;
+    hops[2] = 25;
   }
   Graph *ginst = new Graph();
   if (ginst->numEdge > 600000000) {
