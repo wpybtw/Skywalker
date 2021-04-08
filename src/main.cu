@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
     // FLAGS_ol=true;
     FLAGS_rw = true;
     FLAGS_k = 1;
+    FLAGS_d = 100;
   }
   if (FLAGS_sage) {
     // FLAGS_ol=true;

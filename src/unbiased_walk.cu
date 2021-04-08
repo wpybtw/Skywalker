@@ -25,7 +25,7 @@ __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
       *result.GetDataPtr(current_itr + 1, idx_i) =
           graph->getOutNode(src_id, candidate);
       result.frontier.SetActive(current_itr + 1, idx_i);
-    } else if(src_degree==1 ) {
+    } else if (src_degree == 1) {
       *result.GetDataPtr(current_itr + 1, idx_i) = graph->getOutNode(src_id, 0);
       result.frontier.SetActive(current_itr + 1, idx_i);
     }
