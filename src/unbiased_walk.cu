@@ -72,52 +72,6 @@ __global__ void UnbiasedWalkKernel(Walker *walker, float *tp) {
   }
 }
 
-// __global__ void UnbiasedWalkKernel(Walker *walker) {
-//   Jobs_result<JobType::RW, uint> &result = walker->result;
-//   gpu_graph *graph = &walker->ggraph;
-//   curandState state;
-//   curand_init(TID, 0, 0, &state);
-
-//   for (size_t idx_i = TID; idx_i < result.size;
-//        idx_i += gridDim.x * blockDim.x) {
-//     if (result.alive[idx_i] != 0) {
-//       for (uint current_itr = 0; current_itr < result.hop_num - 1;
-//            current_itr++) {
-//         Vector_virtual<uint> alias;
-//         Vector_virtual<float> prob;
-//         uint src_id = result.GetData(current_itr, idx_i);
-//         uint src_degree = graph->getDegree((uint)src_id);
-//         alias.Construt(graph->alias_array + graph->xadj[src_id],
-//         src_degree);
-//         prob.Construt(graph->prob_array + graph->xadj[src_id],
-//         src_degree);
-//         alias.Init(src_degree);
-//         prob.Init(src_degree);
-
-//         const uint target_size = 1;
-//         if (target_size < src_degree) {
-//           //   int itr = 0;
-//           for (size_t i = 0; i < target_size; i++) {
-//             int col = (int)floor(curand_uniform(&state) * src_degree);
-//             float p = curand_uniform(&state);
-//             uint candidate;
-//             if (p < prob[col])
-//               candidate = col;
-//             else
-//               candidate = alias[col];
-//             *result.GetDataPtr(current_itr + 1, idx_i) =
-//                 graph->getOutNode(src_id, candidate);
-//           }
-//         } else if (src_degree == 0) {
-//           result.alive[idx_i] = 0;
-//         } else {
-//           *result.GetDataPtr(current_itr + 1, idx_i) =
-//               graph->getOutNode(src_id, 0);
-//         }
-//       }
-//     }
-//   }
-// }
 
 static __global__ void print_result(Walker *walker) {
   walker->result.PrintResult();
