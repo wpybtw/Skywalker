@@ -60,8 +60,7 @@ __global__ void UnbiasedWalkKernel(Walker *walker, float *tp) {
         result.length[idx_i] = current_itr;
         break;
       } else if (1 < src_degree) {
-        int col = (int)floor(curand_uniform(&state) * src_degree);
-        uint candidate = col;
+        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
         *result.GetDataPtr(current_itr + 1, idx_i) =
             graph->getOutNode(src_id, candidate);
       } else {
@@ -71,7 +70,6 @@ __global__ void UnbiasedWalkKernel(Walker *walker, float *tp) {
     }
   }
 }
-
 
 static __global__ void print_result(Walker *walker) {
   walker->result.PrintResult();
