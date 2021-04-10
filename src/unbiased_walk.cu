@@ -43,6 +43,34 @@ __global__ void GetSize(Walker *walker, uint current_itr, uint *size) {
   if (TID == 0) *size = walker->result.frontier.Size(current_itr);
 }
 
+__global__ void UnbiasedWalkKernelStatic(Walker *walker, float *tp) {
+  Jobs_result<JobType::RW, uint> &result = walker->result;
+  gpu_graph *graph = &walker->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  size_t idx_i = TID;
+  if (idx_i < result.size) {
+    result.length[idx_i] = result.hop_num - 1;
+    for (uint current_itr = 0; current_itr < result.hop_num - 1;
+         current_itr++) {
+      uint src_id = result.GetData(current_itr, idx_i);
+      uint src_degree = graph->getDegree((uint)src_id);
+      // if(idx_i==0) printf("src_id %d src_degree %d\n",src_id,src_degree );
+      if (src_degree == 0 || curand_uniform(&state) < *tp) {
+        result.length[idx_i] = current_itr;
+        break;
+      } else if (1 < src_degree) {
+        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+        *result.GetDataPtr(current_itr + 1, idx_i) =
+            graph->getOutNode(src_id, candidate);
+      } else {
+        *result.GetDataPtr(current_itr + 1, idx_i) =
+            graph->getOutNode(src_id, 0);
+      }
+    }
+  }
+}
+
 __global__ void UnbiasedWalkKernel(Walker *walker, float *tp) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
   gpu_graph *graph = &walker->ggraph;
@@ -106,7 +134,11 @@ float UnbiasedWalk(Walker &walker) {
 
   start_time = wtime();
   if (!FLAGS_peritr) {
-    UnbiasedWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, tp_d);
+    if (FLAGS_static)
+      UnbiasedWalkKernelStatic<<<walker.num_seed / BLOCK_SIZE + 1, BLOCK_SIZE,
+                                 0, 0>>>(sampler_ptr, tp_d);
+    else
+      UnbiasedWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, tp_d);
   } else {
     for (uint current_itr = 0; current_itr < walker.result.hop_num - 1;
          current_itr++) {

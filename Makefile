@@ -16,7 +16,7 @@ API_OBJ_DIR:= bin/obj/api
 API_SRC_FILES := $(wildcard $(API_SRC_DIR)/*.cu)
 API_OBJ_FILES := $(patsubst $(API_SRC_DIR)/%.cu,$(API_OBJ_DIR)/%.o,$(API_SRC_FILES))
 
-FLAGS= -Xcompiler -fopenmp -Xcompiler -lnuma -lineinfo -gencode=arch=compute_75,code=sm_75 -DNDEBUG  -Xptxas -v #  -Xcompiler -Werror
+FLAGS= -Xcompiler -fopenmp -Xcompiler -lnuma -lineinfo -gencode=arch=compute_75,code=sm_75 -DNDEBUG  #-Xptxas -v #  -Xcompiler -Werror
 
 LDFLAGS := ${FLAGS} -Xlinker -lgomp -Xlinker -lnuma  ./build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags 
 CUFLAG= ${FLAGS} -I./include -I./build/deps/gflags/include -rdc=true -std=c++11  #-keep   #-Xptxas -O3,-v   

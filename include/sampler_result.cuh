@@ -74,12 +74,12 @@ size_t get_sum(T *ptr, size_t size) {
   return t;
 }
 
-// static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
-//                                  uint hop) {
-//   if (TID < size) {
-//     data[TID * hop] = seeds[TID];
-//   }
-// }
+static __global__ void initSeed2(uint *data, uint *seeds, size_t size,
+                                 uint hop) {
+  if (TID < size) {
+    data[TID * hop] = seeds[TID];
+  }
+}
 
 static __global__ void initSeed3(uint *data, uint *seeds, size_t size,
                                  uint hop) {
@@ -237,8 +237,13 @@ struct Jobs_result<JobType::RW, T> {
     //                  cudaMemcpyHostToDevice));
     // initSeed3<<<size / 1024 + 1, 1024>>>(data, seeds_g, size, hop_num);
 
-    CUDA_RT_CALL(
-        cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
+    if (true)
+      initSeed2<<<size / 1024 + 1, 1024>>>(data, seeds, size, hop_num);
+    else
+      CUDA_RT_CALL(
+          cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaPeekAtLastError());
   }
   __device__ void AddHighDegree(uint current_itr, uint instance_idx) {
     // printf("AddHighDegree %u %u \n",current_itr,instance_idx);
@@ -280,12 +285,18 @@ struct Jobs_result<JobType::RW, T> {
       }
     }
   }
-  __device__ T *GetDataPtr(size_t itr, size_t idx) {
-    return data + itr * size + idx;
+  __device__ T *GetDataPtr(uint itr, size_t idx) {
+    return data + itr + idx * hop_num;
   }
-  __device__ T GetData(size_t itr, size_t idx) {
-    return data[itr * size + idx];
+  __device__ T GetData(uint itr, size_t idx) {
+    return data[itr + idx * hop_num];
   }
+  // __device__ T *GetDataPtr(uint itr, size_t idx) {
+  //   return data + itr * size + idx;
+  // }
+  // __device__ T GetData(uint itr, size_t idx) {
+  //   return data[itr * size + idx];
+  // }
   __device__ uint getNodeId(uint idx, uint hop) {
     // paster(addr_offset[hop]);
     return data[hop * size + idx];

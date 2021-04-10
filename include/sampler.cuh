@@ -403,7 +403,9 @@ class Walker {
     std::random_device rd;
     std::mt19937 gen(56);
     std::uniform_int_distribution<> dis(1, 10000);  // ggraph.vtx_num);
-    uint *seeds = new uint[num_seed];
+    // uint *seeds = new uint[num_seed];
+    uint *seeds;
+    CUDA_RT_CALL(cudaMallocManaged(&seeds, num_seed * sizeof(uint)));
     if (FLAGS_itl) {
       for (int n = 0; n < num_seed; ++n) {
         // // seeds[n] = dis(gen);
@@ -415,6 +417,7 @@ class Walker {
       }
     }
     result.init(num_seed, _hop_num, seeds, device_id);
+    CUDA_RT_CALL(cudaFree(seeds));
   }
   // void Start();
 };
