@@ -29,11 +29,7 @@ __global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
       *result.GetDataPtr(current_itr + 1, idx_i) = graph->getOutNode(src_id, 0);
       result.frontier.SetActive(current_itr + 1, idx_i);
     }
-    // else{
-    //   result.length[idx_i] = current_itr;
-    // }
   }
-  // }
 }
 
 __global__ void Reset(Walker *walker, uint current_itr) {

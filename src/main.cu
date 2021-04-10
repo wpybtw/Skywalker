@@ -97,8 +97,6 @@ DEFINE_bool(ab, true, "using UM AB hint");
 DEFINE_bool(async, false, "using async execution");
 DEFINE_bool(replica, false, "same task for all gpus");
 
-
-
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -176,7 +174,6 @@ int main(int argc, char *argv[]) {
     sample_size = ginst->numNode;
     FLAGS_n = ginst->numNode;
   }
-  
 
   // uint num_device = FLAGS_ngpu;
   float *times = new float[FLAGS_ngpu];
@@ -191,10 +188,11 @@ int main(int argc, char *argv[]) {
 
     gpu_graph *ggraphs = new gpu_graph[num_device];
     Sampler *samplers = new Sampler[num_device];
+    Sampler_new *samplers_new = new Sampler_new[num_device];
     float time[num_device];
 
 #pragma omp parallel num_threads(num_device) \
-    shared(ginst, ggraphs, samplers, global_table)
+    shared(ginst, ggraphs, samplers, global_table, samplers_new)
     {
       int dev_id = omp_get_thread_num();
       int dev_num = omp_get_num_threads();
@@ -227,7 +225,9 @@ int main(int argc, char *argv[]) {
         } else {
           samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                    dev_id);
-          time[dev_id] = UnbiasedSample(samplers[dev_id]);
+
+          samplers_new[dev_id] = samplers[dev_id];
+          time[dev_id] = UnbiasedSample(samplers_new[dev_id]);
         }
       }
 
@@ -282,10 +282,10 @@ int main(int argc, char *argv[]) {
         if (!FLAGS_rw) {  //&& FLAGS_k != 1
           samplers[dev_id].SetSeed(local_sample_size, Depth + 1, hops, dev_num,
                                    dev_id);
-          if (!FLAGS_async)
-            time[dev_id] = OfflineSample(samplers[dev_id]);
-          else
-            time[dev_id] = AsyncOfflineSample(samplers[dev_id]);
+          samplers_new[dev_id] = samplers[dev_id];
+          time[dev_id] = OfflineSample(samplers_new[dev_id]);
+          // else
+          //   time[dev_id] = AsyncOfflineSample(samplers[dev_id]);
         } else {
           Walker walker(samplers[dev_id]);
           walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
@@ -308,9 +308,14 @@ int main(int argc, char *argv[]) {
     }
     {
       size_t sampled = 0;
-      for (size_t i = 0; i < num_device; i++) {
-        sampled += samplers[i].sampled_edges;  // / total_time /1000000
-      }
+      if ((!FLAGS_bias || !FLAGS_ol) && (!FLAGS_rw))
+        for (size_t i = 0; i < num_device; i++) {
+          sampled += samplers_new[i].sampled_edges;  // / total_time /1000000
+        }
+      else
+        for (size_t i = 0; i < num_device; i++) {
+          sampled += samplers[i].sampled_edges;  // / total_time /1000000
+        }
       float max_time = *max_element(time, time + num_device);
       // printf("%u GPU, %.2f ,  %.1f \n", num_device, max_time * 1000,
       //        sampled / max_time / 1000000);

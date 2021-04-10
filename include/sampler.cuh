@@ -20,7 +20,7 @@ DECLARE_bool(replica);
 template <typename T>
 void printH(T *ptr, int size) {
   T *ptrh = new T[size];
-  CUDA_RT_CALL(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDeviceToHost));
+  CUDA_RT_CALL(cudaMemcpy(ptrh, ptr, size * sizeof(T), cudaMemcpyDefault));
   printf("printH: ");
   for (size_t i = 0; i < size; i++) {
     // printf("%d\t", ptrh[i]);
@@ -37,6 +37,8 @@ void printH(T *ptr, int size) {
 //   uint *alias_array;
 //   char *valid;
 // };
+
+// Sampler_new is for unbiased and offline sampling 
 
 class Sampler {
  public:
@@ -332,6 +334,60 @@ class Sampler {
   }
   // void Start();
 };
+class Sampler_new {
+ public:
+  gpu_graph ggraph;
+  Jobs_result<JobType::NS, uint> result;
+  uint num_seed;
+
+  float *prob_array;
+  uint *alias_array;
+  char *valid;
+
+  uint device_id;
+  size_t sampled_edges = 0;
+
+ public:
+  Sampler_new() {}
+  Sampler_new(gpu_graph graph, uint _device_id = 0) : device_id(_device_id) {
+    ggraph = graph;
+    // Init();
+  }
+  Sampler_new(Sampler old){
+    ggraph=old.ggraph;
+    num_seed=old.num_seed;
+    prob_array=old.prob_array;
+    alias_array=old.alias_array;
+    valid=old.valid;
+    device_id=old.device_id;
+    sampled_edges=old.sampled_edges;
+    result.init(num_seed, old.result.hop_num,old.result.hops_h, old.result.seeds, device_id);
+    // ggraph=old.ggraph;
+    // ggraph=old.ggraph;
+    // ggraph=old.ggraph;
+    // ggraph=old.ggraph;
+    // ggraph=old.ggraph;
+  }
+  ~Sampler_new() {}
+  __host__ void Free(bool UsingGlobal = false) {
+    result.Free();
+    if (!UsingGlobal) {
+      if (!FLAGS_hmtable) {
+        if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
+        if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
+        if (valid != nullptr) CUDA_RT_CALL(cudaFree(valid));
+      } else {
+        if (prob_array != nullptr) CUDA_RT_CALL(cudaFreeHost(prob_array));
+        if (alias_array != nullptr) CUDA_RT_CALL(cudaFreeHost(alias_array));
+        if (valid != nullptr) CUDA_RT_CALL(cudaFreeHost(valid));
+      }
+    }
+    prob_array = nullptr;
+    alias_array = nullptr;
+    valid = nullptr;
+  }
+};
+
 
 class Walker {
  public:
@@ -422,7 +478,7 @@ class Walker {
   // void Start();
 };
 
-float UnbiasedSample(Sampler &sampler);
+float UnbiasedSample(Sampler_new &sampler);
 float UnbiasedWalk(Walker &walker);
 
 float OnlineGBWalk(Walker &walker);
@@ -434,8 +490,8 @@ float OnlineSplicedSample(Sampler &sampler);
 
 float ConstructTable(Sampler &sampler, uint ngpu = 1, uint index = 0);
 // void Sample(Sampler sampler);
-float OfflineSample(Sampler &sampler);
-float AsyncOfflineSample(Sampler &sampler);
+float OfflineSample(Sampler_new &sampler);
+// float AsyncOfflineSample(Sampler &sampler);
 
 // float ConstructTable(Walker &walker);
 // float OfflineSample(Walker &walker);
