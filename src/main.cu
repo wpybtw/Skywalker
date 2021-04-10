@@ -82,7 +82,7 @@ DEFINE_bool(edgecut, true, "edgecut");
 DEFINE_bool(itl, true, "interleave");
 DEFINE_bool(twc, true, "using twc");
 DEFINE_bool(static, true, "using static scheduling");
-DEFINE_bool(buffer, false, "buffered write for memory");
+DEFINE_bool(buffer, true, "buffered write for memory");
 
 DEFINE_int32(m, 4, "block per sm");
 
