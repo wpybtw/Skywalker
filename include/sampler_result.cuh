@@ -177,6 +177,7 @@ struct Jobs_result<JobType::RW, T> {
     device_id = _device_id;
     size = _size;
     hop_num = _hop_num;
+    // paster(hop_num);
     if (size * hop_num > 400000000) FLAGS_umresult = true;
     if (!FLAGS_umresult) {
       CUDA_RT_CALL(cudaMalloc(&data, size * hop_num * sizeof(uint)));
@@ -276,7 +277,7 @@ struct Jobs_result<JobType::RW, T> {
       for (size_t i = 0; i < MIN(5, size); i++) {
         printf("%u \t", GetData(0, i));
       }
-      for (int j = 0; j < MIN(2, size); j++) {
+      for (int j = 0; j < MIN(3, size); j++) {
         printf("\n%drd path len %u \n", j, length[j]);
         for (size_t i = 0; i < MIN(length[j], hop_num); i++) {
           printf("%u \t", GetData(i, j));

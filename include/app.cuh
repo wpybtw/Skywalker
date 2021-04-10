@@ -17,3 +17,4 @@ DECLARE_int32(m);
 DECLARE_bool(peritr);
 
 DECLARE_bool(static);
+DECLARE_bool(buffer);

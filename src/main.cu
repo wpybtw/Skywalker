@@ -81,7 +81,8 @@ DEFINE_bool(edgecut, true, "edgecut");
 
 DEFINE_bool(itl, true, "interleave");
 DEFINE_bool(twc, true, "using twc");
-DEFINE_bool(static, false, "using static scheduling");
+DEFINE_bool(static, true, "using static scheduling");
+DEFINE_bool(buffer, false, "buffered write for memory");
 
 DEFINE_int32(m, 4, "block per sm");
 
@@ -95,6 +96,8 @@ DEFINE_bool(ab, true, "using UM AB hint");
 
 DEFINE_bool(async, false, "using async execution");
 DEFINE_bool(replica, false, "same task for all gpus");
+
+
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
