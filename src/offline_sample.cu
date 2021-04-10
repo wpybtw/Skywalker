@@ -1,32 +1,5 @@
 #include "app.cuh"
 
-
-// __device__ void SampleWarpCentic(sample_result &result, gpu_graph *graph,
-//                                  curandState state, int current_itr, int idx,
-//                                  int node_id, Roller *roller) {
-//   // // __shared__ alias_table_constructor_shmem<uint, ExecutionPolicy::WC>
-//   // // tables[WARP_PER_BLK];
-//   // // if (LID == 0)
-//   // //   printf("----%s %d\n", __FUNCTION__, __LINE__);
-//   // alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *tables =
-//   //     (alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *)buffer;
-//   // alias_table_constructor_shmem<uint, ExecutionPolicy::WC> *table =
-//   //     &tables[WID];
-
-//   if (graph->valid[node_id] == 1) {
-//     coalesced_group active = coalesced_threads();
-//     active.sync();
-//     active_size(__LINE__);
-//     roller->loadFromGraph(graph->getNeighborPtr(node_id), graph,
-//                           graph->getDegree(node_id), current_itr, node_id);
-//     __syncwarp(FULL_WARP_MASK);
-//     active.sync();
-//     active_size(__LINE__);
-//     roller->roll_atomic(result.getNextAddr(current_itr), &state, result);
-//     roller->Clean();
-//   }
-// }
-
 static __global__ void sample_kernel(Sampler *sampler) {
   sample_result &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
@@ -104,28 +77,11 @@ float OfflineSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
-  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr,true);
+  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr, true);
 
   // allocate global buffer
   int block_num = n_sm * FLAGS_m;
-  // int buf_num = block_num * WARP_PER_BLK;
-  // int gbuff_size = 932100;
 
-  // LOG("alllocate GMEM buffer %d\n", buf_num * gbuff_size * 1);
-  // paster(buf_num);
-
-  // vector_pack_t *vector_pack_h = new vector_pack_t[buf_num];
-  // for (size_t i = 0; i < buf_num; i++) {
-  //   vector_pack_h[i].Allocate(gbuff_size);
-  // }
-  // CUDA_RT_CALL(cudaDeviceSynchronize());
-  // vector_pack_t *vector_packs;
-  // CUDA_RT_CALL(cudaMalloc(&vector_packs, sizeof(vector_pack_t) * buf_num));
-  // CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h, sizeof(vector_pack_t)
-  // * buf_num,
-  //                  cudaMemcpyHostToDevice));
-
-  //  Global_buffer
   CUDA_RT_CALL(cudaDeviceSynchronize());
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();

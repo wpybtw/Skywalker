@@ -72,7 +72,7 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
   gpu_graph *graph = &walker->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-  __shared__ matrixBuffer<BLOCK_SIZE, 32, uint> buffer;
+  __shared__ matrixBuffer<BLOCK_SIZE, 31, uint> buffer;
 
   size_t idx_i = TID;
   if (idx_i < result.size) {
