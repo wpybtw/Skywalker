@@ -26,11 +26,13 @@ struct matrixBuffer {
   uint8_t mainLength[blockSize / 32];  // each warp maintains one lengh
   uint8_t outItr[blockSize / 32];
   uint *ptr_per_thread[blockSize];
+  uint tileLen;
 
   __device__ void Init() {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     length[LTID] = 0;
     if (LID == 0) {
+      tileLen=tileSize;
       mainLength[WID] = 0;
       outItr[WID] = 0;
     }

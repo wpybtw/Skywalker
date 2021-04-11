@@ -39,27 +39,37 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
       active.sync();
       buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0);
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
+      // if(WID==1)
+      //  printf("warp1 sample_size%u\t",sample_size);
     }
     current_itr = 1;
     // 2-hop  each warp for one???
     for (size_t i = 0; i < 32; i++) {  // loop over threads
       for (size_t j = 0;
-           j < MIN(result.hops[current_itr], buffer_1hop.length[WID + i]);
+           j < MIN(result.hops[current_itr], buffer_1hop.length[(WID)*32 + i]);
            j++) {  // loop over 1hop for each thread
         coalesced_group local = coalesced_threads();
-        uint src_id = result.GetData(idxMap[WID + i], current_itr, j);
+        uint src_id =
+            buffer_1hop
+                .data[((WID)*32 + i) * buffer_1hop.tileLen +
+                      j];  // result.GetData(idxMap[WID + i], current_itr, j);
         uint src_degree = graph->getDegree((uint)src_id);
         uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
 
         for (size_t k = active.thread_rank(); k < sample_size;
              k++) {  // get 2hop for 1hop neighbors for each thread
           uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-          *result.GetDataPtr(idxMap[WID + i], current_itr + 1,
+          *result.GetDataPtr(idxMap[(WID)*32 + i], current_itr + 1,
                              active.thread_rank()) =
               graph->getOutNode(src_id, candidate);
         }
-        if (local.thread_rank() == 0)
-          result.SetSampleLength(idxMap[WID + i], current_itr, j, sample_size);
+        if (local.thread_rank() == 0) {
+          // if(WID==1)
+          // printf("WID <<5 +i  %u, j %u, sample_size %u \n", (WID)*32 + i , j, sample_size);
+          result.SetSampleLength(idxMap[(WID)*32 + i], current_itr, j,
+                                 sample_size);
+        }
+        local.sync();
       }
     }
 

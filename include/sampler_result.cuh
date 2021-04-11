@@ -251,10 +251,10 @@ struct Jobs_result<JobType::NS, T> {
   }
   __device__ void PrintResult() {
     if (LTID == 0) {
-      printf("seeds \n");
-      for (size_t i = 0; i < MIN(5, size); i++) {
-        printf("%u \t", GetData(i, 0, 0));
-      }
+      // printf("seeds \n");
+      // for (size_t i = 0; i < MIN(5, size); i++) {
+      //   printf("%u \t", GetData(i, 0, 0));
+      // }
       for (int j = 0; j < MIN(3, size); j++) {
         printf("\n%dth sample src: %u, 1-hop len: %u\n", j, GetData(j, 0, 0),
                GetSampleLength(j, 0, 0));
