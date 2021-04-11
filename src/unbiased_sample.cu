@@ -6,13 +6,57 @@
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
+static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
+  __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop;
+
+  size_t idx_i = TID;
+  if (idx_i < result.size)  // for 2-hop, hop_num=3
+  {
+    buffer_1hop.Init();
+    buffer_2hop.Init();
+    uint current_itr = 0;
+    // 1-hop
+    {
+      uint src_id = result.GetData(idx_i, current_itr, 0);
+      uint src_degree = graph->getDegree((uint)src_id);
+      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+      for (size_t i = 0; i < sample_size; i++) {
+        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+        *result.GetDataPtr(idx_i, current_itr + 1, i) =
+            graph->getOutNode(src_id, candidate);
+
+        buffer_1hop.Set(graph->getOutNode(src_id, candidate));
+      }
+      result.SetSampleLength(idx_i, current_itr, 0, sample_size);
+    }
+    current_itr = 1;
+    // 2-hop
+    for (size_t k = 0; k < result.hops[current_itr]; k++) {
+      uint src_id = result.GetData(idx_i, current_itr, k);
+      uint src_degree = graph->getDegree((uint)src_id);
+      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+      for (size_t i = 0; i < sample_size; i++) {
+        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+        *result.GetDataPtr(idx_i, current_itr + 1,
+                           i + k * result.hops[current_itr]) =
+            graph->getOutNode(src_id, candidate);
+      }
+      result.SetSampleLength(idx_i, current_itr, k, sample_size);
+    }
+  }
+}
 
 static __global__ void sample_kernel_2hop(Sampler_new *sampler) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-  if (TID == 0) printf("%s\n", __FUNCTION__);
+  // if (TID == 0) printf("%s\n", __FUNCTION__);
 
   size_t idx_i = TID;
   if (idx_i < result.size)  // for 2-hop, hop_num=3

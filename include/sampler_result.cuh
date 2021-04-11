@@ -192,7 +192,7 @@ struct Jobs_result<JobType::NS, T> {
     CUDA_RT_CALL(cudaSetDevice(dev_id));
     device_id = _device_id;
     size = _size;
-    paster(_hop_num);
+    // paster(_hop_num);
     hop_num = _hop_num;
     // uint *hops_h=new _hops[hop_num];
     CUDA_RT_CALL(cudaMalloc(&hops, hop_num * sizeof(uint)));
@@ -211,13 +211,13 @@ struct Jobs_result<JobType::NS, T> {
       tmp += _hops[i];
     }
     size_of_sample_lengths = tmp;
-    paster(length_per_sample);
-    paster(size_of_sample_lengths);
-    printf("hop_num ");
+    // paster(length_per_sample);
+    // paster(size_of_sample_lengths);
+    // printf("hop_num ");
     // printH(offsets, hop_num);
-    for (size_t i = 0; i < hop_num; i++) {
-      printf("%d\t", offsets_h[i]);
-    }
+    // for (size_t i = 0; i < hop_num; i++) {
+    //   printf("%d\t", offsets_h[i]);
+    // }
     printf("\n ");
     CUDA_RT_CALL(cudaMalloc(&offsets, hop_num * sizeof(uint)));
     CUDA_RT_CALL(cudaMemcpy(offsets, offsets_h, hop_num * sizeof(uint),

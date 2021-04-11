@@ -25,6 +25,7 @@ struct matrixBuffer {
   uint8_t length[blockSize];
   uint8_t mainLength[blockSize / 32];  // each warp maintains one lengh
   uint8_t outItr[blockSize / 32];
+  uint *ptr_per_thread[blockSize];
 
   __device__ void Init() {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
@@ -38,11 +39,18 @@ struct matrixBuffer {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     coalesced_group active = coalesced_threads();
     if (active.thread_rank() == 0) mainLength[WID]++;
+    
+    ptr_per_thread[LTID] = ptr + (LTID + sampleOffset) * hop_num;
     active.sync();
+
     for (size_t i = WID * 32; i < WID * 32 + active.size();
          i++) {  // loop over threads in warp
       for (size_t j = active.thread_rank(); j < length[i];  // loop over data
            j += active.size()) {
+        // printf("old %x new %x\n",
+        //        ptr + (i + sampleOffset) * hop_num + outItr[WID] + j + 1,
+        //        (ptr_per_thread[i] + outItr[WID] + j + 1));
+        // *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
         ptr[outItr[WID] + (i + sampleOffset) * hop_num + j + 1] =
             data[i * tileSize + j];
       }
@@ -53,16 +61,23 @@ struct matrixBuffer {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     coalesced_group active = coalesced_threads();
     if (active.thread_rank() == 0) mainLength[WID]++;
+    
+    ptr_per_thread[LTID] = ptr + (LTID + sampleOffset) * hop_num;
     active.sync();
+
     if (mainLength[WID] >= tileSize) {
-    //   if (!LID) printf("行号：%d flush：%s \n", __LINE__, __FUNCTION__);
+      //   if (!LID) printf("行号：%d flush：%s \n", __LINE__, __FUNCTION__);
       for (size_t i = WID * 32; i < WID * 32 + active.size();
            i++) {  // loop over threads in warp
         for (size_t j = active.thread_rank(); j < length[i];  // loop over data
              j += active.size()) {
+          // printf("old %x new %x\n",
+          //        ptr + (i + sampleOffset) * hop_num + outItr[WID] + j + 1,
+          //        (ptr_per_thread[i] + outItr[WID] + j + 1));
+          // *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
           ptr[outItr[WID] + (i + sampleOffset) * hop_num + j + 1] =
               data[i * tileSize + j];
-        //   if(i==0) printf("addd %u\t", data[i * tileSize + j]);
+          //   if(i==0) printf("addd %u\t", data[i * tileSize + j]);
         }
       }
       length[LTID] = 0;
