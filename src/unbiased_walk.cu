@@ -45,10 +45,9 @@ __global__ void UnbiasedWalkKernelStaticBuffer(Walker *walker, float *tp) {
   curandState state;
   curand_init(TID, 0, 0, &state);
   __shared__ matrixBuffer<BLOCK_SIZE, 31, uint> buffer;
-
+  buffer.Init();
   size_t idx_i = TID;
   if (idx_i < result.size) {
-    buffer.Init();
     result.length[idx_i] = result.hop_num - 1;
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
@@ -56,17 +55,17 @@ __global__ void UnbiasedWalkKernelStaticBuffer(Walker *walker, float *tp) {
       uint src_degree = graph->getDegree((uint)src_id);
       if (src_degree == 0 || curand_uniform(&state) < *tp) {
         result.length[idx_i] = current_itr;
-        break;
+        buffer.Finish();
+        return;
       } else if (1 < src_degree) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
         buffer.Set(graph->getOutNode(src_id, candidate));
       } else {
         buffer.Set(graph->getOutNode(src_id, 0));
       }
-      buffer.CheckFlush(result.data, result.hop_num, blockIdx.x * blockDim.x,
-                        current_itr);
+      buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
     }
-    buffer.Flush(result.data, result.hop_num, blockIdx.x * blockDim.x, 0);
+    buffer.Flush(result.data + result.hop_num * idx_i, 0);
   }
 }
 __global__ void UnbiasedWalkKernelStatic(Walker *walker, float *tp) {

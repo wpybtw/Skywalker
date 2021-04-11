@@ -7,17 +7,17 @@
  */
 #include "app.cuh"
 
-
 __global__ void sample_kernel_static_buffer(Walker *walker) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
   gpu_graph *graph = &walker->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
   __shared__ matrixBuffer<BLOCK_SIZE, 31, uint> buffer;
-
+  buffer.Init();
+  
   size_t idx_i = TID;
   if (idx_i < result.size) {
-    buffer.Init();
+    
     result.length[idx_i] = result.hop_num - 1;
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
@@ -25,7 +25,8 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
         uint src_id = result.GetData(current_itr, idx_i);
-        // if (src_id > graph->vtx_num) printf("%u %u\n", src_id, graph->vtx_num);
+        // if (src_id > graph->vtx_num) printf("%u %u\n", src_id,
+        // graph->vtx_num);
         uint src_degree = graph->getDegree((uint)src_id);
         alias.Construt(
             graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
@@ -53,17 +54,17 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
         } else if (src_degree == 0) {
           result.alive[idx_i] = 0;
           result.length[idx_i] = current_itr;
-          break;
+          buffer.Finish();
+          return;
         } else {
           buffer.Set(graph->getOutNode(src_id, 0));
           // *result.GetDataPtr(current_itr + 1, idx_i) =
           //     graph->getOutNode(src_id, 0);
         }
-        buffer.CheckFlush(result.data, result.hop_num, blockIdx.x * blockDim.x,
-                          current_itr);  
+        buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
       }
     }
-    buffer.Flush(result.data, result.hop_num, blockIdx.x * blockDim.x, 0);
+    buffer.Flush(result.data + result.hop_num * idx_i, 0);
   }
 }
 // 48 kb , 404 per sampler

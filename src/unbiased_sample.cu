@@ -13,12 +13,11 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
   curand_init(TID, 0, 0, &state);
   __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
   __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop;
-
+  buffer_1hop.Init();
+  buffer_2hop.Init();
   size_t idx_i = TID;
   if (idx_i < result.size)  // for 2-hop, hop_num=3
   {
-    buffer_1hop.Init();
-    buffer_2hop.Init();
     uint current_itr = 0;
     // 1-hop
     {
@@ -89,7 +88,8 @@ static __global__ void sample_kernel_2hop(Sampler_new *sampler) {
                            i + k * result.hops[current_itr]) =
             graph->getOutNode(src_id, candidate);
       }
-      // result.sample_lengths[idx_i*result.size_of_sample_lengths+ ] = sample_size;
+      // result.sample_lengths[idx_i*result.size_of_sample_lengths+ ] =
+      // sample_size;
       result.SetSampleLength(idx_i, current_itr, k, sample_size);
     }
   }

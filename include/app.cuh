@@ -35,49 +35,36 @@ struct matrixBuffer {
       outItr[WID] = 0;
     }
   }
-  __device__ void Flush(uint *ptr, uint hop_num, uint sampleOffset, uint itr) {
+  __device__ void Flush(uint *ptr, uint itr) {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     coalesced_group active = coalesced_threads();
     if (active.thread_rank() == 0) mainLength[WID]++;
-    
-    ptr_per_thread[LTID] = ptr + (LTID + sampleOffset) * hop_num;
+    ptr_per_thread[LTID] = ptr;
     active.sync();
 
-    for (size_t i = WID * 32; i < WID * 32 + active.size();
+    for (size_t i = WID * 32; i < WID * 32 + 32;
          i++) {  // loop over threads in warp
       for (size_t j = active.thread_rank(); j < length[i];  // loop over data
            j += active.size()) {
-        // printf("old %x new %x\n",
-        //        ptr + (i + sampleOffset) * hop_num + outItr[WID] + j + 1,
-        //        (ptr_per_thread[i] + outItr[WID] + j + 1));
-        // *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
-        ptr[outItr[WID] + (i + sampleOffset) * hop_num + j + 1] =
-            data[i * tileSize + j];
+        *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
       }
     }
   }
-  __device__ void CheckFlush(uint *ptr, uint hop_num, uint sampleOffset,
-                             uint itr) {
-    // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
+  __device__ void CheckFlush(uint *ptr, uint itr) {
     coalesced_group active = coalesced_threads();
     if (active.thread_rank() == 0) mainLength[WID]++;
-    
-    ptr_per_thread[LTID] = ptr + (LTID + sampleOffset) * hop_num;
     active.sync();
+    // printf("active.sync() %u itr %u \n", active.thread_rank(), itr);
 
     if (mainLength[WID] >= tileSize) {
-      //   if (!LID) printf("行号：%d flush：%s \n", __LINE__, __FUNCTION__);
-      for (size_t i = WID * 32; i < WID * 32 + active.size();
+      ptr_per_thread[LTID] = ptr;
+      for (size_t i = WID * 32; i < WID * 32 + 32;
            i++) {  // loop over threads in warp
         for (size_t j = active.thread_rank(); j < length[i];  // loop over data
              j += active.size()) {
-          // printf("old %x new %x\n",
-          //        ptr + (i + sampleOffset) * hop_num + outItr[WID] + j + 1,
-          //        (ptr_per_thread[i] + outItr[WID] + j + 1));
-          // *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
-          ptr[outItr[WID] + (i + sampleOffset) * hop_num + j + 1] =
-              data[i * tileSize + j];
-          //   if(i==0) printf("addd %u\t", data[i * tileSize + j]);
+          // printf("active.sync() %u itr %u  i %u j %u LTID %u\n",
+          //        active.thread_rank(), itr, i, j, LTID);
+          *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
         }
       }
       length[LTID] = 0;
@@ -87,6 +74,7 @@ struct matrixBuffer {
       }
     }
   }
+  __device__ void Finish() { length[LTID] = 0; }
   __device__ void Set(uint v) {
     data[LTID * tileSize + length[LTID]] = v;
     length[LTID]++;

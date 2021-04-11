@@ -68,19 +68,19 @@ void printH(T *ptr, int size) {
 }
 
 // https://forums.developer.nvidia.com/t/how-can-i-use-atomicsub-for-floats-and-doubles/64340/5
-__device__ double my_atomicSub(double *address, double val) {
-  unsigned long long int *address_as_ull = (unsigned long long int *)address;
-  unsigned long long int old = *address_as_ull, assumed;
-  do {
-    assumed = old;
-    old = atomicCAS(
-        address_as_ull, assumed,
-        __double_as_longlong(__longlong_as_double(assumed) -
-                             val));  // Note: uses integer comparison to avoid
-                                     // hang in case of NaN (since NaN != NaN)
-  } while (assumed != old);
-  return __longlong_as_double(old);
-}
+// __device__ double my_atomicSub(double *address, double val) {
+//   unsigned long long int *address_as_ull = (unsigned long long int *)address;
+//   unsigned long long int old = *address_as_ull, assumed;
+//   do {
+//     assumed = old;
+//     old = atomicCAS(
+//         address_as_ull, assumed,
+//         __double_as_longlong(__longlong_as_double(assumed) -
+//                              val));  // Note: uses integer comparison to avoid
+//                                      // hang in case of NaN (since NaN != NaN)
+//   } while (assumed != old);
+//   return __longlong_as_double(old);
+// }
 
 // https://forums.developer.nvidia.com/t/how-can-i-use-atomicsub-for-floats-and-doubles/64340/5
 __device__ float my_atomicSub(float *address, float val) {
