@@ -157,7 +157,7 @@ struct Jobs_result<JobType::NS, T> {
   uint size_of_sample_lengths;
   uint *offsets;
   uint *seeds;
-  __device__ void SetSampleLength(uint sampleIdx, uint itr, size_t idx,
+  __forceinline__ __device__ void SetSampleLength(uint sampleIdx, uint itr, size_t idx,
                                   uint v) {
     // if (sampleIdx == 0) {
     //   printf("itr * offsets[itr] %u\n ", itr * offsets[itr]);

@@ -40,14 +40,15 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
     current_itr = 1;
     // 2-hop  each warp for one???
     for (size_t i = 0; i < 32; i++) {  // loop over threads
-      for (size_t j = 0;
-           j < MIN(result.hops[current_itr], buffer_1hop.length[(WID)*32 + i]);
+      coalesced_group local = coalesced_threads();
+      uint hop1_len;
+      if (local.thread_rank() == 0) hop1_len = buffer_1hop.length[(WID)*32 + i];
+      hop1_len = local.shfl(hop1_len, 0);
+
+      for (size_t j = 0; j < MIN(result.hops[current_itr], hop1_len);
            j++) {  // loop over 1hop for each thread
-        coalesced_group local = coalesced_threads();
         uint src_id =
-            buffer_1hop
-                .data[((WID)*32 + i) * buffer_1hop.tileLen +
-                      j];  // result.GetData(idxMap[WID + i], current_itr, j);
+            buffer_1hop.data[((WID)*32 + i) * buffer_1hop.tileLen + j];
         uint src_degree = graph->getDegree((uint)src_id);
         uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
 
