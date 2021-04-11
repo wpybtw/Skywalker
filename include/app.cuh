@@ -81,4 +81,11 @@ struct matrixBuffer {
     // if(length[LTID]>=tileSize) // better to manually flush in case of
     // divergence
   }
+  __device__ void CollectiveSet(uint id, uint v) {
+    coalesced_group local = coalesced_threads();
+    data[id * tileSize + length[id] + local.thread_rank()] = v;
+    if (local.thread_rank() == 0) length[id] += local.size();
+    // if(length[LTID]>=tileSize) // better to manually flush in case of
+    // divergence
+  }
 };

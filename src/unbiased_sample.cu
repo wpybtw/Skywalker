@@ -12,12 +12,16 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
   curandState state;
   curand_init(TID, 0, 0, &state);
   __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
-  __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop;
+  // __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop; //not necessary
+  __shared__ uint idxMap[BLOCK_SIZE];
+  idxMap[LTID] = 0;
+
   buffer_1hop.Init();
-  buffer_2hop.Init();
+  // buffer_2hop.Init();
   size_t idx_i = TID;
   if (idx_i < result.size)  // for 2-hop, hop_num=3
   {
+    idxMap[LTID] = idx_i;
     uint current_itr = 0;
     coalesced_group active = coalesced_threads();
     // 1-hop
@@ -29,7 +33,6 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
         // *result.GetDataPtr(idx_i, current_itr + 1, i) =
         //     graph->getOutNode(src_id, candidate);
-
         buffer_1hop.Set(
             graph->getOutNode(src_id, candidate));  // can move back latter
       }
@@ -39,27 +42,44 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
     }
     current_itr = 1;
     // 2-hop  each warp for one???
-    for (size_t k = 0; k < MIN(result.hops[current_itr],
-                               result.GetSampleLength(idx_i, 0, 0));
-         k++) {
-      active.sync();
-      uint src_id = result.GetData(idx_i, current_itr, k);
-      uint src_degree = graph->getDegree((uint)src_id);
-      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
-      for (size_t i = 0; i < sample_size; i++) {
-        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-        // *result.GetDataPtr(idx_i, current_itr + 1,
-        //                    i + k * result.hops[current_itr]) =
-        //     graph->getOutNode(src_id, candidate);
+    for (size_t i = 0; i < 32; i++) {  // loop over threads
+      for (size_t j = 0;
+           j < MIN(result.hops[current_itr], buffer_1hop.length[WID + i]);
+           j++) {  // loop over 1hop for each thread
+        coalesced_group local = coalesced_threads();
+        uint src_id = result.GetData(idxMap[WID + i], current_itr, j);
+        uint src_degree = graph->getDegree((uint)src_id);
+        uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
 
-        buffer_2hop.Set(graph->getOutNode(src_id, candidate));
+        for (size_t k = active.thread_rank(); k < sample_size;
+             k++) {  // get 2hop for 1hop neighbors for each thread
+          uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+          *result.GetDataPtr(idxMap[WID + i], current_itr + 1,
+                             active.thread_rank()) =
+              graph->getOutNode(src_id, candidate);
+        }
+        if (local.thread_rank() == 0)
+          result.SetSampleLength(idxMap[WID + i], current_itr, j, sample_size);
       }
-      active.sync();
-      buffer_2hop.Flush(result.data + result.length_per_sample * idx_i +
-                            result.hops[current_itr],
-                        0);
-      result.SetSampleLength(idx_i, current_itr, k, sample_size);
     }
+
+    // for (size_t k = 0;
+    //      k < MIN(result.hops[current_itr], result.GetSampleLength(idx_i, 0,
+    //      0)); k++) {
+    //   active.sync();
+    //   uint src_id = result.GetData(idx_i, current_itr, k);
+    //   uint src_degree = graph->getDegree((uint)src_id);
+    //   uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+    //   for (size_t i = 0; i < sample_size; i++) {
+    //     uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+    //     buffer_2hop.Set(graph->getOutNode(src_id, candidate));
+    //   }
+    //   active.sync();
+    //   buffer_2hop.Flush(result.data + result.length_per_sample * idx_i +
+    //                         result.hops[current_itr],
+    //                     0);
+    //   result.SetSampleLength(idx_i, current_itr, k, sample_size);
+    // }
   }
 }
 
