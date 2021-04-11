@@ -15,9 +15,8 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
   // __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop; //not necessary
   __shared__ uint idxMap[BLOCK_SIZE];
   idxMap[LTID] = 0;
-
   buffer_1hop.Init();
-  // buffer_2hop.Init();
+
   size_t idx_i = TID;
   if (idx_i < result.size)  // for 2-hop, hop_num=3
   {
@@ -31,16 +30,12 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
       uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
       for (size_t i = 0; i < sample_size; i++) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-        // *result.GetDataPtr(idx_i, current_itr + 1, i) =
-        //     graph->getOutNode(src_id, candidate);
         buffer_1hop.Set(
             graph->getOutNode(src_id, candidate));  // can move back latter
       }
       active.sync();
       buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0);
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
-      // if(WID==1)
-      //  printf("warp1 sample_size%u\t",sample_size);
     }
     current_itr = 1;
     // 2-hop  each warp for one???
@@ -64,32 +59,12 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
               graph->getOutNode(src_id, candidate);
         }
         if (local.thread_rank() == 0) {
-          // if(WID==1)
-          // printf("WID <<5 +i  %u, j %u, sample_size %u \n", (WID)*32 + i , j, sample_size);
           result.SetSampleLength(idxMap[(WID)*32 + i], current_itr, j,
                                  sample_size);
         }
         local.sync();
       }
     }
-
-    // for (size_t k = 0;
-    //      k < MIN(result.hops[current_itr], result.GetSampleLength(idx_i, 0,
-    //      0)); k++) {
-    //   active.sync();
-    //   uint src_id = result.GetData(idx_i, current_itr, k);
-    //   uint src_degree = graph->getDegree((uint)src_id);
-    //   uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
-    //   for (size_t i = 0; i < sample_size; i++) {
-    //     uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-    //     buffer_2hop.Set(graph->getOutNode(src_id, candidate));
-    //   }
-    //   active.sync();
-    //   buffer_2hop.Flush(result.data + result.length_per_sample * idx_i +
-    //                         result.hops[current_itr],
-    //                     0);
-    //   result.SetSampleLength(idx_i, current_itr, k, sample_size);
-    // }
   }
 }
 
