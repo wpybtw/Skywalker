@@ -7,38 +7,55 @@
  */
 #include "app.cuh"
 
-__global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
+#define PV 2.0f
+#define QV 0.5f
+#define MAX_SCALE MAX(PV, QV)
+
+__global__ void Node2vecKernelStaticBuffer(Walker *walker) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
   gpu_graph *graph = &walker->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-  // for (uint current_itr = 0; current_itr < result.hop_num - 1; current_itr++)
-  // {
-  if (TID < result.frontier.Size(current_itr)) {
-    size_t idx_i = result.frontier.Get(current_itr, TID);
-    uint src_id = result.GetData(current_itr, idx_i);
-    uint src_degree = graph->getDegree((uint)src_id);
-    result.length[idx_i] = current_itr;
-    if (1 < src_degree) {
-      int col = (int)floor(curand_uniform(&state) * src_degree);
-      uint candidate = col;
-      *result.GetDataPtr(current_itr + 1, idx_i) =
-          graph->getOutNode(src_id, candidate);
-      result.frontier.SetActive(current_itr + 1, idx_i);
-    } else if (src_degree == 1) {
-      *result.GetDataPtr(current_itr + 1, idx_i) = graph->getOutNode(src_id, 0);
-      result.frontier.SetActive(current_itr + 1, idx_i);
+  __shared__ matrixBuffer<BLOCK_SIZE, 31, uint> buffer;
+  buffer.Init();
+  size_t idx_i = TID;
+  uint lastV = idx_i;
+  if (idx_i < result.size) {
+    result.length[idx_i] = result.hop_num - 1;
+    for (uint current_itr = 0; current_itr < result.hop_num - 1;
+         current_itr++) {
+      uint src_id = result.GetData(current_itr, idx_i);
+      uint src_degree = graph->getDegree((uint)src_id);
+      if (src_degree == 0) {
+        result.length[idx_i] = current_itr;
+        buffer.Finish();
+        return;
+      } else if (1 < src_degree) {
+        uint outV;
+        do {
+          uint x = (int)floor(curand_uniform(&state) * src_degree);
+          uint y = (int)floor(curand_uniform(&state) * MAX_SCALE);
+          float h;
+          outV = graph->getOutNode(src_id, x);
+          if (graph->CheckConnect(lastV, outV)) {
+            h = QV;
+          } else if (lastV == outV) {
+            h = PV;
+          } else {
+            h = 1.0;
+          }
+          if (y < h) break;
+        } while (true);
+        buffer.Set(outV);
+      } else {
+        buffer.Set(graph->getOutNode(src_id, 0));
+      }
+      lastV = src_id;
+      buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
     }
+    buffer.Flush(result.data + result.hop_num * idx_i, 0);
   }
 }
-
-__global__ void Reset(Walker *walker, uint current_itr) {
-  if (TID == 0) walker->result.frontier.Reset(current_itr);
-}
-__global__ void GetSize(Walker *walker, uint current_itr, uint *size) {
-  if (TID == 0) *size = walker->result.frontier.Size(current_itr);
-}
-
 __global__ void UnbiasedWalkKernelStaticBuffer(Walker *walker, float *tp) {
   Jobs_result<JobType::RW, uint> &result = walker->result;
   gpu_graph *graph = &walker->ggraph;
@@ -122,7 +139,38 @@ __global__ void UnbiasedWalkKernel(Walker *walker, float *tp) {
     }
   }
 }
+__global__ void UnbiasedWalkKernelPerItr(Walker *walker, uint current_itr) {
+  Jobs_result<JobType::RW, uint> &result = walker->result;
+  gpu_graph *graph = &walker->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  // for (uint current_itr = 0; current_itr < result.hop_num - 1;
+  // current_itr++)
+  // {
+  if (TID < result.frontier.Size(current_itr)) {
+    size_t idx_i = result.frontier.Get(current_itr, TID);
+    uint src_id = result.GetData(current_itr, idx_i);
+    uint src_degree = graph->getDegree((uint)src_id);
+    result.length[idx_i] = current_itr;
+    if (1 < src_degree) {
+      int col = (int)floor(curand_uniform(&state) * src_degree);
+      uint candidate = col;
+      *result.GetDataPtr(current_itr + 1, idx_i) =
+          graph->getOutNode(src_id, candidate);
+      result.frontier.SetActive(current_itr + 1, idx_i);
+    } else if (src_degree == 1) {
+      *result.GetDataPtr(current_itr + 1, idx_i) = graph->getOutNode(src_id, 0);
+      result.frontier.SetActive(current_itr + 1, idx_i);
+    }
+  }
+}
 
+__global__ void Reset(Walker *walker, uint current_itr) {
+  if (TID == 0) walker->result.frontier.Reset(current_itr);
+}
+__global__ void GetSize(Walker *walker, uint current_itr, uint *size) {
+  if (TID == 0) *size = walker->result.frontier.Size(current_itr);
+}
 static __global__ void print_result(Walker *walker) {
   walker->result.PrintResult();
 }
@@ -157,7 +205,10 @@ float UnbiasedWalk(Walker &walker) {
   cudaMalloc(&size_d, sizeof(uint));
 
   start_time = wtime();
-  if (!FLAGS_peritr) {
+  if (FLAGS_node2vec) {
+    Node2vecKernelStaticBuffer<<<walker.num_seed / BLOCK_SIZE + 1, BLOCK_SIZE,
+                                 0, 0>>>(sampler_ptr);
+  } else if (!FLAGS_peritr) {
     if (FLAGS_static) {
       if (FLAGS_buffer)
         UnbiasedWalkKernelStaticBuffer<<<walker.num_seed / BLOCK_SIZE + 1,

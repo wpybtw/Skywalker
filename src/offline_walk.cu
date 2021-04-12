@@ -17,7 +17,6 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
   
   size_t idx_i = TID;
   if (idx_i < result.size) {
-    
     result.length[idx_i] = result.hop_num - 1;
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
@@ -25,8 +24,6 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
         uint src_id = result.GetData(current_itr, idx_i);
-        // if (src_id > graph->vtx_num) printf("%u %u\n", src_id,
-        // graph->vtx_num);
         uint src_degree = graph->getDegree((uint)src_id);
         alias.Construt(
             graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
@@ -38,8 +35,6 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
         prob.Init(src_degree);
         const uint target_size = 1;
         if (target_size < src_degree) {
-          //   int itr = 0;
-          // for (size_t i = 0; i < target_size; i++) {
           int col = (int)floor(curand_uniform(&state) * src_degree);
           float p = curand_uniform(&state);
           uint candidate;
@@ -48,9 +43,6 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
           else
             candidate = alias[col];
           buffer.Set(graph->getOutNode(src_id, candidate));
-          // *result.GetDataPtr(current_itr + 1, idx_i) =
-          //     graph->getOutNode(src_id, candidate);
-          // }
         } else if (src_degree == 0) {
           result.alive[idx_i] = 0;
           result.length[idx_i] = current_itr;
@@ -58,8 +50,6 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
           return;
         } else {
           buffer.Set(graph->getOutNode(src_id, 0));
-          // *result.GetDataPtr(current_itr + 1, idx_i) =
-          //     graph->getOutNode(src_id, 0);
         }
         buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
       }

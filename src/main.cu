@@ -125,9 +125,11 @@ int main(int argc, char *argv[]) {
     }
   }
   if (FLAGS_node2vec) {
-    FLAGS_ol = true;
+    // FLAGS_ol = true;
+    FLAGS_bias = false;  //we run node2vec in unbiased app currently.
     FLAGS_rw = true;
     FLAGS_k = 1;
+    FLAGS_d = 100;
   }
   if (FLAGS_deepwalk) {
     // FLAGS_ol=true;

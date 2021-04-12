@@ -6,7 +6,7 @@
  # @LastEditTime: 2021-01-15 15:49:20
  # @FilePath: /skywalker/figs/offline.sh
 ### 
-DATA=(web-Google lj orkut arabic-2005 uk-2005 ) # sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
+DATA=(web-Google lj orkut) # arabic-2005 uk-2005 ) # sk-2005 friendster) # uk-union rmat29 web-ClueWeb09) eu-2015-host-nat twitter-2010
 HD=(0.25          0.5  1     0.25        0.25      0.5           1) # uk-union rmat29 web-ClueWeb09)
 NV=(916428    4847571 3072627  39459923   22744077     50636151 124836180)
 # HD=(4             2   1     4         4       2           1) # uk-union rmat29 web-ClueWeb09)
@@ -19,8 +19,8 @@ NG=4 #8
 GR=".w.gr"
 EXE="./bin/main" #main_degree
 SG="--ngpu=1 --s"
-RW="--rw=1 --k 1 --d 100 "
-SP="--rw=0 --k 20 --d 2 "
+RW="--deepwalk "
+SP="--sage "
 BATCH="--n 4000 "
 LOG_FILE="offline.csv"
 
