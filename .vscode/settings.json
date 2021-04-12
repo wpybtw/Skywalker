@@ -90,6 +90,7 @@
         "__split_buffer": "cpp",
         "__tree": "cpp",
         "*.ipp": "cpp",
-        "future": "cpp"
+        "future": "cpp",
+        "slist": "cpp"
     }
 }

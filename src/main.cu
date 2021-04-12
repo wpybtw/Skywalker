@@ -96,6 +96,7 @@ DEFINE_bool(ab, true, "using UM AB hint");
 
 DEFINE_bool(async, false, "using async execution");
 DEFINE_bool(replica, false, "same task for all gpus");
+DEFINE_bool(built, false, "has built table");
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -277,6 +278,8 @@ int main(int argc, char *argv[]) {
               *max_element(time, time + num_device) * 1000);
           table_times[dev_num - 1] =
               *max_element(time, time + num_device) * 1000;
+          
+          FLAGS_built=true;
         }
 
         if (!FLAGS_rw) {  //&& FLAGS_k != 1

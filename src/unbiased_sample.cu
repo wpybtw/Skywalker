@@ -195,6 +195,8 @@ float UnbiasedSample(Sampler_new &sampler) {
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   int n_sm = prop.multiProcessorCount;
+  LOG("overridding flags_itr for UnbiasedSample\n");
+  FLAGS_peritr=1;
 
   Sampler_new *sampler_ptr;
   cudaMalloc(&sampler_ptr, sizeof(Sampler_new));

@@ -11,6 +11,7 @@ DECLARE_bool(node2vec);
 DECLARE_double(p);
 DECLARE_double(q);
 DECLARE_bool(umresult);
+DECLARE_bool(built);
 
 struct sample_job {
   uint idx;
@@ -157,17 +158,17 @@ struct Jobs_result<JobType::NS, T> {
   uint size_of_sample_lengths;
   uint *offsets;
   uint *seeds;
-  __forceinline__ __device__ void SetSampleLength(uint sampleIdx, uint itr, size_t idx,
-                                  uint v) {
+  __forceinline__ __device__ void SetSampleLength(uint sampleIdx, uint itr,
+                                                  size_t idx, uint v) {
     // if (sampleIdx == 0) {
     //   printf("itr * offsets[itr] %u\n ", itr * offsets[itr]);
     //   printf("itr * offsets[itr]+ idx %u\n ", itr * offsets[itr] + idx);
     //   printf(
-    //       "sampleIdx * size_of_sample_lengths + itr * offsets[itr]+ idx %u\n ",
-    //       sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx);
-    //   uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx;
-    //   printf("tmp %u\n ", tmp);
-    //   printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx, tmp);
+    //       "sampleIdx * size_of_sample_lengths + itr * offsets[itr]+ idx %u\n
+    //       ", sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx);
+    //   uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] +
+    //   idx; printf("tmp %u\n ", tmp); printf("sampleIdx %u itr %u idx %u loc
+    //   %u \n", sampleIdx, itr, idx, tmp);
     // }
     uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx;
     sample_lengths[tmp] = v;
@@ -528,7 +529,10 @@ struct sample_result {
   void Free() {
     if (hops != nullptr) CUDA_RT_CALL(cudaFree(hops));
     if (addr_offset != nullptr) CUDA_RT_CALL(cudaFree(addr_offset));
-    if (data != nullptr) CUDA_RT_CALL(cudaFree(data));
+    if (data != nullptr) {
+      CUDA_RT_CALL(cudaFree(data));
+      data = nullptr;
+    }
     if (job_sizes != nullptr) CUDA_RT_CALL(cudaFree(job_sizes));
     if (job_sizes_floor != nullptr) CUDA_RT_CALL(cudaFree(job_sizes_floor));
     if (job_sizes_h != nullptr) delete[] job_sizes_h;
@@ -555,29 +559,32 @@ struct sample_result {
     uint64_t cum = size;
     for (size_t i = 0; i < hop_num; i++) {
       cum *= _hops[i];
-      if (FLAGS_bias) {
+      if (FLAGS_bias && !FLAGS_built) {
         high_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
         mid_degrees_h[i].Allocate(MAX((cum * FLAGS_hd), 4000), device_id);
       }
       offset += cum;
     }
     capacity = offset;
-    CUDA_RT_CALL(
-        cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
-    CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
-                            hop_num * sizeof(Vector_gmem<uint>),
-                            cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(cudaMalloc(&mid_degrees, hop_num * sizeof(Vector_gmem<uint>)));
-    CUDA_RT_CALL(cudaMemcpy(mid_degrees, mid_degrees_h,
-                            hop_num * sizeof(Vector_gmem<uint>),
-                            cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(cudaMalloc(&data, capacity * sizeof(uint)));
-    CUDA_RT_CALL(
-        cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
-    job_sizes_h = new int[hop_num];
-    job_sizes_h[0] = size;
-    CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
-    CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
+    if (!FLAGS_built) {
+      CUDA_RT_CALL(
+          cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+      CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
+                              hop_num * sizeof(Vector_gmem<uint>),
+                              cudaMemcpyHostToDevice));
+      CUDA_RT_CALL(
+          cudaMalloc(&mid_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+      CUDA_RT_CALL(cudaMemcpy(mid_degrees, mid_degrees_h,
+                              hop_num * sizeof(Vector_gmem<uint>),
+                              cudaMemcpyHostToDevice));
+      CUDA_RT_CALL(cudaMalloc(&data, capacity * sizeof(uint)));
+      CUDA_RT_CALL(
+          cudaMemcpy(data, seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
+      job_sizes_h = new int[hop_num];
+      job_sizes_h[0] = size;
+      CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
+      CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
+    }
   }
   __host__ size_t GetSampledNumber() { return get_sum(job_sizes, hop_num); }
   __device__ void PrintResult() {
