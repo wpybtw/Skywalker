@@ -6,16 +6,89 @@
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
-static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
+
+static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
   __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
   // __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop; //not necessary
+  // __shared__ uint idxMap[BLOCK_SIZE];
+  // idxMap[LTID] = 0;
+  buffer_1hop.Init();
+
+  size_t idx_i = TID;
+  if (idx_i < result.size)  // for 2-hop, hop_num=3
+  {
+    // idxMap[LTID] = idx_i;
+    uint current_itr = 0;
+    coalesced_group active = coalesced_threads();
+    // 1-hop
+    {
+      uint src_id = result.GetData(idx_i, current_itr, 0);
+      uint src_degree = graph->getDegree((uint)src_id);
+      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+      for (size_t i = 0; i < sample_size; i++) {
+        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+        buffer_1hop.Set(
+            graph->getOutNode(src_id, candidate));  // can move back latter
+      }
+      active.sync();
+      buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0);
+      result.SetSampleLength(idx_i, current_itr, 0, sample_size);
+    }
+  }
+}
+template <uint subwarp_size>
+static __global__ void sample_kernel_second(Sampler_new *sampler, uint itr) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  size_t subwarp_id = TID / subwarp_size;
+  size_t idx_i = subwarp_id;  //
+
+  __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
+  // __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop; //not necessary
+  // __shared__ uint idxMap[BLOCK_SIZE];
+  // idxMap[LTID] = 0;
+  buffer_1hop.Init();
+
+  // size_t idx_i = TID;
+  if (idx_i < result.size)  // for 2-hop, hop_num=3
+  {
+    // idxMap[LTID] = idx_i;
+    uint current_itr = 0;
+    coalesced_group active = coalesced_threads();
+    // 1-hop
+    {
+      uint src_id = result.GetData(idx_i, current_itr, 0);
+      uint src_degree = graph->getDegree((uint)src_id);
+      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+      for (size_t i = 0; i < sample_size; i++) {
+        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+        buffer_1hop.Set(
+            graph->getOutNode(src_id, candidate));  // can move back latter
+      }
+      active.sync();
+      buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0);
+      result.SetSampleLength(idx_i, current_itr, 0, sample_size);
+    }
+  }
+}
+
+static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
+  __shared__ matrixBuffer<BLOCK_SIZE, 25, uint> buffer_2hop;  // not necessary
   __shared__ uint idxMap[BLOCK_SIZE];
   idxMap[LTID] = 0;
   buffer_1hop.Init();
+  buffer_2hop.Init();
 
   size_t idx_i = TID;
   if (idx_i < result.size)  // for 2-hop, hop_num=3
@@ -55,10 +128,13 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
         for (size_t k = active.thread_rank(); k < sample_size;
              k++) {  // get 2hop for 1hop neighbors for each thread
           uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-          *result.GetDataPtr(idxMap[(WID)*32 + i], current_itr + 1,
-                             active.thread_rank()) =
-              graph->getOutNode(src_id, candidate);
+          // *result.GetDataPtr(idxMap[(WID)*32 + i], current_itr + 1,
+          //                    active.thread_rank()) =
+          //     graph->getOutNode(src_id, candidate);
+          buffer_2hop.Set(graph->getOutNode(src_id, candidate));
         }
+        buffer_2hop.Flush(result.data + result.length_per_sample * idxMap[(WID)*32 + i] + j*result.hops[current_itr] , 0);
+
         if (local.thread_rank() == 0) {
           result.SetSampleLength(idxMap[(WID)*32 + i], current_itr, j,
                                  sample_size);
