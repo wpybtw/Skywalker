@@ -59,7 +59,7 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
   bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
   size_t idx_i = subwarp_id;  //
 
-  __shared__ uint buffer[BLOCK_SIZE][25];
+  __shared__ uint buffer[BLOCK_SIZE][26];
   __shared__ uint buffer_len[BLOCK_SIZE];
   __shared__ uint idxMap[BLOCK_SIZE];
   idxMap[LTID] = 0;
