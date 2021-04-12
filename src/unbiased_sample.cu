@@ -78,23 +78,24 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
         sample_size = MIN(result.hops[current_itr + 1], src_degree);
         for (size_t i = 0; i < sample_size; i++) {
           uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-          // buffer_1hop.Set(
-          //     graph->getOutNode(src_id, candidate));  // can move back latter
-          buffer[LTID][i] = graph->getOutNode(src_id, candidate);
-          buffer_len[LTID]++;
+
+          // buffer[LTID][i] = graph->getOutNode(src_id, candidate);
+          // buffer_len[LTID]++;
+          *result.GetDataPtr(idx_i, current_itr + 1, i) =
+              graph->getOutNode(src_id, candidate);
         }
       }
       if (alive)
         result.SetSampleLength(idx_i, current_itr, subwarp_idx, sample_size);
-      active.sync();
-      for (size_t i = 0; i < 32; i++) {  // LID id
-        for (size_t j = active.thread_rank(); j < buffer_len[(WID)*32 + i];
-             j++) {
-          *result.GetDataPtr(idxMap[(WID)*32 + i], current_itr + 1,
-                             active.thread_rank()) =
-              buffer[(WID)*32 + i][active.thread_rank()];
-        }
-      }
+      // active.sync();
+      // for (size_t i = 0; i < 32; i++) {  // LID id
+      //   for (size_t j = active.thread_rank(); j < buffer_len[(WID)*32 + i];
+      //        j++) {
+      //     *result.GetDataPtr(idxMap[(WID)*32 + i], current_itr + 1,
+      //                        active.thread_rank()) =
+      //         buffer[(WID)*32 + i][active.thread_rank()];
+      //   }
+      // }
     }
   }
 }
@@ -243,7 +244,7 @@ float UnbiasedSample(Sampler_new &sampler) {
   start_time = wtime();
   if (FLAGS_peritr) {
     sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
-                          0>>>(sampler_ptr,0);
+                          0>>>(sampler_ptr, 0);
     sample_kernel_second<16>
         <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
             sampler_ptr, 1);
