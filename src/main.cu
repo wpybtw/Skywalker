@@ -31,8 +31,8 @@ using namespace std;
 // DEFINE_bool(pf, false, "use UM prefetch");
 DEFINE_string(input, "/home/pywang/data/lj.w.gr", "input");
 // DEFINE_int32(device, 0, "GPU ID");
-DEFINE_int32(ngpu, 4, "number of GPUs ");
-DEFINE_bool(s, false, "single gpu");
+DEFINE_int32(ngpu, 1, "number of GPUs ");
+DEFINE_bool(s, true, "single gpu");
 
 DEFINE_int32(n, 4000, "sample size");
 DEFINE_int32(k, 2, "neightbor");

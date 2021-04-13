@@ -107,6 +107,111 @@ static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
   }
 }
 template <uint subwarp_size>
+static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
+                                                   uint current_itr) {
+#define buffer_len 15  // occupancy allows 15, 15 75% occupancy but best?
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+
+  size_t subwarp_id = TID / subwarp_size;
+  uint subwarp_idx = TID % subwarp_size;
+  uint local_subwarp_id = LTID / subwarp_size;
+  bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
+  size_t idx_i = subwarp_id;  //
+
+  Vector_virtual<uint> alias;
+  Vector_virtual<float> prob;
+
+  thread_block tb = this_thread_block();
+  auto warp = tiled_partition<32>(tb);
+  auto subwarp = tiled_partition<subwarp_size>(warp);
+
+  __shared__ uint buffer[BLOCK_SIZE][buffer_len];
+  // buffer.Init();
+  __shared__ uint idxMap[BLOCK_SIZE];
+  __shared__ uint iMap[BLOCK_SIZE];
+  __shared__ uint len[BLOCK_SIZE];
+  // __shared__ uint MainLen[BLOCK_SIZE / subwarp_size];
+  idxMap[LTID] = 0;
+  iMap[LTID] = 0;
+  len[LTID] = 0;
+  // if (!subwarp.thread_rank()) MainLen[LTID] = 0;
+
+  if (idx_i < result.size)  // for 2-hop, hop_num=3
+  {
+    idxMap[LTID] = idx_i;
+    iMap[LTID] = subwarp_idx;
+    coalesced_group active = coalesced_threads();
+    {
+      uint src_id, sample_size, src_degree = 0;
+      if (alive) {
+        src_id = result.GetData(idx_i, current_itr, subwarp_idx);
+        src_degree = graph->getDegree((uint)src_id);
+        alive = (src_degree == 0) ? false : true;
+      }
+      // sample_size = MIN(result.hops[current_itr + 1], src_degree);
+      sample_size = result.hops[current_itr + 1];
+      alias.Construt(
+          graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      prob.Construt(
+          graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      alias.Init(src_degree);
+      prob.Init(src_degree);
+
+      for (size_t i = 0; i < sample_size; i++) {
+        if (alive) {
+          // uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+          // *result.GetDataPtr(idx_i, current_itr + 1, i) =
+          //     graph->getOutNode(src_id, candidate);
+          int col = (int)floor(curand_uniform(&state) * src_degree);
+          float p = curand_uniform(&state);
+          uint candidate;
+          if (p < prob[col])
+            candidate = col;
+          else
+            candidate = alias[col];
+          buffer[LTID][len[LTID]] = graph->getOutNode(src_id, candidate);
+          len[LTID] += 1;
+        }
+        subwarp.sync();
+        uint mainLen = cg::reduce(subwarp, len[LTID], cg::greater<uint>());
+        if (mainLen == buffer_len) {
+          for (size_t j = 0; j < subwarp_size; j++) {
+            subwarp.sync();
+            for (size_t k = subwarp.thread_rank();
+                 k < len[local_subwarp_id * subwarp_size + j];
+                 k += subwarp.size()) {
+              *result.GetDataPtr(idxMap[local_subwarp_id * subwarp_size + j],
+                                 current_itr + 1, k) =
+                  buffer[local_subwarp_id * subwarp_size + j][k];
+            }
+            if (subwarp.thread_rank() == 0)
+              len[local_subwarp_id * subwarp_size + j] = 0;
+          }
+        }
+      }
+
+      if (alive)
+        result.SetSampleLength(idx_i, current_itr, subwarp_idx, sample_size);
+      subwarp.sync();
+      for (size_t j = 0; j < subwarp_size; j++) {
+        subwarp.sync();
+        for (size_t k = subwarp.thread_rank();
+             k < len[local_subwarp_id * subwarp_size + j];
+             k += subwarp.size()) {
+          *result.GetDataPtr(idxMap[local_subwarp_id * subwarp_size + j],
+                             current_itr + 1, k) =
+              buffer[local_subwarp_id * subwarp_size + j][k];
+        }
+      }
+    }
+  }
+}
+template <uint subwarp_size>
 static __global__ void sample_kernel_second(Sampler_new *sampler,
                                             uint current_itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
@@ -115,7 +220,7 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
   curand_init(TID, 0, 0, &state);
   size_t subwarp_id = TID / subwarp_size;
   uint subwarp_idx = TID % subwarp_size;
-  uint local_subwarp_idx = LTID % subwarp_size;
+  uint local_subwarp_id = LTID % subwarp_size;
   bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
   size_t idx_i = subwarp_id;  //
   Vector_virtual<uint> alias;
@@ -173,7 +278,7 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler_new),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
-//   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr, true);
+  //   init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr, true);
 
   // allocate global buffer
   int block_num = n_sm * FLAGS_m;

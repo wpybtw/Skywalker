@@ -5,9 +5,10 @@
             "includePath": [
                 // "${workspaceFolder}/**",
                 "${workspaceFolder}/include/**",
+                // "${workspaceFolder}/build/deps/gflags/include/gflags",
                 "${workspaceFolder}/build/deps/gflags/include",
                 "/usr/local/cuda/include",
-                "/usr/local/cuda-11.0/targets/x86_64-linux/include",
+                "/usr/local/cuda-11.0/targets/x86_64-linux/include"
                 // "/usr/lib/gcc/x86_64-linux-gnu/7/include"
             ],
             "defines": [],

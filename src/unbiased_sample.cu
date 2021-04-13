@@ -74,7 +74,7 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
 template <uint subwarp_size>
 static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
                                                    uint current_itr) {
-#define buffer_len  10
+#define buffer_len  15  // occupancy allows 15, 15 75% occupancy but best?
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
@@ -90,7 +90,7 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
   auto warp = tiled_partition<32>(tb);
   auto subwarp = tiled_partition<subwarp_size>(warp);
 
-  __shared__ uint buffer[BLOCK_SIZE][buffer_len];  // occupancy allows 15
+  __shared__ uint buffer[BLOCK_SIZE][buffer_len];  
   // buffer.Init();
   __shared__ uint idxMap[BLOCK_SIZE];
   __shared__ uint iMap[BLOCK_SIZE];
@@ -121,7 +121,7 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
           uint candidate = (int)floor(curand_uniform(&state) * src_degree);
           // *result.GetDataPtr(idx_i, current_itr + 1, i) =
           //     graph->getOutNode(src_id, candidate);
-          buffer[LTID][len[LTID]] = candidate;
+          buffer[LTID][len[LTID]] = graph->getOutNode(src_id, candidate);
           len[LTID]+=1;
         }
         subwarp.sync();
