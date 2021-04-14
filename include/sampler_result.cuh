@@ -250,6 +250,11 @@ struct Jobs_result<JobType::NS, T> {
   __host__ size_t GetSampledNumber() {
     return get_sum(sample_lengths, size * size_of_sample_lengths);
   }
+  // __device__ void AddActive(uint current_itr, uint candidate) {
+  //   int old = atomicAdd(&job_sizes[current_itr + 1], 1);
+  //   *(getNextAddr(current_itr) + old) = candidate;
+  //   // printf("Add new ele %u with degree %d\n", candidate,  );
+  // }
   __device__ void PrintResult() {
     if (LTID == 0) {
       // printf("seeds \n");
@@ -487,9 +492,9 @@ struct Jobs_result<JobType::RW, T> {
     }
     return job;
   }
-  __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
+  __device__ void AddActive(uint current_itr, uint candidate) {
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);
-    array[old] = candidate;
+    *(getNextAddr(current_itr) + old) = candidate;
     // printf("Add new ele %u with degree %d\n", candidate,  );
   }
   __device__ void NextItr(uint &current_itr) {
@@ -691,9 +696,10 @@ struct sample_result {
       return false;
     return true;
   }
-  __device__ void AddActive(uint current_itr, uint *array, uint candidate) {
+  __device__ void AddActive(uint current_itr, uint candidate) {
     int old = atomicAdd(&job_sizes[current_itr + 1], 1);
-    array[old] = candidate;
+    *(getNextAddr(current_itr) + old) = candidate;
+    // printf("Add new ele %u with degree %d\n", candidate,  );
   }
   __device__ void NextItr(uint &current_itr) { current_itr++; }
 };

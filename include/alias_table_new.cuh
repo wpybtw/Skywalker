@@ -267,7 +267,8 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
     buffer.selected.CleanData();
     MySync();
   }
-  __device__ void roll_atomic(T *array, int target_size, curandState *state,
+  template <typename sample_result>
+  __device__ void roll_atomic(int target_size, curandState *state,
                               sample_result result) {
     if (target_size > 0) {
       buffer.selected.CleanData();
@@ -279,7 +280,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
       // TODO warp centric??
       while (*local_size < target_size) {
         for (size_t i = *local_size + LTID; i < target_size; i += blockDim.x) {
-          roll_once(array, local_size, state, target_size, result);
+          roll_once(local_size, state, target_size, result);
         }
         itr++;
         MySync();
@@ -290,10 +291,9 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
       }
     }
   }
-
-  __device__ bool roll_once(T *array, uint *local_size,
-                            curandState *local_state, size_t target_size,
-                            sample_result result) {
+  template <typename sample_result>
+  __device__ bool roll_once(uint *local_size, curandState *local_state,
+                            size_t target_size, sample_result result) {
     int col = (int)floor(curand_uniform(local_state) * buffer.size);
     float p = curand_uniform(local_state);
     uint candidate;
@@ -306,7 +306,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
                   (unsigned short int)1);
     if (!updated) {
       if (AddTillSize(local_size, target_size)) {
-        result.AddActive(buffer.current_itr, buffer.array,
+        result.AddActive(buffer.current_itr,
                          buffer.ggraph->getOutNode(buffer.src_id, candidate));
       }
       return true;
@@ -363,14 +363,18 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
         }
         MySync();
         if (LTID == 0) {
-          *buffer.large.size -= MIN(MIN(buffer.large.Size(), old_small_size), active_size);
+          *buffer.large.size -=
+              MIN(MIN(buffer.large.Size(), old_small_size), active_size);
         }
         MySync();
         float old;
-        if (holder) old = atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
+        if (holder)
+          old = atomicAdd(&buffer.prob.data[largeV],
+                          buffer.prob.Get(smallV) - 1.0);
         MySync();
         if (!holder && act)
-          old = atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
+          old = atomicAdd(&buffer.prob.data[largeV],
+                          buffer.prob.Get(smallV) - 1.0);
         MySync();
         if (act) {
           if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
@@ -514,6 +518,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
     buffer.selected.CleanData();
     MySync();
   }
+  template <typename sample_result>
   __device__ void walk(T *array, curandState *state, sample_result result) {
     if (LTID == 0) {
       int col = (int)floor(curand_uniform(state) * buffer.size);
@@ -527,7 +532,8 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
                        buffer.ggraph->getOutNode(buffer.src_id, candidate));
     };
   }
-  __device__ void roll_atomic(T *array, int target_size, curandState *state,
+  template <typename sample_result>
+  __device__ void roll_atomic(int target_size, curandState *state,
                               sample_result result) {
     if (target_size > 0) {
       buffer.selected.CleanData();
@@ -539,7 +545,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       // TODO warp centric??
       while (*local_size < target_size) {
         for (size_t i = *local_size + LTID; i < target_size; i += blockDim.x) {
-          roll_once(array, local_size, state, target_size, result);
+          roll_once(local_size, state, target_size, result);
         }
         itr++;
         MySync();
@@ -550,10 +556,9 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       }
     }
   }
-
-  __device__ bool roll_once(T *array, uint *local_size,
-                            curandState *local_state, size_t target_size,
-                            sample_result result) {
+  template <typename sample_result>
+  __device__ bool roll_once(uint *local_size, curandState *local_state,
+                            size_t target_size, sample_result result) {
     int col = (int)floor(curand_uniform(local_state) * buffer.size);
     float p = curand_uniform(local_state);
     uint candidate;
@@ -566,7 +571,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
                   (unsigned short int)1);
     if (!updated) {
       if (AddTillSize(local_size, target_size)) {
-        result.AddActive(buffer.current_itr, array,
+        result.AddActive(buffer.current_itr,
                          buffer.ggraph->getOutNode(buffer.src_id, candidate));
       }
       return true;
@@ -855,6 +860,7 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
     buffer.selected.Clean();
     // }
   }
+  template <typename sample_result>
   __device__ void walk(T *array, curandState *state, sample_result result) {
     if (LTID == 0) {
       int col = (int)floor(curand_uniform(state) * buffer.size);
@@ -868,8 +874,8 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
                        buffer.ggraph->getOutNode(buffer.src_id, candidate));
     };
   }
-  __device__ void roll_atomic(T *array, curandState *state,
-                              sample_result result) {
+  template <typename sample_result>
+  __device__ void roll_atomic(curandState *state, sample_result result) {
     uint target_size = result.hops[buffer.current_itr + 1];
     if ((target_size > 0) &&
         (target_size < buffer.ggraph->getDegree(buffer.src_id))) {
@@ -881,7 +887,7 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
       while (*local_size < target_size) {
         for (size_t i = *local_size + LID; i < 32 * (target_size / 32 + 1);
              i += 32) {
-          roll_once(array, local_size, state, target_size, result);
+          roll_once(local_size, state, target_size, result);
         }
         itr++;
         if (itr > 10) {
@@ -892,15 +898,14 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
     } else if (target_size >= buffer.ggraph->getDegree(buffer.src_id)) {
       for (size_t i = LID; i < buffer.ggraph->getDegree(buffer.src_id);
            i += 32) {
-        result.AddActive(buffer.current_itr, array,
+        result.AddActive(buffer.current_itr,
                          buffer.ggraph->getOutNode(buffer.src_id, i));
       }
     }
   }
-
-  __device__ bool roll_once(T *array, uint *local_size,
-                            curandState *local_state, size_t target_size,
-                            sample_result result) {
+  template <typename sample_result>
+  __device__ bool roll_once(uint *local_size, curandState *local_state,
+                            size_t target_size, sample_result result) {
     int col = (int)floor(curand_uniform(local_state) * buffer.size);
     float p = curand_uniform(local_state);
     uint candidate;
@@ -913,7 +918,7 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
                   (unsigned short int)1);
     if (!updated) {
       if (AddTillSize(local_size, target_size)) {
-        result.AddActive(buffer.current_itr, array,
+        result.AddActive(buffer.current_itr,
                          buffer.ggraph->getOutNode(buffer.src_id, candidate));
       }
       return true;
@@ -1122,7 +1127,8 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
     buffer.selected.Clean();
     // }
   }
-  __device__ void walk(T *array, curandState *state, sample_result result) {
+  template <typename sample_result>
+  __device__ void walk(curandState *state, sample_result result) {
     if (LTID == 0) {
       int col = (int)floor(curand_uniform(state) * buffer.size);
       float p = curand_uniform(state);
@@ -1131,12 +1137,12 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
         candidate = col;
       else
         candidate = buffer.alias.Get(col);
-      result.AddActive(buffer.current_itr, array,
+      result.AddActive(buffer.current_itr,
                        buffer.ggraph->getOutNode(buffer.src_id, candidate));
     };
   }
-  __device__ void roll_atomic(T *array, curandState *state,
-                              sample_result result) {
+  template <typename sample_result>
+  __device__ void roll_atomic(curandState *state, sample_result result) {
     uint target_size = result.hops[buffer.current_itr + 1];
     if ((target_size > 0) &&
         (target_size < buffer.ggraph->getDegree(buffer.src_id))) {
@@ -1149,7 +1155,7 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
         for (size_t i = *local_size + SWIDX;
              i < SUBWARP_SIZE * (target_size / SUBWARP_SIZE + 1);
              i += SUBWARP_SIZE) {
-          roll_once(array, local_size, state, target_size, result);
+          roll_once(local_size, state, target_size, result);
         }
         itr++;
         if (itr > 10) {
@@ -1160,15 +1166,14 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
     } else if (target_size >= buffer.ggraph->getDegree(buffer.src_id)) {
       for (size_t i = SWIDX; i < buffer.ggraph->getDegree(buffer.src_id);
            i += SUBWARP_SIZE) {
-        result.AddActive(buffer.current_itr, array,
+        result.AddActive(buffer.current_itr,
                          buffer.ggraph->getOutNode(buffer.src_id, i));
       }
     }
   }
-
-  __device__ bool roll_once(T *array, uint *local_size,
-                            curandState *local_state, size_t target_size,
-                            sample_result result) {
+  template <typename sample_result>
+  __device__ bool roll_once(uint *local_size, curandState *local_state,
+                            size_t target_size, sample_result result) {
     int col = (int)floor(curand_uniform(local_state) * buffer.size);
     float p = curand_uniform(local_state);
     uint candidate;
@@ -1181,7 +1186,7 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
                   (unsigned short int)1);
     if (!updated) {
       if (AddTillSize(local_size, target_size)) {
-        result.AddActive(buffer.current_itr, array,
+        result.AddActive(buffer.current_itr,
                          buffer.ggraph->getOutNode(buffer.src_id, candidate));
       }
       return true;

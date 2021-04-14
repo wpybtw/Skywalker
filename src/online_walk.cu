@@ -28,8 +28,7 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
         candidate = col;
       else
         candidate = table->GetAlias(col);
-      result.AddActive(current_itr, result.getNextAddr(current_itr),
-                       instance_id);
+      result.AddActive(current_itr, instance_id);
       *result.GetDataPtr(current_itr + 1, instance_id) =
           ggraph->getOutNode(node_id, candidate);
       ggraph->UpdateWalkerState(instance_id, node_id);
@@ -68,8 +67,7 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
         candidate = col;
       else
         candidate = table->GetAlias(col);
-      result.AddActive(current_itr, result.getNextAddr(current_itr),
-                       instance_id);
+      result.AddActive(current_itr, instance_id);
       *result.GetDataPtr(current_itr + 1, instance_id) =
           ggraph->getOutNode(node_id, candidate);
       ggraph->UpdateWalkerState(instance_id, node_id);

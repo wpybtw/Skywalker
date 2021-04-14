@@ -18,7 +18,7 @@ static __device__ void SampleSubwarpCentic(sample_result &result,
                            ggraph->getDegree(node_id), current_itr, node_id);
   if (not_all_zero) {
     table->construct();
-    table->roll_atomic(result.getNextAddr(current_itr), &state, result);
+    table->roll_atomic( &state, result);
   }
   table->Clean();
 }
@@ -37,7 +37,7 @@ static __device__ void SampleWarpCentic(sample_result &result,
                            ggraph->getDegree(node_id), current_itr, node_id);
   if (not_all_zero) {
     table->construct();
-    table->roll_atomic(result.getNextAddr(current_itr), &state, result);
+    table->roll_atomic( &state, result);
   }
   table->Clean();
 }
@@ -59,7 +59,7 @@ static __device__ void SampleBlockCentic(sample_result &result,
     table->constructBC();
     uint target_size =
         MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
-    table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
+    table->roll_atomic( target_size, &state,
                        result);
   }
   __syncthreads();

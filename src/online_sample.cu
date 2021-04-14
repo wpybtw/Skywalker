@@ -13,7 +13,7 @@ static __device__ void SampleWarpCentic(sample_result &result,
                            ggraph->getDegree(node_id), current_itr, node_id);
   if (not_all_zero) {
     table->construct();
-    table->roll_atomic(result.getNextAddr(current_itr), &state, result);
+    table->roll_atomic(&state, result);
   }
   table->Clean();
 }
@@ -23,11 +23,11 @@ static __device__ void SampleBlockCentic(sample_result &result,
                                          int current_itr, int node_id,
                                          void *buffer,
                                          Vector_pack<uint> *vector_packs) {
-  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
-      *tables = (alias_table_constructor_shmem<uint, thread_block,
-                                               BufferType::GMEM> *)buffer;
-  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
-      *table = &tables[0];
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *tables =
+      (alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *)
+          buffer;
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *table =
+      &tables[0];
   table->loadGlobalBuffer(vector_packs);
   __syncthreads();
   bool not_all_zero =
@@ -38,8 +38,7 @@ static __device__ void SampleBlockCentic(sample_result &result,
     table->constructBC();
     uint target_size =
         MIN(ggraph->getDegree(node_id), result.hops[current_itr + 1]);
-    table->roll_atomic(result.getNextAddr(current_itr), target_size, &state,
-                       result);
+    table->roll_atomic(target_size, &state, result);
   }
   __syncthreads();
   table->Clean();
@@ -145,7 +144,7 @@ float OnlineGBSample(Sampler &sampler) {
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
-  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr,true);
+  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr, true);
 
   // allocate global buffer
   int block_num = n_sm * FLAGS_m;
