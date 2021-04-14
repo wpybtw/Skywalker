@@ -30,7 +30,7 @@ __global__ void Node2vecKernelStaticBuffer(Walker *walker) {
         result.length[idx_i] = current_itr;
         buffer.Finish();
         return;
-      } else if (1 < src_degree) {
+      } else if (src_degree > 1) {
         uint outV;
         do {
           uint x = (int)floor(curand_uniform(&state) * src_degree);

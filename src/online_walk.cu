@@ -33,7 +33,7 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
       *result.GetDataPtr(current_itr + 1, instance_id) =
           ggraph->getOutNode(node_id, candidate);
       ggraph->UpdateWalkerState(instance_id, node_id);
-    };
+    }
   } else {
     if (LID == 0) result.length[instance_id] = current_itr;
   }
@@ -46,11 +46,11 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
                                          void *buffer,
                                          Vector_pack<uint> *vector_packs,
                                          uint instance_id = 0) {
-  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
-      *tables = (alias_table_constructor_shmem<uint, thread_block,
-                                               BufferType::GMEM> *)buffer;
-  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
-      *table = &tables[0];
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *tables =
+      (alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *)
+          buffer;
+  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *table =
+      &tables[0];
   table->loadGlobalBuffer(vector_packs);
   __syncthreads();
   bool not_all_zero = table->loadFromGraph(ggraph->getNeighborPtr(node_id),
@@ -165,6 +165,154 @@ __global__ void OnlineWalkKernel(Walker *sampler,
     __syncthreads();
   }
 }
+__device__ uint get_smid() {
+  uint ret;
+  asm("mov.u32 %0, %smid;" : "=r"(ret));
+  return ret;
+}
+__global__ void OnlineWalkKernelStatic(Walker *sampler,
+                                       Vector_pack<uint> *vector_pack,
+                                       uint current_itr, float *tp,
+                                       uint n = 1) {
+  Jobs_result<JobType::RW, uint> &result = sampler->result;
+  gpu_graph *ggraph = &sampler->ggraph;
+  Vector_pack<uint> *vector_packs = &vector_pack[blockIdx.x];
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
+      table[WARP_PER_BLK];
+  void *buffer = &table[0];
+  __shared__ Vector_shmem<uint, thread_block, BLOCK_SIZE, false>
+      local_high_degree;
+  local_high_degree.Init();
+
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  // size_t idx = GWID;
+  // if (idx < result.job_sizes[current_itr])
+  for (size_t idx = GWID; idx < result.size;
+       idx += blockDim.x / 32 * gridDim.x) {
+    if (result.length[idx] == result.hop_num) {  // walker is alive
+      // if (LID == 0) printf("instance_id %d\n", idx);
+      size_t node_id = result.GetData(current_itr, idx);
+      uint src_degree = ggraph->getDegree(node_id);
+      bool stop =
+          __shfl_sync(FULL_WARP_MASK, (curand_uniform(&state) < *tp), 0);
+      if (!stop) {
+        if (src_degree == 1) {
+          if (LID == 0) {
+            *result.GetDataPtr(current_itr + 1, idx) =
+                ggraph->getOutNode(node_id, 0);
+            ggraph->UpdateWalkerState(idx, node_id);
+          }
+        } else if (src_degree == 0) {
+          if (LID == 0) result.length[idx] = current_itr;
+        } else if (src_degree < ELE_PER_WARP) {
+          SampleWarpCentic(result, ggraph, state, current_itr, node_id, buffer,
+                           idx);
+          //  if (LID == 0) result.length[idx]= current_itr+1;
+        } else {
+          if (LID == 0) local_high_degree.Add(idx);
+        }
+      } else {
+        if (LID == 0) result.length[idx] = current_itr;
+      }
+    }
+  }
+  __syncthreads();
+  for (size_t i = 0; i < local_high_degree.Size(); i++) {
+    __syncthreads();
+    size_t node_id = result.GetData(current_itr, local_high_degree.Get(i));
+    SampleBlockCentic(result, ggraph, state, current_itr, node_id, buffer,
+                      vector_packs, local_high_degree.Get(i));
+    // if (LTID == 0) result.length[local_high_degree.Get(i)]= current_itr+1;
+  }
+}
+// __global__ void OnlineWalkKernelStatic(Walker *sampler,
+//                                        Vector_pack<uint> *vector_pack,
+//                                        float *tp) {
+//   Jobs_result<JobType::RW, uint> &result = sampler->result;
+//   gpu_graph *ggraph = &sampler->ggraph;
+//   Vector_pack<uint> *vector_packs = &vector_pack[BID];
+//   __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
+//       table[WARP_PER_BLK];
+//   void *buffer = &table[0];
+//   curandState state;
+//   curand_init(TID, 0, 0, &state);
+
+//   __shared__ uint current_itr;
+//   if (threadIdx.x == 0) current_itr = 0;
+//   __syncthreads();
+//   for (; current_itr < result.hop_num - 1;) {
+//     sample_job_new job;
+//     __threadfence_block();
+//     if (LID == 0) {
+//       job = result.requireOneJob(current_itr);
+//     }
+//     __syncwarp(FULL_WARP_MASK);
+//     job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+//     job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+//     __syncwarp(FULL_WARP_MASK);
+//     while (job.val) {
+//       uint node_id = result.GetData(current_itr, job.instance_idx);
+//       bool stop =
+//           __shfl_sync(FULL_WARP_MASK, (curand_uniform(&state) < *tp), 0);
+//       if (!stop) {
+//         if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
+//           SampleWarpCentic(result, ggraph, state, current_itr, node_id,
+//           buffer,
+//                            job.instance_idx);
+//         } else {
+// #ifdef skip8k
+//           if (LID == 0 && ggraph->getDegree(node_id) < 8000)
+// #else
+//           if (LID == 0)
+// #endif  // skip8k
+//             result.AddHighDegree(current_itr, job.instance_idx);
+//         }
+//       } else {
+//         if (LID == 0) result.length[job.instance_idx] = current_itr;
+//       }
+//       __syncwarp(FULL_WARP_MASK);
+//       if (LID == 0) job = result.requireOneJob(current_itr);
+//       __syncwarp(FULL_WARP_MASK);
+//       job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+//       job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+//       __syncwarp(FULL_WARP_MASK);
+//     }
+//     __syncthreads();
+//     __shared__ sample_job_new high_degree_job;  // really use job_id
+//     __shared__ uint node_id;
+//     if (LTID == 0) {
+//       sample_job_new tmp = result.requireOneHighDegreeJob(current_itr);
+//       high_degree_job.val = tmp.val;
+//       high_degree_job.instance_idx = tmp.instance_idx;
+//       if (tmp.val) {
+//         node_id = result.GetData(current_itr, high_degree_job.instance_idx);
+//       }
+//     }
+//     __syncthreads();
+//     while (high_degree_job.val) {
+//       SampleBlockCentic(result, ggraph, state, current_itr, node_id, buffer,
+//                         vector_packs,
+//                         high_degree_job.instance_idx);  // buffer_pointer
+//       __syncthreads();
+//       if (LTID == 0) {
+//         sample_job_new tmp = result.requireOneHighDegreeJob(current_itr);
+//         high_degree_job.val = tmp.val;
+//         high_degree_job.instance_idx = tmp.instance_idx;
+//         if (high_degree_job.val) {
+//           node_id = result.GetData(current_itr,
+//           high_degree_job.instance_idx);
+//         }
+//       }
+//       __syncthreads();
+//     }
+//     __syncthreads();
+//     if (threadIdx.x == 0) {
+//       result.NextItr(current_itr);
+//     }
+//     __syncthreads();
+//   }
+// }
 
 static __global__ void print_result(Walker *sampler) {
   sampler->result.PrintResult();
@@ -200,7 +348,7 @@ float OnlineGBWalk(Walker &sampler) {
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Walker),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
-  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr,true);
+  init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr, true);
   BindResultKernel<<<1, 32, 0, 0>>>(sampler_ptr);
   init_array(sampler.result.length, sampler.result.size,
              sampler.result.hop_num);
@@ -231,11 +379,22 @@ float OnlineGBWalk(Walker &sampler) {
   //  Global_buffer
   CUDA_RT_CALL(cudaDeviceSynchronize());
   start_time = wtime();
-  if (FLAGS_debug)
-    OnlineWalkKernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs, tp_d);
-  else
-    OnlineWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs,
-                                                      tp_d);
+  if (FLAGS_static) {
+    for (size_t i = 0; i < sampler.result.hop_num - 1; i++) {
+      OnlineWalkKernelStatic<<<block_num, BLOCK_SIZE, 0, 0>>>(
+          sampler_ptr, vector_packs, i, tp_d, FLAGS_m);
+      CUDA_RT_CALL(cudaDeviceSynchronize());
+      CUDA_RT_CALL(cudaPeekAtLastError());
+    }
+
+  } else {
+    if (FLAGS_debug)
+      OnlineWalkKernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs,
+                                                tp_d);
+    else
+      OnlineWalkKernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr,
+                                                        vector_packs, tp_d);
+  }
 
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());

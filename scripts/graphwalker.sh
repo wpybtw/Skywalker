@@ -21,16 +21,16 @@ DIR="/home/pywang/sampling/GraphWalker"
 
 cd $DIR
 # ${EXE} file ~/data/${DATA[idx-1]}${ED} firstsource 0 numsources 400000 walkspersource 1 maxwalklength 100 prob 0.0 L 100 N 4847571 
-# echo "-------------------------------------------------------unbias rw V 100"
-# for idx in $(seq 1 ${#DATA[*]}) 
-# do
-#     ./bin/apps/rwdomination file ~/data/${DATA[idx-1]}  prob 0.0 L 100 N  ${NV[idx-1]}
-# done
-
-echo "-------------------------------------------------------unbias ppr 40000 100"
+echo "-------------------------------------------------------unbias rw 40000 100"
 for idx in $(seq 1 ${#DATA[*]}) 
 do
-    ./bin/apps/msppr file ~/data/${DATA[idx-1]} firstsource 0 numsources 40000 walkspersource 1 maxwalklength 100 prob 0.15
+    ./bin/apps/rawrandomwalks file ~/data/${DATA[idx-1]} R 40000 L 100 N  ${NV[idx-1]}
 done
+
+# echo "-------------------------------------------------------unbias ppr 40000 100"
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/apps/msppr file ~/data/${DATA[idx-1]} firstsource 0 numsources 40000 walkspersource 1 maxwalklength 100 prob 0.15
+# done
 
 

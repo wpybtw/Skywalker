@@ -91,6 +91,7 @@
         "__tree": "cpp",
         "*.ipp": "cpp",
         "future": "cpp",
-        "slist": "cpp"
+        "slist": "cpp",
+        "__bit_reference": "cpp"
     }
 }

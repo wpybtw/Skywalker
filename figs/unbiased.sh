@@ -27,6 +27,11 @@ OUT='>> unbiased.csv'
 # --randomweight=1 --weightrange=2 
 
 
+# echo "-------------------------------------------------------unbias rw 100 full" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}   ${SG} ${RW} -full >> unbiased.csv
+# done
 # walker
 # echo "-------------------------------------------------------unbias rw 100" >> unbiased.csv
 # for idx in $(seq 1 ${#DATA[*]}) 
@@ -34,12 +39,32 @@ OUT='>> unbiased.csv'
 #     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${RW} ${BATCH} >> unbiased.csv
 # done
 
+# echo "-------------------------------------------------------unbias ppr 100" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1  --tp=0.15 ${RW} ${BATCH} >> unbiased.csv
+# done
 
-echo "-------------------------------------------------------unbias sp" >> unbiased.csv
+# echo "-------------------------------------------------------unbias node2vec" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0 --ol=0 --buffer --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 --node2vec ${BATCH} >> unbiased.csv
+# done
+# echo "-------------------------------------------------------unbias node2vec full" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 --node2vec --full >> unbiased.csv
+# done
+echo "-------------------------------------------------------unbias sage 40k" >> unbiased.csv
 for idx in $(seq 1 ${#DATA[*]}) 
 do
-    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 ${SP} ${BATCH} --m=1  >> unbiased1.csv
+    ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 --sage ${BATCH}  >> unbiased.csv
 done
+# echo "-------------------------------------------------------unbias sage" >> unbiased.csv
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     ./bin/main --bias=0  --input ~/data/${DATA[idx-1]}${GR}  --ngpu 1 --sage ${BATCH}  >> unbiased.csv
+# done
 
 # echo "-------------------------------------------------------unbias sp" >> unbiased.csv
 # for idx in $(seq 1 ${#DATA[*]}) 

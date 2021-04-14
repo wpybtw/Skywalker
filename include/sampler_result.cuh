@@ -331,6 +331,7 @@ struct Jobs_result<JobType::RW, T> {
     CUDA_RT_CALL(cudaMalloc(&alive, size * sizeof(char)));
     CUDA_RT_CALL(cudaMemset(alive, 1, size * sizeof(char)));
     CUDA_RT_CALL(cudaMalloc(&length, size * sizeof(uint)));
+    // CUDA_RT_CALL(cudaMemset(length, 0, size * sizeof(uint)));
 
     if (FLAGS_node2vec) {
       CUDA_RT_CALL(cudaMalloc(
