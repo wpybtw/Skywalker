@@ -43,14 +43,11 @@ struct matrixBuffer {
     if (active.thread_rank() == 0) mainLength[WID]++;
     ptr_per_thread[LTID] = ptr;
     active.sync();
-
     for (size_t i = WID * 32; i < WID * 32 + 32;
          i++) {  // loop over threads in warp
       active.sync();
       for (size_t j = active.thread_rank(); j < length[i];  // loop over data
            j += active.size()) {
-        printf("active.sync() %u itr %u  i %u j %u LTID %u\n",
-               active.thread_rank(), itr, i, j, LTID);
         *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
       }
     }
@@ -69,12 +66,11 @@ struct matrixBuffer {
         active.sync();
         for (size_t j = active.thread_rank(); j < length[i];  // loop over data
              j += active.size()) {
-          // printf("active.sync() %u itr %u  i %u j %u LTID %u\n",
-          //        active.thread_rank(), itr, i, j, LTID);
           *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
         }
+        if (active.thread_rank() == 0) length[i] = 0;
       }
-      length[LTID] = 0;
+
       if (active.thread_rank() == 0) {
         mainLength[WID] = 0;
         outItr[WID] = itr;

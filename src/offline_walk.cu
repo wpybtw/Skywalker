@@ -14,16 +14,18 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
   curand_init(TID, 0, 0, &state);
   __shared__ matrixBuffer<BLOCK_SIZE, 31, uint> buffer;
   buffer.Init();
-  
+
   size_t idx_i = TID;
   if (idx_i < result.size) {
     result.length[idx_i] = result.hop_num - 1;
+    uint src_id;
+    // bool alive = true;
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
       if (result.alive[idx_i] != 0) {
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
-        uint src_id = result.GetData(current_itr, idx_i);
+        src_id = current_itr == 0 ? result.GetData(current_itr, idx_i) : src_id;
         uint src_degree = graph->getDegree((uint)src_id);
         alias.Construt(
             graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
@@ -42,14 +44,18 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
             candidate = col;
           else
             candidate = alias[col];
-          buffer.Set(graph->getOutNode(src_id, candidate));
+          uint next_src = graph->getOutNode(src_id, candidate);
+          buffer.Set(next_src);
+          src_id = next_src;
         } else if (src_degree == 0) {
           result.alive[idx_i] = 0;
           result.length[idx_i] = current_itr;
           buffer.Finish();
-          return;
+          // return;
         } else {
-          buffer.Set(graph->getOutNode(src_id, 0));
+          uint next_src = graph->getOutNode(src_id, 0);
+          buffer.Set(next_src);
+          src_id = next_src;
         }
         buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
       }

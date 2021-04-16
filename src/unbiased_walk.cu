@@ -67,26 +67,27 @@ __global__ void UnbiasedWalkKernelStaticBuffer(Walker *walker, float *tp) {
   if (idx_i < result.size) {
     result.length[idx_i] = result.hop_num - 1;
     uint src_id;
+    bool alive = true;
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
-      src_id = current_itr == 0 ? result.GetData(current_itr, idx_i) : src_id;
-      uint src_degree = graph->getDegree((uint)src_id);
-      // printf(
-      //     "TID %d idx %llu src_id %u src_degree %u result.length[idx_i] %u\n",
-      //     TID, idx_i, src_id, src_degree, result.length[idx_i]);
-      if (src_degree == 0 || curand_uniform(&state) < *tp) {
-        result.length[idx_i] = current_itr;
-        // buffer.Finish();
-        return;
-      } else if (src_degree > 1) {
-        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-        uint next_src = graph->getOutNode(src_id, candidate);
-        buffer.Set(next_src);
-        src_id = next_src;
-      } else {
-        uint next_src = graph->getOutNode(src_id, 0);
-        buffer.Set(next_src);
-        src_id = next_src;
+      if (alive) {
+        src_id =
+            (current_itr == 0) ? result.GetData(current_itr, idx_i) : src_id;
+        uint src_degree = graph->getDegree((uint)src_id);
+        if (src_degree == 0 || curand_uniform(&state) < *tp) {
+          result.length[idx_i] = current_itr;
+          // buffer.Finish();
+          alive = false;
+        } else if (src_degree > 1) {
+          uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+          uint next_src = graph->getOutNode(src_id, candidate);
+          buffer.Set(next_src);
+          src_id = next_src;
+        } else {
+          uint next_src = graph->getOutNode(src_id, 0);
+          buffer.Set(next_src);
+          src_id = next_src;
+        }
       }
       buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
     }
