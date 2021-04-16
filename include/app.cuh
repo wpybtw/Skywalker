@@ -32,7 +32,7 @@ struct matrixBuffer {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     length[LTID] = 0;
     if (LID == 0) {
-      tileLen=tileSize;
+      tileLen = tileSize;
       mainLength[WID] = 0;
       outItr[WID] = 0;
     }
@@ -46,8 +46,11 @@ struct matrixBuffer {
 
     for (size_t i = WID * 32; i < WID * 32 + 32;
          i++) {  // loop over threads in warp
+      active.sync();
       for (size_t j = active.thread_rank(); j < length[i];  // loop over data
            j += active.size()) {
+        printf("active.sync() %u itr %u  i %u j %u LTID %u\n",
+               active.thread_rank(), itr, i, j, LTID);
         *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
       }
     }
@@ -59,9 +62,11 @@ struct matrixBuffer {
     // printf("active.sync() %u itr %u \n", active.thread_rank(), itr);
 
     if (mainLength[WID] >= tileSize) {
+      active.sync();
       ptr_per_thread[LTID] = ptr;
       for (size_t i = WID * 32; i < WID * 32 + 32;
            i++) {  // loop over threads in warp
+        active.sync();
         for (size_t j = active.thread_rank(); j < length[i];  // loop over data
              j += active.size()) {
           // printf("active.sync() %u itr %u  i %u j %u LTID %u\n",

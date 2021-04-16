@@ -7,6 +7,7 @@ using subwarp_table =
     alias_table_constructor_shmem<uint, thread_block_tile<SUBWARP_SIZE>,
                                   BufferType::SHMEM,
                                   AliasTableStorePolicy::NONE>;
+                                  
 static __device__ void SampleSubwarpCentic(sample_result &result,
                                            gpu_graph *ggraph, curandState state,
                                            int current_itr, int idx,

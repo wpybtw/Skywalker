@@ -21,18 +21,20 @@ EXE="./bin/main" #main_degree
 SG="--ngpu=1 --s"
 RW="--rw=1 --k 1 --d 100 "
 SP="--rw=0 --k 20 --d 2 "
-BATCH="--n 4000 -v"
+BATCH="--n 40000 "
+POLICY="--static=0"
+OUTPUT=" online.csv "
 
 # --randomweight=1 --weightrange=2 
 
-echo "-------------------------------------------------------online rw 100" >> online.csv
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${ITR})
-    do
-        ./bin/main -bias=1 --ol=1 ${SG} ${RW} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> online.csv
-    done
-done
+# echo "-------------------------------------------------------online rw 100 ${POLICY} " >> ${OUTPUT}
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${ITR})
+#     do
+#         ./bin/main -bias=1 --ol=1 ${SG} ${RW} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${POLICY} >>  ${OUTPUT}
+#     done
+# done
 
 # echo "-------------------------------------------------------online ppr 0.15" >> online.csv
 # for idx in $(seq 1 ${#DATA[*]}) 
@@ -43,23 +45,23 @@ done
 #     done
 # done
 
-# echo "-------------------------------------------------------online ppr 0.15" >> online.csv
-# for idx in $(seq 1 ${#DATA[*]}) 
-# do
-#     for i in $(seq 1  ${ITR})
-#     do
-#         ./bin/node2vec  -node2vec  ${RW}  --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${SG} >> online.csv
-#     done
-# done
-
-echo "-------------------------------------------------------online sp 100" >> online.csv
+echo "-------------------------------------------------------node2vec ${POLICY} " >>  ${OUTPUT}
 for idx in $(seq 1 ${#DATA[*]}) 
 do
     for i in $(seq 1  ${ITR})
     do
-        ./bin/main -bias=1 --ol=1 ${SG} ${SP} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} >> online.csv
+        ./bin/node2vec  -node2vec  ${RW}  --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${SG} ${POLICY} >> ${OUTPUT}
     done
 done
+
+# echo "-------------------------------------------------------online sp 100 ${POLICY} " >> ${OUTPUT}
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${ITR})
+#     do
+#         ./bin/main -bias=1 --ol=1 ${SG} ${SP} --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} ${BATCH} ${POLICY} >>  ${OUTPUT}
+#     done
+# done
 
 
 
