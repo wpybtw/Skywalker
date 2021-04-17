@@ -40,7 +40,7 @@ DEFINE_int32(d, 2, "depth");
 
 DEFINE_double(hd, 1, "high degree ratio");
 
-DEFINE_bool(ol, true, "online alias table building");
+DEFINE_bool(ol, false, "online alias table building");
 DEFINE_bool(rw, false, "Random walk specific");
 
 DEFINE_bool(dw, false, "using degree as weight");
@@ -52,6 +52,7 @@ DEFINE_int32(weightrange, 2, "generate random weight with range from 0 to ");
 DEFINE_bool(sage, false, "GraphSage");
 DEFINE_bool(deepwalk, false, "deepwalk");
 DEFINE_bool(node2vec, false, "node2vec");
+DEFINE_bool(ppr, false, "ppr");
 DEFINE_double(p, 2.0, "hyper-parameter p for node2vec");
 DEFINE_double(q, 0.5, "hyper-parameter q for node2vec");
 DEFINE_double(tp, 0.0, "terminate probabiility");
@@ -136,6 +137,13 @@ int main(int argc, char *argv[]) {
     FLAGS_rw = true;
     FLAGS_k = 1;
     FLAGS_d = 100;
+  }
+  if (FLAGS_ppr) {
+    // FLAGS_ol=true;
+    FLAGS_rw = true;
+    FLAGS_k = 1;
+    FLAGS_d = 100;
+    FLAGS_tp=0.15;
   }
   if (FLAGS_sage) {
     // FLAGS_ol=true;

@@ -335,6 +335,9 @@ float OnlineGBWalk(Walker &sampler) {
   LOG("skipping 8k\n");
 #endif  // skip8k
 
+  LOG("overring staic flag, static\n");
+  FLAGS_static=0;
+
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);
