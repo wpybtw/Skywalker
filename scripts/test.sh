@@ -93,17 +93,17 @@ SG="--ngpu=1 --s"
 
 # ----------------------
 
-echo "-------------------------------------------------------offline table"
-for idx in $(seq 1 ${#DATA[*]}) 
-do
-    for i in $(seq 1  ${ITR})
-    do
-        ./bin/main  --ol=0 --ngpu=1 --s --rw=1 --k=1 --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} 
-    done
-done
+# echo "-------------------------------------------------------offline table"
+# for idx in $(seq 1 ${#DATA[*]}) 
+# do
+#     for i in $(seq 1  ${ITR})
+#     do
+#         ./bin/main  --ol=0 --ngpu=1 --s --rw=1 --k=1 --input ~/data/${DATA[idx-1]}${GR} --hd=${HD[idx-1]} 
+#     done
+# done
 
 
-echo "---------------------------------scale ------------------------------"
+# echo "---------------------------------scale ------------------------------"
 
 # echo "-------------------------------------------------------online node2vec"
 # for idx in $(seq 1 ${#DATA[*]}) 
@@ -215,19 +215,19 @@ echo "---------------------------------scale ------------------------------"
 # done
 
 
-# idx=3
+idx=1
 # echo "-------------------------------------------------------online walk for table time"
-# for i in $(seq 1  5)
+# for i in $(seq 1  10)
 # do
-#     val=`expr ${NV[${idx}-1]} / 100 \* ${i} \* 4`
+#     val=`expr ${NV[${idx}-1]} / 100 \* ${i} \* 1`
 #     echo "----------${val}"
 #     ./bin/main --k 1 --d 100 --rw=1 --ol=1  --n=${val} --input ~/data/${DATA[idx-1]}${GR} ${SG}  
 # done
 
-# echo "-------------------------------------------------------online walk for table time"
-# for i in $(seq 1  5)
-# do
-#     val=`expr ${NV[$idx-1]} / 100 \* ${i} \* 4`
-#     echo "----------${val}"
-#     ./bin/main --k 1 --d 100 --rw=1 --ol=0  --n=${val} --input ~/data/${DATA[idx-1]}${GR} ${SG}  
-# done
+echo "-------------------------------------------------------offline walk for table time"
+for i in $(seq 1  10)
+do
+    val=`expr ${NV[$idx-1]} / 100 \* ${i} \* 1`
+    echo "----------${val}"
+    ./bin/main --k 1 --d 100 --rw=1 --ol=0  --n=${val} --input ~/data/${DATA[idx-1]}${GR} ${SG}  
+done

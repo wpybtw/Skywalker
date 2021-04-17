@@ -262,12 +262,12 @@ struct Jobs_result<JobType::NS, T> {
       //   printf("%u \t", GetData(i, 0, 0));
       // }
       for (int j = 0; j < MIN(3, size); j++) {
-        printf("\n%dth sample src: %u, 1-hop len: %u\n", j, GetData(j, 0, 0),
+        printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0, 0),
                GetSampleLength(j, 0, 0));
         for (size_t i = 0; i < hops[1]; i++) {
           printf("\t %d", GetSampleLength(j, 1, i));
         }
-        printf("\n");
+        printf("\n first  2-hop ");
 
         for (size_t i = 0; i < MIN(GetSampleLength(j, 0, 0), 30); i++) {
           printf("%u \t", GetData(j, 1, i));
