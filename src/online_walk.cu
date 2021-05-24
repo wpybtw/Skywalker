@@ -79,7 +79,7 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
   table->Clean();
 }
 
-__global__ void OnlineWalkKernel(Walker *sampler,
+static __global__ void OnlineWalkKernel(Walker *sampler,
                                  Vector_pack<uint> *vector_pack, float *tp) {
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
@@ -168,7 +168,7 @@ __device__ uint get_smid() {
   asm("mov.u32 %0, %smid;" : "=r"(ret));
   return ret;
 }
-__global__ void OnlineWalkKernelStatic(Walker *sampler,
+static __global__ void OnlineWalkKernelStatic(Walker *sampler,
                                        Vector_pack<uint> *vector_pack,
                                        uint current_itr, float *tp,
                                        uint n = 1) {
@@ -224,93 +224,7 @@ __global__ void OnlineWalkKernelStatic(Walker *sampler,
     // if (LTID == 0) result.length[local_high_degree.Get(i)]= current_itr+1;
   }
 }
-// __global__ void OnlineWalkKernelStatic(Walker *sampler,
-//                                        Vector_pack<uint> *vector_pack,
-//                                        float *tp) {
-//   Jobs_result<JobType::RW, uint> &result = sampler->result;
-//   gpu_graph *ggraph = &sampler->ggraph;
-//   Vector_pack<uint> *vector_packs = &vector_pack[BID];
-//   __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
-//       table[WARP_PER_BLK];
-//   void *buffer = &table[0];
-//   curandState state;
-//   curand_init(TID, 0, 0, &state);
 
-//   __shared__ uint current_itr;
-//   if (threadIdx.x == 0) current_itr = 0;
-//   __syncthreads();
-//   for (; current_itr < result.hop_num - 1;) {
-//     sample_job_new job;
-//     __threadfence_block();
-//     if (LID == 0) {
-//       job = result.requireOneJob(current_itr);
-//     }
-//     __syncwarp(FULL_WARP_MASK);
-//     job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
-//     job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
-//     __syncwarp(FULL_WARP_MASK);
-//     while (job.val) {
-//       uint node_id = result.GetData(current_itr, job.instance_idx);
-//       bool stop =
-//           __shfl_sync(FULL_WARP_MASK, (curand_uniform(&state) < *tp), 0);
-//       if (!stop) {
-//         if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
-//           SampleWarpCentic(result, ggraph, state, current_itr, node_id,
-//           buffer,
-//                            job.instance_idx);
-//         } else {
-// #ifdef skip8k
-//           if (LID == 0 && ggraph->getDegree(node_id) < 8000)
-// #else
-//           if (LID == 0)
-// #endif  // skip8k
-//             result.AddHighDegree(current_itr, job.instance_idx);
-//         }
-//       } else {
-//         if (LID == 0) result.length[job.instance_idx] = current_itr;
-//       }
-//       __syncwarp(FULL_WARP_MASK);
-//       if (LID == 0) job = result.requireOneJob(current_itr);
-//       __syncwarp(FULL_WARP_MASK);
-//       job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
-//       job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
-//       __syncwarp(FULL_WARP_MASK);
-//     }
-//     __syncthreads();
-//     __shared__ sample_job_new high_degree_job;  // really use job_id
-//     __shared__ uint node_id;
-//     if (LTID == 0) {
-//       sample_job_new tmp = result.requireOneHighDegreeJob(current_itr);
-//       high_degree_job.val = tmp.val;
-//       high_degree_job.instance_idx = tmp.instance_idx;
-//       if (tmp.val) {
-//         node_id = result.GetData(current_itr, high_degree_job.instance_idx);
-//       }
-//     }
-//     __syncthreads();
-//     while (high_degree_job.val) {
-//       SampleBlockCentic(result, ggraph, state, current_itr, node_id, buffer,
-//                         vector_packs,
-//                         high_degree_job.instance_idx);  // buffer_pointer
-//       __syncthreads();
-//       if (LTID == 0) {
-//         sample_job_new tmp = result.requireOneHighDegreeJob(current_itr);
-//         high_degree_job.val = tmp.val;
-//         high_degree_job.instance_idx = tmp.instance_idx;
-//         if (high_degree_job.val) {
-//           node_id = result.GetData(current_itr,
-//           high_degree_job.instance_idx);
-//         }
-//       }
-//       __syncthreads();
-//     }
-//     __syncthreads();
-//     if (threadIdx.x == 0) {
-//       result.NextItr(current_itr);
-//     }
-//     __syncthreads();
-//   }
-// }
 
 static __global__ void print_result(Walker *sampler) {
   sampler->result.PrintResult();
@@ -328,7 +242,7 @@ void init_array(T *ptr, size_t size, T v) {
 }
 
 // void Start_high_degree(Walker sampler)
-float OnlineGBWalk(Walker &sampler) {
+float OnlineWalkGMem(Walker &sampler) {
   // orkut max degree 932101
   LOG("%s\n", __FUNCTION__);
 #ifdef skip8k

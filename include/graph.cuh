@@ -259,6 +259,7 @@ class Graph {
         outDegree, std::max_element(outDegree, outDegree + num_Node));
     // if (FLAGS_v)
     LOG("%d has max out degree %d\n", maxD, outDegree[maxD]);
+    // printf("degree ");
     MaxDegree = outDegree[maxD];
     if (sizeEdgeTy && !FLAGS_randomweight && FLAGS_weight && FLAGS_bias) {
       LOG("loading weight\n");

@@ -481,7 +481,8 @@ class Walker {
 float UnbiasedSample(Sampler_new &sampler);
 float UnbiasedWalk(Walker &walker);
 
-float OnlineGBWalk(Walker &walker);
+float OnlineWalkShMem(Walker &walker);
+float OnlineWalkGMem(Walker &walker);
 float OnlineGBSample(Sampler &sampler);
 float OnlineGBSampleTWC(Sampler &sampler);
 

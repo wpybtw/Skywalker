@@ -99,6 +99,8 @@ DEFINE_bool(async, false, "using async execution");
 DEFINE_bool(replica, false, "same task for all gpus");
 DEFINE_bool(built, false, "has built table");
 
+DEFINE_bool(gmem, false, "do not use shmem as buffer");
+
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -143,7 +145,7 @@ int main(int argc, char *argv[]) {
     FLAGS_rw = true;
     FLAGS_k = 1;
     FLAGS_d = 100;
-    FLAGS_tp=0.15;
+    FLAGS_tp = 0.15;
   }
   if (FLAGS_sage) {
     // FLAGS_ol=true;
@@ -257,7 +259,10 @@ int main(int argc, char *argv[]) {
         } else {
           Walker walker(samplers[dev_id]);
           walker.SetSeed(local_sample_size, Depth + 1, dev_num, dev_id);
-          time[dev_id] = OnlineGBWalk(walker);
+          if (FLAGS_gmem)
+            time[dev_id] = OnlineWalkGMem(walker);
+          else
+            time[dev_id] = OnlineWalkShMem(walker);
           samplers[dev_id].sampled_edges = walker.sampled_edges;
         }
       }
@@ -288,8 +293,8 @@ int main(int argc, char *argv[]) {
               *max_element(time, time + num_device) * 1000);
           table_times[dev_num - 1] =
               *max_element(time, time + num_device) * 1000;
-          
-          FLAGS_built=true;
+
+          FLAGS_built = true;
         }
 
         if (!FLAGS_rw) {  //&& FLAGS_k != 1
