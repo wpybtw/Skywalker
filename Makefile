@@ -45,7 +45,6 @@ test: main
 # lj: main
 # 	./main lj ~/data/soc-LiveJournal1.txt_beg_pos.bin  ~/data/soc-LiveJournal1.txt_csr.bin   100 32 4000 2 1 1 1
 
-
 clean:
 	rm $(OBJ_DIR)/*.o  $(API_OBJ_DIR)/*.o  $(BIN_DIR)/main $(BIN_DIR)/main_degree $(BIN_DIR)/node2vec
 	# main  main_degree node2vec
