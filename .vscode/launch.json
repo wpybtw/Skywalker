@@ -23,6 +23,13 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "cuda-gdb",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/main", //${fileBasenameNoExtension}.out
+            "args": [" -bias=1 --ol=1 --deepwalk -v --ngpu=1 --dw=1 --n=400"]
         }
     ]
 }

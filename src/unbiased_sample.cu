@@ -1,7 +1,7 @@
 /*
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
- * @LastEditors: Please set LastEditors
+ * @LastEditors: Pengyu Wang
  * @LastEditTime: 2021-01-17 21:52:01
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */

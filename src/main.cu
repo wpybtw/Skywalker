@@ -1,7 +1,7 @@
 /*
  * @Description:
  * @Date: 2020-11-17 13:28:27
- * @LastEditors: Please set LastEditors
+ * @LastEditors: Pengyu Wang
  * @LastEditTime: 2021-01-15 14:32:23
  * @FilePath: /skywalker/src/main.cu
  */

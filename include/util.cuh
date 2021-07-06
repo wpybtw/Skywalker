@@ -31,7 +31,7 @@ using offset_t = uint32_t;
 #endif // USING_HALF
 
 #define SPEC_EXE
-#define RECORD_SPEC_FAIL
+// #define RECORD_SPEC_FAIL
 
 
 #define SASYNC_EXE

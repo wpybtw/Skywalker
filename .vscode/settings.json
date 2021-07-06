@@ -92,6 +92,7 @@
         "*.ipp": "cpp",
         "future": "cpp",
         "slist": "cpp",
-        "__bit_reference": "cpp"
+        "__bit_reference": "cpp",
+        "cross_module_gil_utils.cpp": "cuda-cpp"
     }
 }

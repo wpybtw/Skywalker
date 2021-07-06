@@ -2,7 +2,7 @@
 ###
  # @Description: 
  # @Date: 2020-11-17 13:39:45
- # @LastEditors: Please set LastEditors
+ # @LastEditors: Pengyu Wang
  # @LastEditTime: 2021-01-15 16:45:34
  # @FilePath: /skywalker/figs/scale.sh
 ### 

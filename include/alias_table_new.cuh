@@ -611,6 +611,8 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
     // return;
     // todo block lock step
 #ifdef SPEC_EXE
+    __shared__ uint roll_backs;
+    if (LTID == 0) roll_backs = 0;
     while ((!buffer.small.Empty()) && (!buffer.large.Empty())) {
       itr++;
       thread_block tb = this_thread_block();
@@ -658,6 +660,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       if (act) {
         if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
           // active_size2(" buffer.prob<0 ", __LINE__);
+          atomicAdd(&roll_backs, 1);
           atomicAdd(&buffer.prob.data[largeV], 1 - buffer.prob.Get(smallV));
           buffer.small.Add(smallV);
         } else {
@@ -675,15 +678,10 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       // MySync();
       // if (LTID == 0)
       MySync();
-#ifdef plargeitr
-      if (itr > 50 && LTID == 0) {
-        printf(" buffer.large itr %d\n", itr);
-      }
-// if (itr > 100) {
-//   break;
-// }
-#endif
     }
+    if (LTID == 0)
+      printf("%d %u\n", buffer.ggraph->getDegree((uint)buffer.src_id),
+             roll_backs);
 #else
     while ((!buffer.small.Empty()) && (!buffer.large.Empty())) {
       itr++;
@@ -722,6 +720,14 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       }
       MySync();
     }
+#endif
+#ifdef plargeitr
+    if (itr > 0 && LTID == 0) {
+      printf("buffer.large.itr\t %d\n", itr);
+    }
+// if (itr > 100) {
+//   break;
+// }
 #endif
     // if (LTID == 0) {
     //   printf("bcitr, %d\n", itr);
@@ -1012,17 +1018,17 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
       }
 #else
 #endif
-// if (LID == 0) {}
+      // if (LID == 0) {}
+      MySync();
+    }
 #ifdef plargeitr
-      if (itr > 10 && LID == 0) {
-        printf(" buffer.large itr %d\n", itr);
-      }
+    if (itr > 0 && LID == 0) {
+      printf("buffer.large.itr\t %d\n", itr);
+    }
 // if (itr > 100) {
 //   break;
 // }
 #endif
-      MySync();
-    }
   }
 };
 
@@ -1259,17 +1265,17 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
         }
       }
 #endif
-// if (LID == 0) {}
+      // if (LID == 0) {}
+      MySync();
+    }
 #ifdef plargeitr
-      if (itr > 10 && LID == 0) {
-        printf(" buffer.large itr %d\n", itr);
-      }
+    if (itr > 0 && LID == 0) {
+      printf("buffer.large.itr\t %d\n", itr);
+    }
 // if (itr > 100) {
 //   break;
 // }
 #endif
-      MySync();
-    }
     // if (LID == 0) {
     //   printf("witr, %d\n", itr);
     // }
@@ -1523,16 +1529,16 @@ struct alias_table_constructor_shmem<T, thread_block_tile<SUBWARP_SIZE>,
         }
       }
 #endif
-// if (LID == 0) {}
+      // if (LID == 0) {}
+      MySync();
+    }
 #ifdef plargeitr
-      if (itr > 10 && SWIDX == 0) {
-        printf(" buffer.large itr %d\n", itr);
-      }
+    if (itr > 10 && SWIDX == 0) {
+      printf("buffer.large.itr\t %d\n", itr);
+    }
 // if (itr > 100) {
 //   break;
 // }
 #endif
-      MySync();
-    }
   }
 };

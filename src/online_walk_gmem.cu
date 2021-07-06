@@ -10,11 +10,15 @@
 static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                         gpu_graph *ggraph, curandState state,
                                         int current_itr, int node_id,
-                                        void *buffer, uint instance_id = 0) {
-  alias_table_constructor_shmem<uint, thread_block_tile<32>> *tables =
-      (alias_table_constructor_shmem<uint, thread_block_tile<32>> *)buffer;
-  alias_table_constructor_shmem<uint, thread_block_tile<32>> *table =
-      &tables[WID];
+                                        void *buffer,
+                                        Vector_pack<uint> *vector_packs,
+                                        uint instance_id = 0) {
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::GMEM> tables[WARP_PER_BLK];
+      // *tables = (alias_table_constructor_shmem<uint, thread_block_tile<32>,
+      //                                          BufferType::GMEM> *)buffer;
+  alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::GMEM>
+      *table = &tables[WID];
+  table->loadGlobalBuffer(vector_packs + WID);
   bool not_all_zero = table->loadFromGraph(ggraph->getNeighborPtr(node_id),
                                            ggraph, ggraph->getDegree(node_id),
                                            current_itr, node_id, instance_id);
@@ -45,9 +49,9 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
                                          void *buffer,
                                          Vector_pack<uint> *vector_packs,
                                          uint instance_id = 0) {
-  alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *tables =
-      (alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *)
-          buffer;
+  __shared__ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> tables[1];
+      // (alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *)
+      //     buffer;
   alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *table =
       &tables[0];
   table->loadGlobalBuffer(vector_packs);
@@ -80,16 +84,18 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
 }
 
 static __global__ void OnlineWalkKernel(Walker *sampler,
-                                 Vector_pack<uint> *vector_pack, float *tp) {
+                                        Vector_pack<uint> *vector_pack,
+                                        float *tp) {
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
-  Vector_pack<uint> *vector_packs = &vector_pack[BID];
-  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
+  Vector_pack<uint> *vector_packs = &vector_pack[BID* WARP_PER_BLK];
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>,
+                                           BufferType::GMEM>
       table[WARP_PER_BLK];
   void *buffer = &table[0];
   curandState state;
   curand_init(TID, 0, 0, &state);
-
+  // if(LTID==0)  printf("using buffer %d \n", blockIdx.x * WARP_PER_BLK);
   __shared__ uint current_itr;
   if (threadIdx.x == 0) current_itr = 0;
   __syncthreads();
@@ -110,7 +116,7 @@ static __global__ void OnlineWalkKernel(Walker *sampler,
       if (!stop) {
         if (ggraph->getDegree(node_id) < ELE_PER_WARP) {
           SampleWarpCentic(result, ggraph, state, current_itr, node_id, buffer,
-                           job.instance_idx);
+                           vector_packs, job.instance_idx);
         } else {
 #ifdef skip8k
           if (LID == 0 && ggraph->getDegree(node_id) < 8000)
@@ -163,24 +169,25 @@ static __global__ void OnlineWalkKernel(Walker *sampler,
     __syncthreads();
   }
 }
-__device__ uint get_smid() {
-  uint ret;
-  asm("mov.u32 %0, %smid;" : "=r"(ret));
-  return ret;
-}
+// __device__ uint get_smid() {
+//   uint ret;
+//   asm("mov.u32 %0, %smid;" : "=r"(ret));
+//   return ret;
+// }
 static __global__ void OnlineWalkKernelStatic(Walker *sampler,
-                                       Vector_pack<uint> *vector_pack,
-                                       uint current_itr, float *tp,
-                                       uint n = 1) {
+                                              Vector_pack<uint> *vector_pack,
+                                              uint current_itr, float *tp,
+                                              uint n = 1) {
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
-  Vector_pack<uint> *vector_packs = &vector_pack[blockIdx.x];
+  Vector_pack<uint> *vector_packs = &vector_pack[blockIdx.x * WARP_PER_BLK];
   __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
       table[WARP_PER_BLK];
   void *buffer = &table[0];
   __shared__ Vector_shmem<uint, thread_block, BLOCK_SIZE, false>
       local_high_degree;
   local_high_degree.Init();
+  // printf("using buffer %d \n", blockIdx.x * WARP_PER_BLK);
 
   curandState state;
   curand_init(TID, 0, 0, &state);
@@ -205,7 +212,7 @@ static __global__ void OnlineWalkKernelStatic(Walker *sampler,
           if (LID == 0) result.length[idx] = current_itr;
         } else if (src_degree < ELE_PER_WARP) {
           SampleWarpCentic(result, ggraph, state, current_itr, node_id, buffer,
-                           idx);
+                           vector_packs, idx);
           //  if (LID == 0) result.length[idx]= current_itr+1;
         } else {
           if (LID == 0) local_high_degree.Add(idx);
@@ -225,7 +232,6 @@ static __global__ void OnlineWalkKernelStatic(Walker *sampler,
   }
 }
 
-
 static __global__ void print_result(Walker *sampler) {
   sampler->result.PrintResult();
 }
@@ -242,7 +248,7 @@ void init_array(T *ptr, size_t size, T v) {
 }
 
 // void Start_high_degree(Walker sampler)
-float OnlineWalkShMem(Walker &sampler) {
+float OnlineWalkGMem(Walker &sampler) {
   // orkut max degree 932101
   LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
@@ -250,7 +256,7 @@ float OnlineWalkShMem(Walker &sampler) {
 #endif  // skip8k
 
   LOG("overring staic flag, static\n");
-  FLAGS_static=0;
+  FLAGS_static = 0;
 
   int device;
   cudaDeviceProp prop;
@@ -270,20 +276,20 @@ float OnlineWalkShMem(Walker &sampler) {
   // allocate global buffer
   int block_num = n_sm * FLAGS_m;
   int gbuff_size = sampler.ggraph.MaxDegree;
-  ;
-  LOG("alllocate GMEM buffer %d MB\n",
-      block_num * gbuff_size * MEM_PER_ELE / 1024 / 1024);
+  int buffer_num = block_num * WARP_PER_BLK;
+  LOG("alllocate GMEM buffer %d MB, buffer_num %d\n",
+      buffer_num * gbuff_size * MEM_PER_ELE / 1024 / 1024, buffer_num);
 
-  Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
-  for (size_t i = 0; i < block_num; i++) {
+  Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[buffer_num];
+  for (size_t i = 0; i < buffer_num; i++) {
     vector_pack_h[i].Allocate(gbuff_size, sampler.device_id);
   }
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;
   CUDA_RT_CALL(
-      cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+      cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * buffer_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
-                          sizeof(Vector_pack<uint>) * block_num,
+                          sizeof(Vector_pack<uint>) * buffer_num,
                           cudaMemcpyHostToDevice));
 
   float *tp_d, tp;
