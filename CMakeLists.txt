@@ -33,62 +33,60 @@ if(NOT DEFINED CMAKE_CUDA_STANDARD)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
 
-add_executable(main_gbuffer
-    src/main.cu
-    src/util.cu
-    src/sampler_gbuffer.cu
-    src/kernel.cu
-    )
+#add_executable(
+#    src/main.cu
+#    src/util.cu
+#    src/sampler_gbuffer.cu
+#    src/kernel.cu
+#    )
 add_executable(sample
-    src/entry.cu
     src/util.cu
     src/vec.cu
     src/kernel.cu
     src/createTable.cu
-    src/sample.cu
     )
-add_executable(sample_rw
-    src/entry.cu
-    src/util.cu
-    src/vec.cu
-    src/kernel.cu
-    src/createTable.cu
-    src/sample_rw.cu
-    )
-add_executable(sample_rw2
-    src/entry_rw.cu
-    src/util.cu
-    src/vec.cu
-    src/kernel.cu
-    src/createTable.cu
-    src/sample_rw2.cu
-    )
-target_link_libraries(main_gbuffer 
-    ${EXTRA_LIBS} 
-    ${CUDA_LIBRARIES}
-    ${CUDA_CUDART_LIBRARY} 
-    ${CUDA_cudadevrt_LIBRARY}
-    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
-    # -Wl,-b,binary,include/graph.cuh -fopenmp
-    )
+#add_executable(sample_rw
+#    src/entry.cu
+#    src/util.cu
+#    src/vec.cu
+#    src/kernel.cu
+#    src/createTable.cu
+#    src/sample_rw.cu
+#    )
+#add_executable(sample_rw2
+#    src/entry_rw.cu
+#    src/util.cu
+#    src/vec.cu
+#    src/kernel.cu
+#    src/createTable.cu
+#    src/sample_rw2.cu
+#    )
+#target_link_libraries(main_gbuffer 
+#    ${EXTRA_LIBS} 
+#    ${CUDA_LIBRARIES}
+#    ${CUDA_CUDART_LIBRARY} 
+#    ${CUDA_cudadevrt_LIBRARY}
+#    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
+#    # -Wl,-b,binary,include/graph.cuh -fopenmp
+#    )
 target_link_libraries(sample 
     ${EXTRA_LIBS} 
     ${CUDA_LIBRARIES}
     #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
     # -Wl,-b,binary,include/graph.cuh -fopenmp
     )
-target_link_libraries(sample_rw 
-    ${EXTRA_LIBS} 
-    ${CUDA_LIBRARIES}
-    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
-    # -Wl,-b,binary,include/graph.cuh -fopenmp
-    )
-target_link_libraries(sample_rw2 
-    ${EXTRA_LIBS} 
-    ${CUDA_LIBRARIES}
-    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
-    # -Wl,-b,binary,include/graph.cuh -fopenmp
-    )
+#target_link_libraries(sample_rw 
+#    ${EXTRA_LIBS} 
+#    ${CUDA_LIBRARIES}
+#    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
+#    # -Wl,-b,binary,include/graph.cuh -fopenmp
+#    )
+#target_link_libraries(sample_rw2 
+#    ${EXTRA_LIBS} 
+#    ${CUDA_LIBRARIES}
+#    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
+#    # -Wl,-b,binary,include/graph.cuh -fopenmp
+#    )
 
 
 
