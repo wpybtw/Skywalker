@@ -5,6 +5,7 @@ include(CheckLanguage)
 check_language(CUDA)
 
 set(CUDA_PATH "/usr/local/cuda")
+set(CMAKE_CUDA_COMPILER "/usr/local/cuda-11.0/bin/nvcc")
 # GFlags
 add_subdirectory(deps/gflags)
 include_directories(${PROJECT_BINARY_DIR}/deps/gflags/include)

@@ -679,9 +679,9 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       // if (LTID == 0)
       MySync();
     }
-    if (LTID == 0)
-      printf("%d %u\n", buffer.ggraph->getDegree((uint)buffer.src_id),
-             roll_backs);
+    // if (LTID == 0)
+    //   printf("%d %u\n", buffer.ggraph->getDegree((uint)buffer.src_id),
+    //          roll_backs);
 #else
     while ((!buffer.small.Empty()) && (!buffer.large.Empty())) {
       itr++;
