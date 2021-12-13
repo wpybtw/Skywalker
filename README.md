@@ -27,7 +27,7 @@ make
 ```
 
 ## Dataset 
-
+When evaluating Skywalker, we use 7 commonly used Graph datasets:  web-Google, Livejournal, Orkut, Arabic-2005, UK-2005, Friendster, and SK-2005. The datasets can be downloaded from [SNAP](http://snap.stanford.edu/data/index.html) and [Webgraph](http://law.di.unimi.it/datasets.php). You can also execute Skywalker on your preferred datasets, as long as the datasets are preprocessed correctly as mentioned in the section of Preprosessing.
 
 
 ## Preprocessing
