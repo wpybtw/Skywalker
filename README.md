@@ -27,7 +27,7 @@ make
 ```
 
 ## Dataset 
-When evaluating Skywalker, we use 7 commonly used Graph datasets:  web-Google, Livejournal, Orkut, Arabic-2005, UK-2005, Friendster, and SK-2005. The datasets can be downloaded from [SNAP](http://snap.stanford.edu/data/index.html) and [Webgraph](http://law.di.unimi.it/datasets.php). You can also execute Skywalker on your preferred datasets, as long as the datasets are preprocessed correctly as mentioned in the section of Preprosessing.
+When evaluating Skywalker, we use 7 commonly used Graph datasets:  web-Google, Livejournal, Orkut, Arabic-2005, UK-2005, Friendster, and SK-2005. The datasets can be downloaded from [SNAP](http://snap.stanford.edu/data/index.html) and [Webgraph](http://law.di.unimi.it/datasets.php). You can also execute Skywalker on your preferred datasets, as long as the datasets are processed correctly as mentioned in the section of Preprosessing.
 
 
 ## Preprocessing
@@ -38,5 +38,5 @@ wget http://snap.stanford.edu/data/wiki-Vote.txt.gz
 gzip -d wiki-Vote.txt.gz
 $GALOIS_PATH/build/tools/graph-convert/graph-convert -edgelist2gr  ~/data/wiki-Vote.txt  ~/data/wiki-Vote.gr
 ```
-## Running
-Please run scripts in ./scripts for testing.
+## Execution
+We implemented four different algorithms in Skywalker, namely DeepWalk, PPR, Node2vec and Neighbour Sampling all based on alias method. We support both online and offline sampling, that's constructing the alias table on the fly or for all vertices in one graph dataset at once as a preprocessing procedure. The source code files are placed under ``` ./src``` and ```./include``` folders. The configuration of Skywalker is set through gflags, and the default values are written in ```main.cu``` in the src folder. You can change the configuration simply by editting the command line.  
