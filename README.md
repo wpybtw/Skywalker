@@ -59,3 +59,5 @@ Run scriopts:
 ```
 bash ./scripts/biased.sh
 ```
+
+Notice that we also execute several other Graph sampling and random walk frameworks as comparison. Although we also write the configurations of these framworks in our scripts, you may have to also implement their frameworks and set the paths, or you may generate errors in some scripts. 
