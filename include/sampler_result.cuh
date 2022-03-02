@@ -153,23 +153,25 @@ struct Jobs_result<JobType::NS, T> {
   uint device_id;
   uint length_per_sample = 0;
   uint *hops;
+  uint *hops_h;
   uint *sample_lengths;  // format ( len(s1), len(s1.h1),....len(s1.hk),
                          // len(s2),... )
   uint size_of_sample_lengths;
   uint *offsets;
   uint *seeds;
-   __device__ void SetSampleLength(uint sampleIdx, uint itr,
-                                                  size_t idx, uint v) {
-    // if (sampleIdx == 0 && idx ==0) 
+  __device__ void SetSampleLength(uint sampleIdx, uint itr, size_t idx,
+                                  uint v) {
+    // if (sampleIdx == 0 && idx ==0)
     // {
     //   printf("itr * offsets[itr] %u\n ", itr * offsets[itr]);
     //   printf("itr * offsets[itr]+ idx %u\n ", itr * offsets[itr] + idx);
     //   printf(
-    //       "sampleIdx * size_of_sample_lengths + itr * offsets[itr]+ idx %u\n",
-    //       sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx);
-    //   uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx;
-    //   printf("tmp %u\n ", tmp);
-    //   printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx, tmp);
+    //       "sampleIdx * size_of_sample_lengths + itr * offsets[itr]+ idx
+    //       %u\n", sampleIdx * size_of_sample_lengths + itr * offsets[itr] +
+    //       idx);
+    //   uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] +
+    //   idx; printf("tmp %u\n ", tmp); printf("sampleIdx %u itr %u idx %u loc
+    //   %u \n", sampleIdx, itr, idx, tmp);
     // }
     uint tmp = sampleIdx * size_of_sample_lengths + offsets[itr] + idx;
     sample_lengths[tmp] = v;
@@ -196,7 +198,8 @@ struct Jobs_result<JobType::NS, T> {
     size = _size;
     // paster(_hop_num);
     hop_num = _hop_num;
-    // uint *hops_h=new _hops[hop_num];
+    hops_h = new uint[hop_num];
+    memcpy(hops_h, _hops, hop_num * sizeof(uint));
     CUDA_RT_CALL(cudaMalloc(&hops, hop_num * sizeof(uint)));
     CUDA_RT_CALL(
         cudaMemcpy(hops, _hops, hop_num * sizeof(uint), cudaMemcpyDefault));
@@ -213,26 +216,31 @@ struct Jobs_result<JobType::NS, T> {
       tmp += _hops[i];
     }
     size_of_sample_lengths = tmp;
-    paster(length_per_sample);
+    // paster(length_per_sample);
     paster(size_of_sample_lengths);
-    printf("hop_num ");
-    printf("offsets ");
-    for (size_t i = 0; i < hop_num; i++) {
-      printf("%d\t", offsets_h[i]);
-    }
-    for (size_t itr = 0; itr < 3; itr++)    
-    {
-      int idx=0, sampleIdx=0;
-      printf("offsets[itr] %u\n ", offsets_h[itr]);
-      printf("offsets[itr]+ idx %u\n ", offsets_h[itr] + idx);
-      printf(
-          "sampleIdx * size_of_sample_lengths + offsets_h[itr]+ idx %u\n",
-          sampleIdx * size_of_sample_lengths + offsets_h[itr] + idx);
-      uint tmp = sampleIdx * size_of_sample_lengths + offsets_h[itr] + idx;
-      printf("tmp %u\n ", tmp);
-      printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx, tmp);
-    }
-    printf("\n ");
+    // printf("hops ");
+    // for (size_t i = 0; i < hop_num; i++) {
+    //   printf("%d\t", _hops[i]);
+    // }
+    // printf("hop_num ");
+    // printf("offsets ");
+    // for (size_t i = 0; i < hop_num; i++) {
+    //   printf("%d\t", offsets_h[i]);
+    // }
+    // for (size_t itr = 0; itr < 3; itr++)
+    // for (size_t sampleIdx = 0; sampleIdx < 3; sampleIdx++) {
+    //   int itr = 1, idx = 0;
+    //   printf("offsets[itr] %u\n ", offsets_h[itr]);
+    //   printf("offsets[itr]+ idx %u\n ", offsets_h[itr] + idx);
+    //   printf("sampleIdx * size_of_sample_lengths + offsets_h[itr] + idx
+    //   %u\n",
+    //          sampleIdx * size_of_sample_lengths + offsets_h[itr] + idx);
+    //   uint tmp = sampleIdx * size_of_sample_lengths + offsets_h[itr] + idx;
+    //   // printf("tmp %u\n ", tmp);
+    //   printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx,
+    //   tmp);
+    // }
+    // printf("\n ");
     CUDA_RT_CALL(cudaMalloc(&offsets, hop_num * sizeof(uint)));
     CUDA_RT_CALL(cudaMemcpy(offsets, offsets_h, hop_num * sizeof(uint),
                             cudaMemcpyHostToDevice));
@@ -268,38 +276,37 @@ struct Jobs_result<JobType::NS, T> {
   //   *(getNextAddr(current_itr) + old) = candidate;
   //   // printf("Add new ele %u with degree %d\n", candidate,  );
   // }
+  // __device__ void PrintResult() {
+  //   if (LTID == 0) {
+  //     for (int j = 0; j < MIN(3, size); j++) {
+  //       printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0,
+  //       0),
+  //              GetSampleLength(j, 0, 0));
+  //       for (size_t i = 0; i < GetSampleLength(j, 0, 0); i++) {
+  //         printf("\t %u", GetSampleLength(j, 1, i));
+  //       }
+  //       printf("\n first  2-hop ");
+  //       for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
+  //         printf("%u \t", GetData(j, 1, i));
+  //       }
+  //       printf("\n");
+  //     }
+  //   }
+  // }
   __device__ void PrintResult() {
     if (LTID == 0) {
       for (int j = 0; j < MIN(3, size); j++) {
         printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0, 0),
                GetSampleLength(j, 0, 0));
-        for (size_t i = 0; i < hops[1]; i++) {
-          printf("\t %d", GetSampleLength(j, 1, i));
+        for (size_t i = 0; i < GetSampleLength(j, 0, 0); i++) {
+          printf("\t %u", GetSampleLength(j, 1, i));
         }
-
+        printf("\n first  2-hop ");
         for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
           printf("%u \t", GetData(j, 1, i));
         }
         printf("\n");
       }
-      // printf("seeds \n");
-      // for (size_t i = 0; i < MIN(5, size); i++) {
-      //   printf("%u \t", GetData(i, 0, 0));
-      // }
-      // for (int j = 0; j < MIN(3, size); j++) {
-      //   printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0,
-      //   0),
-      //          GetSampleLength(j, 0, 0));
-      //   for (size_t i = 0; i < hops[1]; i++) {
-      //     printf("\t %d", GetSampleLength(j, 1, i));
-      //   }
-      //   printf("\n first  2-hop ");
-
-      //   for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
-      //     printf("%u \t", GetData(j, 1, i));
-      //   }
-      //   printf("\n");
-      // }
     }
   }
   __device__ T *GetDataPtr(uint sampleIdx, uint itr, size_t idx) {

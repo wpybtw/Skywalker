@@ -243,6 +243,12 @@ class Graph {
     for (size_t i = 0; i < num_Node; i++) {
       outDegree[i] = xadj[i + 1] - xadj[i];
     }
+    for (size_t i = 0; i < 3; i++)
+    {
+      printf("%d has  out degree %d\n", i, outDegree[i]);
+    }
+    
+    
     // int tmp = 25729;
     // if (FLAGS_v)
     //   printf("%d has  out degree %d\n", tmp, outDegree[tmp]);

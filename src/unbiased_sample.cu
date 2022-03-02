@@ -2,10 +2,12 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-02-28 17:22:08
+ * @LastEditTime: 2022-03-02 22:57:33
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
+
+// #define UNIQUE_SAMPLE 1
 
 static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
@@ -21,8 +23,11 @@ static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
     {
       uint src_id = result.GetData(idx_i, current_itr, 0);
       uint src_degree = graph->getDegree((uint)src_id);
+#ifdef UNIQUE_SAMPLE
+      uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+#else
       uint sample_size = result.hops[current_itr + 1];
-      // uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+#endif
 
       for (size_t i = 0; i < sample_size; i++) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
@@ -49,8 +54,11 @@ static __global__ void sample_kernel_first_buffer(Sampler_new *sampler,
     {
       uint src_id = result.GetData(idx_i, current_itr, 0);
       uint src_degree = graph->getDegree((uint)src_id);
+#ifdef UNIQUE_SAMPLE
+      uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+#else
       uint sample_size = result.hops[current_itr + 1];
-      // uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+#endif
 
       for (size_t i = 0; i < sample_size; i++) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
@@ -76,7 +84,7 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
   curand_init(TID, 0, 0, &state);
   size_t subwarp_id = TID / subwarp_size;
   uint subwarp_idx = TID % subwarp_size;
-  uint local_subwarp_idx = LTID % subwarp_size;
+  // uint local_subwarp_idx = LTID % subwarp_size;
   bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
   size_t idx_i = subwarp_id;  //
 
@@ -88,8 +96,12 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
       if (alive) {
         src_id = result.GetData(idx_i, current_itr, subwarp_idx);
         src_degree = graph->getDegree((uint)src_id);
-        // sample_size = MIN(result.hops[current_itr + 1], src_degree);
+#ifdef UNIQUE_SAMPLE
+        sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+#else
         sample_size = result.hops[current_itr + 1];
+#endif
+        // if (!idx_i) printf("sample_size %u\n", sample_size);
         for (size_t i = 0; i < sample_size; i++) {
           uint candidate = (int)floor(curand_uniform(&state) * src_degree);
           *result.GetDataPtr(idx_i, current_itr + 1, i) =
@@ -137,14 +149,17 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
     iMap[LTID] = subwarp_idx;
     coalesced_group active = coalesced_threads();
     {
-      uint src_id, sample_size, src_degree = 0;
+      uint src_id, src_degree = 0;
       if (alive) {
         src_id = result.GetData(idx_i, current_itr, subwarp_idx);
         src_degree = graph->getDegree((uint)src_id);
         alive = (src_degree == 0) ? false : true;
       }
-      // sample_size = MIN(result.hops[current_itr + 1], src_degree);
-      sample_size = result.hops[current_itr + 1];
+#ifdef UNIQUE_SAMPLE
+      uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+#else
+      uint sample_size = result.hops[current_itr + 1];
+#endif
 
       for (size_t i = 0; i < sample_size; i++) {
         if (alive) {
@@ -211,7 +226,11 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
     {
       uint src_id = result.GetData(idx_i, current_itr, 0);
       uint src_degree = graph->getDegree((uint)src_id);
-      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+#ifdef UNIQUE_SAMPLE
+      uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+#else
+      uint sample_size = result.hops[current_itr + 1];
+#endif
       for (size_t i = 0; i < sample_size; i++) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
         buffer_1hop.Set(
@@ -235,7 +254,11 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
         uint src_id =
             buffer_1hop.data[((WID)*32 + i) * buffer_1hop.tileLen + j];
         uint src_degree = graph->getDegree((uint)src_id);
-        uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+#ifdef UNIQUE_SAMPLE
+        uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+#else
+        uint sample_size = result.hops[current_itr + 1];
+#endif
 
         for (size_t k = active.thread_rank(); k < sample_size;
              k++) {  // get 2hop for 1hop neighbors for each thread

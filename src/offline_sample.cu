@@ -184,6 +184,58 @@ static __global__ void sample_kernel_first_buffered(Sampler_new *sampler,
   }
 }
 template <uint subwarp_size>
+static __global__ void sample_kernel_second(Sampler_new *sampler,
+                                            uint current_itr) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  size_t subwarp_id = TID / subwarp_size;
+  uint subwarp_idx = TID % subwarp_size;
+  // uint local_subwarp_id = LTID / subwarp_size;
+  bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
+  size_t idx_i = subwarp_id;  //
+  Vector_virtual<uint> alias;
+  Vector_virtual<float> prob;
+
+  if (idx_i < result.size)  // for 2-hop, hop_num=3
+  {
+    // coalesced_group active = coalesced_threads();
+    {
+      uint src_id, src_degree, sample_size;
+      if (alive) {
+        src_id = result.GetData(idx_i, current_itr, subwarp_idx);
+        if (src_id > graph->vtx_num)
+          printf(" line%u wtf idx_i %llu %u %u\n", __LINE__,
+                 (unsigned long long)idx_i, src_id, graph->vtx_num);
+        src_degree = graph->getDegree(src_id);
+        sample_size = MIN(result.hops[current_itr + 1], src_degree);
+        alias.Construt(
+            graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+            src_degree);
+        prob.Construt(
+            graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+            src_degree);
+        alias.Init(src_degree);
+        prob.Init(src_degree);
+        for (size_t i = 0; i < sample_size; i++) {
+          int col = (int)floor(curand_uniform(&state) * src_degree);
+          float p = curand_uniform(&state);
+          uint candidate;
+          if (p < prob[col])
+            candidate = col;
+          else
+            candidate = alias[col];
+          *result.GetDataPtr(idx_i, current_itr + 1, i) =
+              graph->getOutNode(src_id, candidate);
+        }
+      }
+      if (alive)
+        result.SetSampleLength(idx_i, current_itr, subwarp_idx, sample_size);
+    }
+  }
+}
+template <uint subwarp_size>
 static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
                                                    uint current_itr) {
 #define buffer_len 15  // occupancy allows 15, 15 75% occupancy but best?
@@ -290,58 +342,7 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
     }
   }
 }
-template <uint subwarp_size>
-static __global__ void sample_kernel_second(Sampler_new *sampler,
-                                            uint current_itr) {
-  Jobs_result<JobType::NS, uint> &result = sampler->result;
-  gpu_graph *graph = &sampler->ggraph;
-  curandState state;
-  curand_init(TID, 0, 0, &state);
-  size_t subwarp_id = TID / subwarp_size;
-  uint subwarp_idx = TID % subwarp_size;
-  // uint local_subwarp_id = LTID / subwarp_size;
-  bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
-  size_t idx_i = subwarp_id;  //
-  Vector_virtual<uint> alias;
-  Vector_virtual<float> prob;
 
-  if (idx_i < result.size)  // for 2-hop, hop_num=3
-  {
-    // coalesced_group active = coalesced_threads();
-    {
-      uint src_id, src_degree, sample_size;
-      if (alive) {
-        src_id = result.GetData(idx_i, current_itr, subwarp_idx);
-        if (src_id > graph->vtx_num)
-          printf(" line%u wtf idx_i %llu %u %u\n", __LINE__,
-                 (unsigned long long)idx_i, src_id, graph->vtx_num);
-        src_degree = graph->getDegree(src_id);
-        sample_size = MIN(result.hops[current_itr + 1], src_degree);
-        alias.Construt(
-            graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
-            src_degree);
-        prob.Construt(
-            graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
-            src_degree);
-        alias.Init(src_degree);
-        prob.Init(src_degree);
-        for (size_t i = 0; i < sample_size; i++) {
-          int col = (int)floor(curand_uniform(&state) * src_degree);
-          float p = curand_uniform(&state);
-          uint candidate;
-          if (p < prob[col])
-            candidate = col;
-          else
-            candidate = alias[col];
-          *result.GetDataPtr(idx_i, current_itr + 1, i) =
-              graph->getOutNode(src_id, candidate);
-        }
-      }
-      if (alive)
-        result.SetSampleLength(idx_i, current_itr, subwarp_idx, sample_size);
-    }
-  }
-}
 
 static __global__ void print_result(Sampler_new *sampler) {
   sampler->result.PrintResult();
@@ -375,17 +376,19 @@ float OfflineSample(Sampler_new &sampler) {
     LOG(" buffered sampling has problems\n");
     sample_kernel_first_buffered<<<sampler.result.size / BLOCK_SIZE + 1,
                                    BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
-    CUDA_RT_CALL(cudaDeviceSynchronize());
-    sample_kernel_second<16>
-        <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
-            sampler_ptr, 1);
   } else {
     sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
                           0>>>(sampler_ptr, 0);
+  }
+  // CUDA_RT_CALL(cudaDeviceSynchronize());
+  if (sampler.result.hops_h[1] <= 16)
     sample_kernel_second<16>
         <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
             sampler_ptr, 1);
-  }
+  else if (sampler.result.hops_h[1] >= 16 && sampler.result.hops_h[1] <= 32)
+    sample_kernel_second<32>
+        <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
+            sampler_ptr, 1);
 
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
