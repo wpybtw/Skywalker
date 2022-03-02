@@ -5,16 +5,22 @@ include(CheckLanguage)
 check_language(CUDA)
 
 set(CUDA_PATH "/usr/local/cuda")
-set(CMAKE_CUDA_COMPILER "/usr/local/cuda-11.0/bin/nvcc")
-# GFlags
+set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
+
+
+
+# if(OpenMP_CXX_FOUND)
+#     target_link_libraries(MyTarget PUBLIC OpenMP::OpenMP_CXX)
+# endif()
+
 add_subdirectory(deps/gflags)
 include_directories(${PROJECT_BINARY_DIR}/deps/gflags/include)
 link_directories(${PROJECT_BINARY_DIR}/deps/gflags/lib)
 
-############## BUILD ##############
+############## BUILD ##############   
 set(EXTRA_LIBS gflags)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_75,code=sm_75 -rdc=true  -dc -std=c++11  -res-usage   -Xptxas -v ")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -dc -rdc=true  -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -fopenmp  -Xptxas -v ")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   message("Debug mode")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G -Xcompiler   -ggdb  -lnvrt -Woverloaded-virtual")
@@ -28,6 +34,8 @@ endif()
 set(CUDA_VERBOSE_BUILD ON)
 
 include_directories(include)
+aux_source_directory(src DIR_SRCS)
+# aux_source_directory(src/util DIR_SRCS)
 
 if(NOT DEFINED CMAKE_CUDA_STANDARD)
     set(CMAKE_CUDA_STANDARD 11)
@@ -41,10 +49,8 @@ endif()
 #    src/kernel.cu
 #    )
 add_executable(sample
-    src/util.cu
-    src/vec.cu
-    src/kernel.cu
-    src/createTable.cu
+    ${DIR_SRCS}
+    src/api/bias_degree.cu
     )
 #add_executable(sample_rw
 #    src/entry.cu

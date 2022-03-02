@@ -12,7 +12,7 @@
                 // "/usr/lib/gcc/x86_64-linux-gnu/7/include"
             ],
             "defines": [],
-            "compilerPath": "/usr/local/cuda/bin/nvcc", // "/usr/bin/clang",
+            "compilerPath": "/usr/bin/clang", // "/usr/local/cuda/bin/nvcc", // 
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64",

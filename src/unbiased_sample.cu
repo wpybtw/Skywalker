@@ -1,13 +1,41 @@
 /*
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
- * @LastEditors: Pengyu Wang
- * @LastEditTime: 2021-01-17 21:52:01
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2022-02-28 17:22:08
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
 
 static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  // __shared__ matrixBuffer<BLOCK_SIZE, 11, uint> buffer_1hop;
+  // buffer_1hop.Init();
+  size_t idx_i = TID;
+  if (idx_i < result.size) {
+    uint current_itr = 0;
+    // coalesced_group active = coalesced_threads();
+    {
+      uint src_id = result.GetData(idx_i, current_itr, 0);
+      uint src_degree = graph->getDegree((uint)src_id);
+      uint sample_size = result.hops[current_itr + 1];
+      // uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+
+      for (size_t i = 0; i < sample_size; i++) {
+        uint candidate = (int)floor(curand_uniform(&state) * src_degree);
+        *result.GetDataPtr(idx_i, current_itr + 1, i) =
+            graph->getOutNode(src_id, candidate);
+        // printf("adding %u \n", graph->getOutNode(src_id, candidate));
+      }
+      result.SetSampleLength(idx_i, current_itr, 0, sample_size);
+    }
+  }
+}
+static __global__ void sample_kernel_first_buffer(Sampler_new *sampler,
+                                                  uint itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
@@ -33,7 +61,8 @@ static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
             graph->getOutNode(src_id, candidate));  // can move back latter
       }
       active.sync();
-      buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0);
+      buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0,
+                        active);
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
     }
   }
@@ -189,7 +218,8 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
             graph->getOutNode(src_id, candidate));  // can move back latter
       }
       active.sync();
-      buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0);
+      buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0,
+                        active);
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
     }
     current_itr = 1;
@@ -229,13 +259,13 @@ static __global__ void sample_kernel_2hop_buffer(Sampler_new *sampler) {
 }
 template <>
 __global__ void sample_kernel_second_buffer<32>(Sampler_new *sampler,
-                                                       uint current_itr) {
+                                                uint current_itr) {
 #define buffer_len 15  // occupancy allows 15, 15 75% occupancy but best?
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-  uint subwarp_size=32;
+  uint subwarp_size = 32;
   size_t subwarp_id = TID / subwarp_size;
   uint subwarp_idx = TID % subwarp_size;
   uint local_subwarp_id = LTID / subwarp_size;
@@ -390,16 +420,19 @@ float UnbiasedSample(Sampler_new &sampler) {
 #pragma omp barrier
   start_time = wtime();
   if (FLAGS_peritr) {
-    sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
-                          0>>>(sampler_ptr, 0);
-    if (FLAGS_buffer)
+    if (FLAGS_buffer) {
+      sample_kernel_first_buffer<<<sampler.result.size / BLOCK_SIZE + 1,
+                                   BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
       sample_kernel_second_buffer<32>
           <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
               sampler_ptr, 1);
-    else
+    } else {
+      sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
+                            0>>>(sampler_ptr, 0);
       sample_kernel_second<32>
           <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
               sampler_ptr, 1);
+    }
   } else {
     if (FLAGS_buffer)
       sample_kernel_2hop_buffer<<<sampler.result.size / BLOCK_SIZE + 1,

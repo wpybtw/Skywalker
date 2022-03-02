@@ -57,17 +57,14 @@
 //     __syncthreads();
 //   }
 // }
-
 static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-  __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
   Vector_virtual<uint> alias;
   Vector_virtual<float> prob;
 
-  buffer_1hop.Init();
   size_t idx_i = TID;
   if (idx_i < result.size) {
     uint current_itr = 0;
@@ -95,13 +92,93 @@ static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
         else
           candidate = alias[col];
 
-        // *result.GetDataPtr(idx_i, current_itr + 1, i) =
-        //       graph->getOutNode(src_id, candidate);
+        *result.GetDataPtr(idx_i, current_itr + 1, i) =
+            graph->getOutNode(src_id, candidate);
+        // if (idx_i == 255)
+        //   printf("add %u to idx\n", graph->getOutNode(src_id, candidate));
+      }
+      result.SetSampleLength(idx_i, current_itr, 0, sample_size);
+    }
+  }
+}
+static __global__ void sample_kernel_first_buffered(Sampler_new *sampler,
+                                                    uint itr) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  __shared__ matrixBuffer<BLOCK_SIZE, 10, uint> buffer_1hop;
+  Vector_virtual<uint> alias;
+  Vector_virtual<float> prob;
+
+  buffer_1hop.Init();
+  size_t idx_i = TID;
+  // if (idx_i == 0) printf("buffer_1hop.length[0] %d\n",
+  // buffer_1hop.length[0]);
+  if (idx_i < result.size) {
+    uint current_itr = 0;
+    coalesced_group active = coalesced_threads();
+    {
+      uint src_id = result.GetData(idx_i, current_itr, 0);
+      uint src_degree = graph->getDegree((uint)src_id);
+      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+
+      alias.Construt(
+          graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      prob.Construt(
+          graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      alias.Init(src_degree);
+      prob.Init(src_degree);
+
+      for (size_t i = 0; i < sample_size; i++) {
+        int col = (int)floor(curand_uniform(&state) * src_degree);
+        float p = curand_uniform(&state);
+        uint candidate;
+        if (p < prob[col])
+          candidate = col;
+        else
+          candidate = alias[col];
+
+        if (graph->getOutNode(src_id, candidate) > graph->vtx_num)
+          printf(" %u wtf  %u %u\n", __LINE__,
+                 graph->getOutNode(src_id, candidate), graph->vtx_num);
         buffer_1hop.Set(
             graph->getOutNode(src_id, candidate));  // can move back latter
+        // if (idx_i == 255)
+        //   printf("add %u to idx\n", graph->getOutNode(src_id, candidate));
       }
+      // if (idx_i == 255) {
+      //   printf("buffer_1hop.length[idx_i] %d\n",
+      //   (int)buffer_1hop.length[idx_i]); printf("data in buffer: "); for
+      //   (size_t i = 0; i < (int)buffer_1hop.length[idx_i]; i++) {
+      //     printf(" %u ", buffer_1hop.data[idx_i*10+i]);
+      //   }
+      //   printf(" \n ");
+      // }
       active.sync();
-      buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0);
+      int size = active.size();
+      // buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0,
+      // active);
+      {
+        int active_size = active.size();
+        int rank = active.thread_rank();
+        buffer_1hop.ptr_per_thread[LTID] =
+            result.data + result.length_per_sample * idx_i;
+        active.sync();
+        for (size_t i = WID * 32; i < WID * 32 + 32;
+             i++) {  // loop over threads in warp
+          // active.sync();
+          int len = buffer_1hop.length[i];
+          for (size_t j = rank; j < len;
+               j += active_size) {  // loop over data // active.size()
+            if (buffer_1hop.ptr_per_thread[i] != nullptr)
+              *(buffer_1hop.ptr_per_thread[i] + buffer_1hop.outItr[WID] + j +
+                1) = buffer_1hop.data[i * 10 + j];
+          }
+        }
+      }
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
     }
   }
@@ -148,6 +225,8 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
       uint src_id, sample_size, src_degree = 0;
       if (alive) {
         src_id = result.GetData(idx_i, current_itr, subwarp_idx);
+        if (src_id > graph->vtx_num)
+          printf(" %u wtf  %u %u\n", __LINE__, src_id, graph->vtx_num);
         src_degree = graph->getDegree((uint)src_id);
         alive = (src_degree == 0) ? false : true;
       }
@@ -220,7 +299,7 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
   curand_init(TID, 0, 0, &state);
   size_t subwarp_id = TID / subwarp_size;
   uint subwarp_idx = TID % subwarp_size;
-  uint local_subwarp_id = LTID % subwarp_size;
+  // uint local_subwarp_id = LTID / subwarp_size;
   bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
   size_t idx_i = subwarp_id;  //
   Vector_virtual<uint> alias;
@@ -228,12 +307,15 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
 
   if (idx_i < result.size)  // for 2-hop, hop_num=3
   {
-    coalesced_group active = coalesced_threads();
+    // coalesced_group active = coalesced_threads();
     {
       uint src_id, src_degree, sample_size;
       if (alive) {
         src_id = result.GetData(idx_i, current_itr, subwarp_idx);
-        src_degree = graph->getDegree((uint)src_id);
+        if (src_id > graph->vtx_num)
+          printf(" line%u wtf idx_i %llu %u %u\n", __LINE__,
+                 (unsigned long long)idx_i, src_id, graph->vtx_num);
+        src_degree = graph->getDegree(src_id);
         sample_size = MIN(result.hops[current_itr + 1], src_degree);
         alias.Construt(
             graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
@@ -267,6 +349,9 @@ static __global__ void print_result(Sampler_new *sampler) {
 
 float OfflineSample(Sampler_new &sampler) {
   LOG("%s\n", __FUNCTION__);
+  // printf("matrixBuffer<BLOCK_SIZE, 10, uint> %u \n",
+  //        sizeof(matrixBuffer<BLOCK_SIZE, 10, uint>));
+
   int device;
   cudaDeviceProp prop;
   cudaGetDevice(&device);
@@ -286,11 +371,22 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
-  sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
-                        0>>>(sampler_ptr, 0);
-  sample_kernel_second<16>
-      <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
-          sampler_ptr, 1);
+  if (FLAGS_buffer) {
+    LOG(" buffered sampling has problems\n");
+    sample_kernel_first_buffered<<<sampler.result.size / BLOCK_SIZE + 1,
+                                   BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+    sample_kernel_second<16>
+        <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
+            sampler_ptr, 1);
+  } else {
+    sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
+                          0>>>(sampler_ptr, 0);
+    sample_kernel_second<16>
+        <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
+            sampler_ptr, 1);
+  }
+
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;

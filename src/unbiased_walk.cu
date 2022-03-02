@@ -1,8 +1,8 @@
 /*
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
- * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-10 15:09:28
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2022-02-28 15:07:56
  * @FilePath: /skywalker/src/unbiased_walk.cu
  */
 #include "app.cuh"
@@ -22,8 +22,10 @@ __global__ void Node2vecKernelStaticBuffer(Walker *walker) {
   uint lastV = idx_i;
   if (idx_i < result.size) {
     result.length[idx_i] = result.hop_num - 1;
+    coalesced_group warp = coalesced_threads();
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
+      coalesced_group active = coalesced_threads();
       uint src_id = result.GetData(current_itr, idx_i);
       uint src_degree = graph->getDegree((uint)src_id);
       if (src_degree == 0) {
@@ -51,9 +53,10 @@ __global__ void Node2vecKernelStaticBuffer(Walker *walker) {
         buffer.Set(graph->getOutNode(src_id, 0));
       }
       lastV = src_id;
-      buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
+      buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr,
+                        active);
     }
-    buffer.Flush(result.data + result.hop_num * idx_i, 0);
+    buffer.Flush(result.data + result.hop_num * idx_i, 0, warp);
   }
 }
 __global__ void UnbiasedWalkKernelStaticBuffer(Walker *walker, float *tp) {
@@ -68,8 +71,10 @@ __global__ void UnbiasedWalkKernelStaticBuffer(Walker *walker, float *tp) {
     result.length[idx_i] = result.hop_num - 1;
     uint src_id;
     bool alive = true;
+    coalesced_group warp = coalesced_threads();
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
+      coalesced_group active = coalesced_threads();
       if (alive) {
         src_id =
             (current_itr == 0) ? result.GetData(current_itr, idx_i) : src_id;
@@ -89,9 +94,11 @@ __global__ void UnbiasedWalkKernelStaticBuffer(Walker *walker, float *tp) {
           src_id = next_src;
         }
       }
-      buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
+      buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr,
+                        active);
     }
-    buffer.Flush(result.data + result.hop_num * idx_i, 0);
+    // printf("result.hop_num %u\n",result.hop_num);
+    buffer.Flush(result.data + result.hop_num * idx_i, 0, warp);
   }
 }
 __global__ void UnbiasedWalkKernelStatic(Walker *walker, float *tp) {

@@ -17,14 +17,14 @@
     //   },
     {
       "type": "shell",
-      "label": "nvcc build active file",
+      "label": "CUDA make",
       "command": "make",
       // "args": ["-g", "${file}", "-o", "${fileDirname}/${fileBasenameNoExtension}"],
-      "options": {
-        "cwd": "${workspaceFolder}/src"
-      },
+      // "options": {
+      //   "cwd": "${workspaceFolder}/src"
+      // },
       "problemMatcher": [
-        "$gcc"
+        "$nvcc"
       ],
       "group": {
         "kind": "build",

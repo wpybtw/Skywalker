@@ -215,7 +215,7 @@ struct Jobs_result<JobType::NS, T> {
     // paster(length_per_sample);
     // paster(size_of_sample_lengths);
     // printf("hop_num ");
-    // printH(offsets, hop_num);
+    // printf("offsets ");
     // for (size_t i = 0; i < hop_num; i++) {
     //   printf("%d\t", offsets_h[i]);
     // }
@@ -269,7 +269,7 @@ struct Jobs_result<JobType::NS, T> {
         }
         printf("\n first  2-hop ");
 
-        for (size_t i = 0; i < MIN(GetSampleLength(j, 0, 0), 30); i++) {
+        for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
           printf("%u \t", GetData(j, 1, i));
         }
         printf("\n");
@@ -277,11 +277,15 @@ struct Jobs_result<JobType::NS, T> {
     }
   }
   __device__ T *GetDataPtr(uint sampleIdx, uint itr, size_t idx) {
-    return data + sampleIdx * length_per_sample + itr * offsets[itr] + idx;
+    return data + sampleIdx * length_per_sample + offsets[itr] + idx;
   }
   __device__ T GetData(uint sampleIdx, uint itr, size_t idx) {
-    return data[sampleIdx * length_per_sample + itr * offsets[itr] + idx];
+    return data[sampleIdx * length_per_sample + offsets[itr] + idx];
   }
+  // offsets 0       1       26
+  // data layout: v n1 n1*n2 (1 25 250)
+  // 原来的data layout有误
+  // length_per_sample 276
 };
 
 template <typename T>

@@ -5,31 +5,46 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) 启动",
-            "type": "cppdbg",
+            "name": "CUDA C++: Launch",
+            "type": "cuda-gdb",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/main", //${fileBasenameNoExtension}.out
-            "args": [" --k 1 --d 100 --rw=0 --ol=0 --hd=4  --ngpu 4 --v --n=10"],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb", ///usr/local/cuda/bin/cuda-gdb
+            "program": "${workspaceFolder}/bin/main",
+            "args": " --sage --bias=1 --ol=0 --input ~/data/lj.w.gr -v -n 60000 --ngpu 1 --buffer=1",
             "setupCommands": [
                 {
                     "description": "为 gdb 启用整齐打印",
                     "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
+                    // "ignoreFailures": true
                 }
             ]
         },
-        {
-            "name": "cuda-gdb",
-            "type": "cuda-gdb",
-            "request": "launch",
-            "program": "${workspaceFolder}/bin/main", //${fileBasenameNoExtension}.out
-            "args": [" -bias=1 --ol=1 --deepwalk -v --ngpu=1 --dw=1 --n=400"]
-        }
+        // {
+        //     "name": "(gdb) 启动",
+        //     "type": "cppdbg",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/bin/main", //${fileBasenameNoExtension}.out
+        //     "args": [" --k 1 --d 100 --rw=0 --ol=0 --hd=4  --ngpu 4 --v --n=10"],
+        //     "stopAtEntry": false,
+        //     "cwd": "${workspaceFolder}",
+        //     "environment": [],
+        //     "externalConsole": false,
+        //     "MIMode": "gdb",
+        //     "miDebuggerPath": "gdb", ///usr/local/cuda/bin/cuda-gdb
+        //     "setupCommands": [
+        //         {
+        //             "description": "为 gdb 启用整齐打印",
+        //             "text": "-enable-pretty-printing",
+        //             "ignoreFailures": true
+        //         }
+        //     ]
+        // },
+        // {
+        //     "name": "cuda-gdb",
+        //     "type": "cuda-gdb",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/bin/main", //${fileBasenameNoExtension}.out
+        //     "args": [" -bias=1 --ol=1 --deepwalk -v --ngpu=1 --dw=1 --n=400"]
+        // }
     ]
 }

@@ -1,8 +1,8 @@
 /*
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
- * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-05 23:21:06
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2022-02-28 15:07:06
  * @FilePath: /sampling/src/offline_walk.cu
  */
 #include "app.cuh"
@@ -20,9 +20,11 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
     result.length[idx_i] = result.hop_num - 1;
     uint src_id;
     // bool alive = true;
+    coalesced_group warp = coalesced_threads();
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
       if (result.alive[idx_i] != 0) {
+        coalesced_group active = coalesced_threads();
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
         src_id = current_itr == 0 ? result.GetData(current_itr, idx_i) : src_id;
@@ -57,10 +59,10 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
           buffer.Set(next_src);
           src_id = next_src;
         }
-        buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr);
+        buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr,active);
       }
     }
-    buffer.Flush(result.data + result.hop_num * idx_i, 0);
+    buffer.Flush(result.data + result.hop_num * idx_i, 0, warp);
   }
 }
 // 48 kb , 404 per sampler

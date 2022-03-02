@@ -2,6 +2,8 @@ C-SAW/*
 alias-method/*
 build/*
 bin/*
+deps/*
+perf_result/*
 .clangd/*
 .VSCodeCounter/*
 

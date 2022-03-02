@@ -115,17 +115,25 @@ int main(int argc, char *argv[]) {
   if (FLAGS_hmgraph) {
     FLAGS_umgraph = false;
     FLAGS_gmgraph = false;
+    LOG("using host memory for graph\n");
   }
   if (FLAGS_gmgraph) {
     FLAGS_umgraph = false;
     FLAGS_hmgraph = false;
+    LOG("using normal GPU memory for graph\n");
 
     int can_access_peer_0_1;
     CUDA_RT_CALL(cudaDeviceCanAccessPeer(&can_access_peer_0_1, 0, FLAGS_gmid));
-    if (can_access_peer_0_1 = 0) {
-      printf("no p2p\n");
+    if (can_access_peer_0_1 == 0) {
+      printf("no p2p. We recommond to use GMMEM in NVLink\n");
       return 1;
     }
+  }
+  if (!FLAGS_hmtable){
+    LOG("Using host memory for alias table!\n");
+  }
+  if (!FLAGS_dt){
+    LOG("using duplicated table on each GPU\n");
   }
   if (FLAGS_node2vec) {
     // FLAGS_ol = true;
