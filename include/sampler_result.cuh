@@ -223,12 +223,12 @@ struct Jobs_result<JobType::NS, T> {
     for (size_t itr = 0; itr < 3; itr++)    
     {
       int idx=0, sampleIdx=0;
-      printf("itr * offsets[itr] %u\n ", itr * offsets_h[itr]);
-      printf("itr * offsets[itr]+ idx %u\n ", itr * offsets_h[itr] + idx);
+      printf("offsets[itr] %u\n ", offsets_h[itr]);
+      printf("offsets[itr]+ idx %u\n ", offsets_h[itr] + idx);
       printf(
-          "sampleIdx * size_of_sample_lengths + itr * offsets_h[itr]+ idx %u\n",
-          sampleIdx * size_of_sample_lengths + itr * offsets_h[itr] + idx);
-      uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets_h[itr] + idx;
+          "sampleIdx * size_of_sample_lengths + offsets_h[itr]+ idx %u\n",
+          sampleIdx * size_of_sample_lengths + offsets_h[itr] + idx);
+      uint tmp = sampleIdx * size_of_sample_lengths + offsets_h[itr] + idx;
       printf("tmp %u\n ", tmp);
       printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx, tmp);
     }
