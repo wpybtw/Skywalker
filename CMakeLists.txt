@@ -1,17 +1,21 @@
-project(sampling LANGUAGES CUDA)
-cmake_minimum_required(VERSION 3.15)
+project(Skywalker  CXX )
+cmake_minimum_required ( VERSION 3.17 )
 
-include(CheckLanguage)
-check_language(CUDA)
+set ( CUDA_ENABLE true )
+if ( CUDA_ENABLE )
+    enable_language( CUDA )
+	list ( APPEND PRJ_COMPILE_OPTIONS -Xcompiler )
+endif()
 
-set(CUDA_PATH "/usr/local/cuda")
-set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
+find_package ( OpenMP )
+if ( OpenMP_FOUND )
+	list ( APPEND PRJ_COMPILE_DEF ENABLE_OPENMP )
+	list ( APPEND PRJ_LIBRARIES ${OpenMP_CXX_LIBRARIES} )
+	list ( APPEND PRJ_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS} )
+endif ()
 
-
-
-# if(OpenMP_CXX_FOUND)
-#     target_link_libraries(MyTarget PUBLIC OpenMP::OpenMP_CXX)
-# endif()
+# set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+# find_package ( Numa  REQUIRED)
 
 add_subdirectory(deps/gflags)
 include_directories(${PROJECT_BINARY_DIR}/deps/gflags/include)
@@ -20,7 +24,7 @@ link_directories(${PROJECT_BINARY_DIR}/deps/gflags/lib)
 ############## BUILD ##############   
 set(EXTRA_LIBS gflags)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -dc -rdc=true  -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -fopenmp  -Xptxas -v ")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v ")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   message("Debug mode")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G -Xcompiler   -ggdb  -lnvrt -Woverloaded-virtual")
@@ -28,10 +32,8 @@ else()
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo -O3 -Xcompiler  -DNDEBUG ")
 endif()
 
-#-I /usr/local/cuda-10.1/targets/x86_64-linux/include/ -L /usr/local/cuda-10.1/targets/x86_64-linux/lib/  -lnvrtc  -lcudart -lcuda -lcudadevrt -Woverloaded-virtual
-
 #SET(CUDA_SEPARABLE_COMPILATION ON)
-set(CUDA_VERBOSE_BUILD ON)
+#set(CUDA_VERBOSE_BUILD ON)
 
 include_directories(include)
 aux_source_directory(src DIR_SRCS)
@@ -42,58 +44,48 @@ if(NOT DEFINED CMAKE_CUDA_STANDARD)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
 
-#add_executable(
-#    src/main.cu
-#    src/util.cu
-#    src/sampler_gbuffer.cu
-#    src/kernel.cu
-#    )
-add_executable(sample
+if (NOT DEFINED CUDA_SEPARABLE_COMPILATION)
+  set(CUDA_SEPARABLE_COMPILATION ON)
+endif(NOT DEFINED CUDA_SEPARABLE_COMPILATION)
+
+
+add_executable(skywalker
     ${DIR_SRCS}
-    src/api/bias_degree.cu
-    )
-#add_executable(sample_rw
-#    src/entry.cu
-#    src/util.cu
-#    src/vec.cu
-#    src/kernel.cu
-#    src/createTable.cu
-#    src/sample_rw.cu
-#    )
-#add_executable(sample_rw2
-#    src/entry_rw.cu
-#    src/util.cu
-#    src/vec.cu
-#    src/kernel.cu
-#    src/createTable.cu
-#    src/sample_rw2.cu
-#    )
-#target_link_libraries(main_gbuffer 
-#    ${EXTRA_LIBS} 
-#    ${CUDA_LIBRARIES}
-#    ${CUDA_CUDART_LIBRARY} 
-#    ${CUDA_cudadevrt_LIBRARY}
-#    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
-#    # -Wl,-b,binary,include/graph.cuh -fopenmp
-#    )
-target_link_libraries(sample 
+    src/api/bias_static.cu
+)
+target_link_libraries(skywalker 
     ${EXTRA_LIBS} 
     ${CUDA_LIBRARIES}
-    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
-    # -Wl,-b,binary,include/graph.cuh -fopenmp
-    )
-#target_link_libraries(sample_rw 
-#    ${EXTRA_LIBS} 
-#    ${CUDA_LIBRARIES}
-#    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
-#    # -Wl,-b,binary,include/graph.cuh -fopenmp
-#    )
-#target_link_libraries(sample_rw2 
-#    ${EXTRA_LIBS} 
-#    ${CUDA_LIBRARIES}
-#    #-L.  -L/usr/local/cuda/targets/x86_64-linux/lib  -ldl -lnvrtc  -lcudart -lcuda -lcudadevrt
-#    # -Wl,-b,binary,include/graph.cuh -fopenmp
-#    )
+)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(skywalker OpenMP::OpenMP_CXX)
+endif()
+set_target_properties(skywalker PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 
+add_executable(skywalker_degree
+    ${DIR_SRCS}
+    src/api/bias_degree.cu
+)
+target_link_libraries(skywalker_degree 
+    ${EXTRA_LIBS} 
+    ${CUDA_LIBRARIES}
+)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(skywalker_degree OpenMP::OpenMP_CXX)
+endif()
+set_target_properties(skywalker_degree PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
+
+add_executable(skywalker_node2vec
+    ${DIR_SRCS}
+    src/api/bias_node2vec.cu
+)
+target_link_libraries(skywalker_node2vec 
+    ${EXTRA_LIBS} 
+    ${CUDA_LIBRARIES}
+)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(skywalker_node2vec OpenMP::OpenMP_CXX)
+endif()
+set_target_properties(skywalker_node2vec PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

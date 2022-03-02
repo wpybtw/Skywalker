@@ -1,8 +1,8 @@
 /*
  * @Description:
  * @Date: 2020-11-17 13:28:27
- * @LastEditors: Pengyu Wang
- * @LastEditTime: 2021-01-15 14:32:23
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2022-03-02 19:28:54
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -104,9 +104,9 @@ DEFINE_bool(gmem, false, "do not use shmem as buffer");
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  if (numa_available() < 0) {
-    LOG("Your system does not support NUMA API\n");
-  }
+  // if (numa_available() < 0) {
+  //   LOG("Your system does not support NUMA API\n");
+  // }
   // cout << "ELE_PER_BLOCK " << ELE_PER_BLOCK << " ELE_PER_WARP " <<
   // ELE_PER_WARP
   //      << "ALLOWED_ELE_PER_SUBWARP " << ALLOWED_ELE_PER_SUBWARP << endl;

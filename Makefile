@@ -1,4 +1,4 @@
-all: main main_degree node2vec
+all: pre main main_degree node2vec
 
 debug: CUFLAG +=  -G -g -DDEBUG
 debug: LDFLAGS +=  -G -g -DDEBUG
@@ -20,6 +20,9 @@ FLAGS= -Xcompiler -fopenmp -Xcompiler -lnuma -lineinfo -gencode=arch=compute_75,
 
 LDFLAGS := ${FLAGS} -Xlinker -lgomp -Xlinker -lnuma  ./build/deps/gflags/libgflags_nothreads.a  -Ldeps/gflags 
 CUFLAG= ${FLAGS} -I./include -I./build/deps/gflags/include -rdc=true -std=c++11  #-keep   #-Xptxas -O3,-v   
+
+pre:
+	-cd build;make -j
 
 main_degree: $(OBJ_FILES)  $(API_OBJ_DIR)/bias_degree.o
 	nvcc $(LDFLAGS) -o $(BIN_DIR)/$@ $^

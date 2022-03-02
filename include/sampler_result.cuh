@@ -158,24 +158,25 @@ struct Jobs_result<JobType::NS, T> {
   uint size_of_sample_lengths;
   uint *offsets;
   uint *seeds;
-  __forceinline__ __device__ void SetSampleLength(uint sampleIdx, uint itr,
+   __device__ void SetSampleLength(uint sampleIdx, uint itr,
                                                   size_t idx, uint v) {
-    // if (sampleIdx == 0) {
+    // if (sampleIdx == 0 && idx ==0) 
+    // {
     //   printf("itr * offsets[itr] %u\n ", itr * offsets[itr]);
     //   printf("itr * offsets[itr]+ idx %u\n ", itr * offsets[itr] + idx);
     //   printf(
-    //       "sampleIdx * size_of_sample_lengths + itr * offsets[itr]+ idx %u\n
-    //       ", sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx);
-    //   uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] +
-    //   idx; printf("tmp %u\n ", tmp); printf("sampleIdx %u itr %u idx %u loc
-    //   %u \n", sampleIdx, itr, idx, tmp);
+    //       "sampleIdx * size_of_sample_lengths + itr * offsets[itr]+ idx %u\n",
+    //       sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx);
+    //   uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx;
+    //   printf("tmp %u\n ", tmp);
+    //   printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx, tmp);
     // }
-    uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx;
+    uint tmp = sampleIdx * size_of_sample_lengths + offsets[itr] + idx;
     sample_lengths[tmp] = v;
   }
   __device__ uint GetSampleLength(uint sampleIdx, uint itr, size_t idx) {
     // printf("size_of_sample_lengths %u\n",size_of_sample_lengths);
-    uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets[itr] + idx;
+    uint tmp = sampleIdx * size_of_sample_lengths + offsets[itr] + idx;
     return sample_lengths[tmp];
   }
 
@@ -212,13 +213,25 @@ struct Jobs_result<JobType::NS, T> {
       tmp += _hops[i];
     }
     size_of_sample_lengths = tmp;
-    // paster(length_per_sample);
-    // paster(size_of_sample_lengths);
-    // printf("hop_num ");
-    // printf("offsets ");
-    // for (size_t i = 0; i < hop_num; i++) {
-    //   printf("%d\t", offsets_h[i]);
-    // }
+    paster(length_per_sample);
+    paster(size_of_sample_lengths);
+    printf("hop_num ");
+    printf("offsets ");
+    for (size_t i = 0; i < hop_num; i++) {
+      printf("%d\t", offsets_h[i]);
+    }
+    for (size_t itr = 0; itr < 3; itr++)    
+    {
+      int idx=0, sampleIdx=0;
+      printf("itr * offsets[itr] %u\n ", itr * offsets_h[itr]);
+      printf("itr * offsets[itr]+ idx %u\n ", itr * offsets_h[itr] + idx);
+      printf(
+          "sampleIdx * size_of_sample_lengths + itr * offsets_h[itr]+ idx %u\n",
+          sampleIdx * size_of_sample_lengths + itr * offsets_h[itr] + idx);
+      uint tmp = sampleIdx * size_of_sample_lengths + itr * offsets_h[itr] + idx;
+      printf("tmp %u\n ", tmp);
+      printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx, tmp);
+    }
     printf("\n ");
     CUDA_RT_CALL(cudaMalloc(&offsets, hop_num * sizeof(uint)));
     CUDA_RT_CALL(cudaMemcpy(offsets, offsets_h, hop_num * sizeof(uint),
@@ -257,23 +270,36 @@ struct Jobs_result<JobType::NS, T> {
   // }
   __device__ void PrintResult() {
     if (LTID == 0) {
-      // printf("seeds \n");
-      // for (size_t i = 0; i < MIN(5, size); i++) {
-      //   printf("%u \t", GetData(i, 0, 0));
-      // }
       for (int j = 0; j < MIN(3, size); j++) {
         printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0, 0),
                GetSampleLength(j, 0, 0));
         for (size_t i = 0; i < hops[1]; i++) {
           printf("\t %d", GetSampleLength(j, 1, i));
         }
-        printf("\n first  2-hop ");
 
         for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
           printf("%u \t", GetData(j, 1, i));
         }
         printf("\n");
       }
+      // printf("seeds \n");
+      // for (size_t i = 0; i < MIN(5, size); i++) {
+      //   printf("%u \t", GetData(i, 0, 0));
+      // }
+      // for (int j = 0; j < MIN(3, size); j++) {
+      //   printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0,
+      //   0),
+      //          GetSampleLength(j, 0, 0));
+      //   for (size_t i = 0; i < hops[1]; i++) {
+      //     printf("\t %d", GetSampleLength(j, 1, i));
+      //   }
+      //   printf("\n first  2-hop ");
+
+      //   for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
+      //     printf("%u \t", GetData(j, 1, i));
+      //   }
+      //   printf("\n");
+      // }
     }
   }
   __device__ T *GetDataPtr(uint sampleIdx, uint itr, size_t idx) {
