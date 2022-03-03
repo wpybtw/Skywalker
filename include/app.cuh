@@ -37,10 +37,11 @@ template <uint blockSize, uint tileSize, typename T>
 struct matrixBuffer {
   T data[blockSize * tileSize];
   uint *ptr_per_thread[blockSize];
-  int length[blockSize];  // uint8_t would cause error but we donot know why
+  int length[blockSize];  
   uint mainLength[blockSize /
                   32];  // each warp maintains one lengh, 是用来干啥的
-  uint outItr[blockSize / 32];  // indicate the output location when need flash multiple times
+  uint outItr[blockSize / 32];  // indicate the output location when need flash
+                                // multiple times
 
   uint tileLen;
 
@@ -78,6 +79,28 @@ struct matrixBuffer {
       }
     }
   }
+  __device__ void Flush2(uint *ptr, uint itr, coalesced_group &active) {
+    // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
+    // coalesced_group active = coalesced_threads();
+    if(active.size()!=32)
+    printf("active.size() %u\n",active.size());
+    // if (active.thread_rank() == 0) mainLength[WID]++;
+    int active_size = active.size();
+    int rank = active.thread_rank();
+    ptr_per_thread[LTID] = ptr;
+    active.sync();
+    for (size_t i = WID * 32; i < WID * 32 + 32;
+         i++) {  // loop over threads in warp
+      // active.sync();
+      for (size_t j = rank; j < length[i];
+           j += active_size) {  // loop over data // active.size()
+        if (ptr_per_thread[i] != nullptr)
+          *(ptr_per_thread[i] + outItr[WID] + j) = data[i * tileSize + j];
+        // if(idx_i==0) printf("add %u to idx\n",graph->getOutNode(src_id,
+        // candidate));
+      }
+    }
+  }
   __device__ void CheckFlush(uint *ptr, uint itr, coalesced_group &active) {
     if (active.thread_rank() == 0) mainLength[WID]++;
     active.sync();
@@ -98,7 +121,7 @@ struct matrixBuffer {
 
       if (active.thread_rank() == 0) {
         mainLength[WID] = 0;
-        outItr[WID] = itr;
+        outItr[WID] += tileSize;
       }
     }
   }

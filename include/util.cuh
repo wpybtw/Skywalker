@@ -35,7 +35,7 @@ using offset_t = uint32_t;
 
 #define SASYNC_EXE
 
-#define UNIQUE_SAMPLE 1
+// #define UNIQUE_SAMPLE 1
 
 #define TID (threadIdx.x + blockIdx.x * blockDim.x)
 #define LTID (threadIdx.x)

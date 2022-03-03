@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-03-03 12:31:17
+ * @LastEditTime: 2022-03-03 16:01:27
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
@@ -52,6 +52,7 @@ static __global__ void sample_kernel_first_buffer(Sampler_new *sampler,
   curand_init(TID, 0, 0, &state);
   __shared__ matrixBuffer<BLOCK_SIZE, 11, uint> buffer_1hop;
   buffer_1hop.Init();
+  __syncthreads();
   size_t idx_i = TID;
   if (idx_i < result.size) {
     uint current_itr = 0;
@@ -61,6 +62,7 @@ static __global__ void sample_kernel_first_buffer(Sampler_new *sampler,
       uint src_degree = graph->getDegree((uint)src_id);
 #ifdef UNIQUE_SAMPLE
       uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+      duplicate_checker<uint, 25> checker;
 #else
       uint sample_size = result.hops[current_itr + 1];
 #endif
@@ -69,11 +71,15 @@ static __global__ void sample_kernel_first_buffer(Sampler_new *sampler,
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
         // *result.GetDataPtr(idx_i, current_itr + 1, i) =
         //       graph->getOutNode(src_id, candidate);
-        // printf("adding %u \n", graph->getOutNode(src_id, candidate));
-        buffer_1hop.Set(
-            graph->getOutNode(src_id, candidate));  // can move back latter
+        if (!idx_i)
+          printf("adding %u \n", graph->getOutNode(src_id, candidate));
+        buffer_1hop.Set(graph->getOutNode(src_id, candidate));
+        buffer_1hop.CheckFlush(result.data + result.length_per_sample * idx_i,
+                          current_itr, active);
       }
       active.sync();
+      if (!idx_i) printf("buffer_1hop.outItr %u \n", buffer_1hop.outItr[0]);
+      // buffer_1hop.Flush2(result.GetDataPtr(idx_i, 1, 0), 0, active);
       buffer_1hop.Flush(result.data + result.length_per_sample * idx_i, 0,
                         active);
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
@@ -174,6 +180,7 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
       }
 #ifdef UNIQUE_SAMPLE
       uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+      duplicate_checker<uint, 25> checker;
 #else
       uint sample_size = result.hops[current_itr + 1];
 #endif
@@ -463,6 +470,7 @@ float UnbiasedSample(Sampler_new &sampler) {
     if (FLAGS_buffer) {
       sample_kernel_first_buffer<<<sampler.result.size / BLOCK_SIZE + 1,
                                    BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
+      CUDA_RT_CALL(cudaDeviceSynchronize());
       sample_kernel_second_buffer<32>
           <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
               sampler_ptr, 1);
