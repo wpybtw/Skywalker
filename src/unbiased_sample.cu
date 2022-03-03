@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-03-03 16:42:52
+ * @LastEditTime: 2022-03-03 19:19:46
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
@@ -136,7 +136,6 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
     }
   }
 }
-
 template <uint subwarp_size, uint buffer_size = 11>
 static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
                                                    uint current_itr) {
@@ -148,7 +147,6 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
   buffer.Init();
   size_t subwarp_id = TID / subwarp_size;
   uint subwarp_idx = TID % subwarp_size;
-  // uint local_subwarp_idx = LTID % subwarp_size;
   bool alive = (subwarp_idx < result.hops[current_itr]) ? 1 : 0;
   size_t idx_i = subwarp_id;  //
 
