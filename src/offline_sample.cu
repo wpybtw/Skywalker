@@ -411,7 +411,7 @@ float OfflineSample(Sampler_new &sampler) {
     sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
                           0>>>(sampler_ptr, 0);
   }
-  // CUDA_RT_CALL(cudaDeviceSynchronize());
+  CUDA_RT_CALL(cudaDeviceSynchronize());
   if (sampler.result.hops_h[1] <= 16)
     sample_kernel_second<16>
         <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(

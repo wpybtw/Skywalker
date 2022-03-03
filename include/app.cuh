@@ -79,7 +79,7 @@ struct matrixBuffer {
       }
     }
   }
-  __device__ void Flush2(uint *ptr, uint itr, coalesced_group &active) {
+  __device__ void Flush2(uint *ptr, coalesced_group &active) {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     // coalesced_group active = coalesced_threads();
     if(active.size()!=32)
