@@ -72,7 +72,13 @@ static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
     {
       uint src_id = result.GetData(idx_i, current_itr, 0);
       uint src_degree = graph->getDegree((uint)src_id);
-      uint sample_size = MIN(result.hops[current_itr + 1], src_degree);
+
+#ifdef UNIQUE_SAMPLE
+      uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+      duplicate_checker<uint, 25> checker;
+#else
+      uint sample_size = result.hops[current_itr + 1];
+#endif
 
       alias.Construt(
           graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
@@ -92,10 +98,17 @@ static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
         else
           candidate = alias[col];
 
-        *result.GetDataPtr(idx_i, current_itr + 1, i) =
-            graph->getOutNode(src_id, candidate);
-        // if (idx_i == 255)
-        //   printf("add %u to idx\n", graph->getOutNode(src_id, candidate));
+#ifdef UNIQUE_SAMPLE
+        if (!checker.check(candidate))
+          i--;
+        else
+#endif
+        {
+          *result.GetDataPtr(idx_i, current_itr + 1, i) =
+              graph->getOutNode(src_id, candidate);
+          // if (!TID)
+          //   printf("adding %u \n", graph->getOutNode(src_id, candidate));
+        }
       }
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
     }
@@ -209,7 +222,11 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
           printf(" line%u wtf idx_i %llu %u %u\n", __LINE__,
                  (unsigned long long)idx_i, src_id, graph->vtx_num);
         src_degree = graph->getDegree(src_id);
-        sample_size = MIN(result.hops[current_itr + 1], src_degree);
+#ifdef UNIQUE_SAMPLE
+        sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+#else
+        sample_size = result.hops[current_itr + 1];
+#endif
         alias.Construt(
             graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
             src_degree);
@@ -218,6 +235,10 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
             src_degree);
         alias.Init(src_degree);
         prob.Init(src_degree);
+
+#ifdef UNIQUE_SAMPLE
+        duplicate_checker<uint, 10> checker;
+#endif
         for (size_t i = 0; i < sample_size; i++) {
           int col = (int)floor(curand_uniform(&state) * src_degree);
           float p = curand_uniform(&state);
@@ -226,8 +247,19 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
             candidate = col;
           else
             candidate = alias[col];
-          *result.GetDataPtr(idx_i, current_itr + 1, i) =
-              graph->getOutNode(src_id, candidate);
+#ifdef UNIQUE_SAMPLE
+          if (!checker.check(candidate))
+            i--;
+          else
+#endif
+          {
+            // if (!idx_i && subwarp_idx == 1)
+            //   printf("subwarp_idx 1 add %u\n",
+            //          graph->getOutNode(src_id, candidate));
+            *result.GetDataPtr(idx_i, current_itr + 1,
+                               subwarp_idx * result.hops[2] + i) =
+                graph->getOutNode(src_id, candidate);
+          }
         }
       }
       if (alive)
@@ -342,7 +374,6 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
     }
   }
 }
-
 
 static __global__ void print_result(Sampler_new *sampler) {
   sampler->result.PrintResult();

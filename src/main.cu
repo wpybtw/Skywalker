@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-03-02 19:28:54
+ * @LastEditTime: 2022-03-03 11:22:25
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -83,7 +83,7 @@ DEFINE_bool(edgecut, true, "edgecut");
 DEFINE_bool(itl, true, "interleave");
 DEFINE_bool(twc, true, "using twc");
 DEFINE_bool(static, true, "using static scheduling");
-DEFINE_bool(buffer, true, "buffered write for memory");
+DEFINE_bool(buffer, false, "buffered write for memory (problem-prone)");
 
 DEFINE_int32(m, 4, "block per sm");
 

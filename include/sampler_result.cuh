@@ -282,8 +282,8 @@ struct Jobs_result<JobType::NS, T> {
   //       printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0,
   //       0),
   //              GetSampleLength(j, 0, 0));
-  //       for (size_t i = 0; i < GetSampleLength(j, 0, 0); i++) {
-  //         printf("\t %u", GetSampleLength(j, 1, i));
+  //       for (uint i = 0; i < GetSampleLength(j, 0, 0); i++) {
+  //         printf("\t %u th 2-hop: ", i, GetSampleLength(j, 1, i));
   //       }
   //       printf("\n first  2-hop ");
   //       for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
@@ -295,17 +295,33 @@ struct Jobs_result<JobType::NS, T> {
   // }
   __device__ void PrintResult() {
     if (LTID == 0) {
-      for (int j = 0; j < MIN(3, size); j++) {
+      for (int j = 0; j < MIN(1, size); j++) {
+        // for (size_t i = 0; i < 276; i++)
+        // {
+        //   printf("\t %u ", data[i]);
+        // }
+        // printf("\n");
+        // for (size_t i = 0; i < 26; i++)
+        // {
+        //   printf("\t %u ", sample_lengths[i]);
+        // }
+        // printf("\n");
         printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0, 0),
                GetSampleLength(j, 0, 0));
-        for (size_t i = 0; i < GetSampleLength(j, 0, 0); i++) {
-          printf("\t %u", GetSampleLength(j, 1, i));
-        }
-        printf("\n first  2-hop ");
-        for (size_t i = 0; i < MIN(GetSampleLength(j, 1, 0), 30); i++) {
-          printf("%u \t", GetData(j, 1, i));
+
+        printf("\t 1-hop : " );
+        for (uint k = 0; k < MIN(GetSampleLength(j, 0, 0), 30); k++) {
+          printf("%u \t", GetData(j, 1, k));
         }
         printf("\n");
+        for (uint i = 0; i < GetSampleLength(j, 0, 0); i++) {
+          printf("\t %u th 2-hop [%u]: ", i, GetData(j, 1, i));
+
+          for (uint k = 0; k < MIN(GetSampleLength(j, 1, i), 30); k++) {
+            printf("%u \t", GetData(j, 2, k + i * hops[2]));
+          }
+          printf("\n");
+        }
       }
     }
   }

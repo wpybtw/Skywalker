@@ -2,12 +2,10 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-03-02 22:57:33
+ * @LastEditTime: 2022-03-03 12:31:17
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
-
-// #define UNIQUE_SAMPLE 1
 
 static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
@@ -25,15 +23,22 @@ static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
       uint src_degree = graph->getDegree((uint)src_id);
 #ifdef UNIQUE_SAMPLE
       uint sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+      duplicate_checker<uint, 25> checker;
 #else
       uint sample_size = result.hops[current_itr + 1];
 #endif
 
       for (size_t i = 0; i < sample_size; i++) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-        *result.GetDataPtr(idx_i, current_itr + 1, i) =
-            graph->getOutNode(src_id, candidate);
-        // printf("adding %u \n", graph->getOutNode(src_id, candidate));
+#ifdef UNIQUE_SAMPLE
+        if (!checker.check(candidate))
+          i--;
+        else
+#endif
+          *result.GetDataPtr(idx_i, current_itr + 1, i) =
+              graph->getOutNode(src_id, candidate);
+        // if (!TID) printf("adding %u \n", graph->getOutNode(src_id,
+        // candidate));
       }
       result.SetSampleLength(idx_i, current_itr, 0, sample_size);
     }
@@ -98,14 +103,26 @@ static __global__ void sample_kernel_second(Sampler_new *sampler,
         src_degree = graph->getDegree((uint)src_id);
 #ifdef UNIQUE_SAMPLE
         sample_size = MIN(src_degree, result.hops[current_itr + 1]);
+        duplicate_checker<uint, 10> checker;
 #else
         sample_size = result.hops[current_itr + 1];
 #endif
         // if (!idx_i) printf("sample_size %u\n", sample_size);
         for (size_t i = 0; i < sample_size; i++) {
           uint candidate = (int)floor(curand_uniform(&state) * src_degree);
-          *result.GetDataPtr(idx_i, current_itr + 1, i) =
-              graph->getOutNode(src_id, candidate);
+#ifdef UNIQUE_SAMPLE
+          if (!checker.check(candidate))
+            i--;
+          else
+#endif
+          {
+            // if (!idx_i && subwarp_idx == 1)
+            //   printf("subwarp_idx 1 add %u\n", graph->getOutNode(src_id,
+            //   candidate));
+            *result.GetDataPtr(idx_i, current_itr + 1,
+                               subwarp_idx * result.hops[2] + i) =
+                graph->getOutNode(src_id, candidate);
+          }
         }
       }
       if (alive)

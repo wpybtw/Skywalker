@@ -19,6 +19,20 @@ DECLARE_bool(peritr);
 DECLARE_bool(static);
 DECLARE_bool(buffer);
 
+template <typename T, uint length>
+struct duplicate_checker {
+  T sampled[length];
+  int size = 0;
+  __device__ bool check(T input) {
+    for (size_t i = 0; i < size; i++) {
+      if (sampled[i] == input) return false;
+    }
+    sampled[size] = input;
+    size++;
+    return true;
+  }
+};
+
 template <uint blockSize, uint tileSize, typename T>
 struct matrixBuffer {
   T data[blockSize * tileSize];
