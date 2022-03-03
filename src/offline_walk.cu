@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Pengyu Wang
- * @LastEditTime: 2022-03-03 22:43:18
+ * @LastEditTime: 2022-03-03 22:46:47
  * @FilePath: /skywalker/src/offline_walk.cu
  */
 #include "app.cuh"
@@ -62,16 +62,12 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
           src_id = next_src;
           // if (idx_i == 1) printf("%u adding %u \n", idx_i, next_src);
         }
-        if (idx_i == 2)
-          printf("idx_i %u src_id  %u src_degree %u \n ", (uint)idx_i, src_id,
-                 src_degree);
       }
       warp.sync();
       buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr,
                         warp);
     }
     warp.sync();
-    if (idx_i == 2) printf("buffer.outItr[0] %u\n ", buffer.outItr[0]);
     buffer.Flush(result.data + result.hop_num * idx_i, 0, warp);
   }
 }
