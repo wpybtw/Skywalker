@@ -1,8 +1,8 @@
 /*
  * @Description:
  * @Date: 2020-11-17 13:28:27
- * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-03-03 11:22:25
+ * @LastEditors: Pengyu Wang
+ * @LastEditTime: 2022-03-03 20:10:59
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
-  if (!FLAGS_hmtable){
+  if (FLAGS_hmtable){
     LOG("Using host memory for alias table!\n");
   }
   if (!FLAGS_dt){

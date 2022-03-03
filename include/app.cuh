@@ -37,7 +37,7 @@ template <uint blockSize, uint tileSize, typename T>
 struct matrixBuffer {
   T data[blockSize * tileSize];
   uint *ptr_per_thread[blockSize];
-  int length[blockSize];  
+  int length[blockSize];
   uint mainLength[blockSize /
                   32];  // each warp maintains one lengh, 是用来干啥的
   uint outItr[blockSize / 32];  // indicate the output location when need flash
@@ -57,33 +57,34 @@ struct matrixBuffer {
   }
   // depraced due to error?
   __device__ void Flush(uint *ptr, uint itr, coalesced_group &active) {
-    // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
+    if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     // coalesced_group active = coalesced_threads();
     // printf("active.size() %u\n",active.size());
     // if (active.thread_rank() == 0) mainLength[WID]++;
-    int active_size = active.size();
-    int rank = active.thread_rank();
+    uint active_size = active.size();
+    uint rank = active.thread_rank();
     ptr_per_thread[LTID] = ptr;
     active.sync();
     for (size_t i = WID * 32; i < WID * 32 + 32;
          i++) {  // loop over threads in warp
-      // active.sync();
+      active.sync();
+      // if (i == 2) printf("adding rank %u length[i] %u\n",rank,length[i]);
       for (size_t j = rank; j < length[i];
            j += active_size) {  // loop over data // active.size()
+        // if (i == 2) printf("add for 2\n");
         if (ptr_per_thread[i] != nullptr)
-          *(ptr_per_thread[i] + outItr[WID] + j + 1) =
-              data[i * tileSize +
-                   j];  // plus 1 as the sampleResult start with root id
+          *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
+        // plus 1 as the sampleResult start with root id
         // if(idx_i==0) printf("add %u to idx\n",graph->getOutNode(src_id,
         // candidate));
+        if (i == 2) printf("add0 %u to idx\n", data[i * tileSize + j]);
       }
     }
   }
   __device__ void Flush2(uint *ptr, coalesced_group &active) {
     // if (!LID) printf("行号：%d 函数名：%s \n", __LINE__, __FUNCTION__);
     // coalesced_group active = coalesced_threads();
-    if(active.size()!=32)
-    printf("active.size() %u\n",active.size());
+    // if (active.size() != 32) printf("active.size() %u\n", active.size());
     // if (active.thread_rank() == 0) mainLength[WID]++;
     int active_size = active.size();
     int rank = active.thread_rank();
@@ -96,8 +97,7 @@ struct matrixBuffer {
            j += active_size) {  // loop over data // active.size()
         if (ptr_per_thread[i] != nullptr)
           *(ptr_per_thread[i] + outItr[WID] + j) = data[i * tileSize + j];
-        // if(idx_i==0) printf("add %u to idx\n",graph->getOutNode(src_id,
-        // candidate));
+        // if(i==0) printf("add %u to idx\n",data[i * tileSize + j]);
       }
     }
   }
@@ -111,17 +111,20 @@ struct matrixBuffer {
       ptr_per_thread[LTID] = ptr;
       for (size_t i = WID * 32; i < WID * 32 + 32;
            i++) {  // loop over threads in warp
+        if (i == 2) printf("checking  length[i] %u\n",length[i]);
         active.sync();
         for (size_t j = active.thread_rank(); j < length[i];  // loop over data
              j += active.size()) {
           *(ptr_per_thread[i] + outItr[WID] + j + 1) = data[i * tileSize + j];
+          if (i == 2) printf("add %u to idx\n", data[i * tileSize + j]);
         }
         if (active.thread_rank() == 0) length[i] = 0;
       }
-
+      active.sync();
       if (active.thread_rank() == 0) {
         mainLength[WID] = 0;
         outItr[WID] += tileSize;
+        printf("mainLength[0] %u outItr[0]   %u \n ", mainLength[0], outItr[0]);
       }
     }
   }

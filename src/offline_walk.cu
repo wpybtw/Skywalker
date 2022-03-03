@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Pengyu Wang
- * @LastEditTime: 2022-03-03 19:42:27
+ * @LastEditTime: 2022-03-03 22:43:18
  * @FilePath: /skywalker/src/offline_walk.cu
  */
 #include "app.cuh"
@@ -23,8 +23,8 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
     coalesced_group warp = coalesced_threads();
     for (uint current_itr = 0; current_itr < result.hop_num - 1;
          current_itr++) {
+      // coalesced_group active = coalesced_threads();
       if (result.alive[idx_i] != 0) {
-        coalesced_group active = coalesced_threads();
         Vector_virtual<uint> alias;
         Vector_virtual<float> prob;
         src_id = current_itr == 0 ? result.GetData(current_itr, idx_i) : src_id;
@@ -38,6 +38,7 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
         alias.Init(src_degree);
         prob.Init(src_degree);
         const uint target_size = 1;
+
         if (target_size < src_degree) {
           int col = (int)floor(curand_uniform(&state) * src_degree);
           float p = curand_uniform(&state);
@@ -47,21 +48,30 @@ __global__ void sample_kernel_static_buffer(Walker *walker) {
           else
             candidate = alias[col];
           uint next_src = graph->getOutNode(src_id, candidate);
+          // if (idx_i == 1) printf("%u adding1 %u \n", idx_i, next_src);
           buffer.Set(next_src);
           src_id = next_src;
         } else if (src_degree == 0) {
           result.alive[idx_i] = 0;
           result.length[idx_i] = current_itr;
-          buffer.Finish();
+          // buffer.Finish();
           // return;
         } else {
           uint next_src = graph->getOutNode(src_id, 0);
           buffer.Set(next_src);
           src_id = next_src;
+          // if (idx_i == 1) printf("%u adding %u \n", idx_i, next_src);
         }
-        buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr,active);
+        if (idx_i == 2)
+          printf("idx_i %u src_id  %u src_degree %u \n ", (uint)idx_i, src_id,
+                 src_degree);
       }
+      warp.sync();
+      buffer.CheckFlush(result.data + result.hop_num * idx_i, current_itr,
+                        warp);
     }
+    warp.sync();
+    if (idx_i == 2) printf("buffer.outItr[0] %u\n ", buffer.outItr[0]);
     buffer.Flush(result.data + result.hop_num * idx_i, 0, warp);
   }
 }
