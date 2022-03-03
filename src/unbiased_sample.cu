@@ -1,8 +1,8 @@
 /*
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
- * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-03-03 19:19:46
+ * @LastEditors: Pengyu Wang
+ * @LastEditTime: 2022-03-03 19:55:50
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
@@ -74,8 +74,9 @@ static __global__ void sample_kernel_first_buffer(Sampler_new *sampler,
         // if (!idx_i)
         //   printf("adding %u \n", graph->getOutNode(src_id, candidate));
         buffer_1hop.Set(graph->getOutNode(src_id, candidate));
-        buffer_1hop.CheckFlush(result.data + result.length_per_sample * idx_i -1 ,
-                               current_itr, active);
+        buffer_1hop.CheckFlush(
+            result.data + result.length_per_sample * idx_i - 1, current_itr,
+            active);
       }
       active.sync();
       // if (!idx_i) printf("buffer_1hop.outItr %u \n", buffer_1hop.outItr[0]);
@@ -173,16 +174,11 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
           else
 #endif
           {
-            // if (!idx_i && subwarp_idx == 1)
-            //   printf("subwarp_idx 1 add %u\n", graph->getOutNode(src_id,
-            //   candidate));
-            // *result.GetDataPtr(idx_i, current_itr + 1,
-            //                    subwarp_idx * result.hops[2] + i) =
-            //     graph->getOutNode(src_id, candidate);
             buffer.Set(graph->getOutNode(src_id, candidate));
             buffer.CheckFlush(result.GetDataPtr(idx_i, current_itr + 1,
-                                      subwarp_idx * result.hops[2]) -1,
-                               current_itr, active);
+                                                subwarp_idx * result.hops[2]) -
+                                  1,
+                              current_itr, active);
           }
         }
       }
@@ -278,7 +274,6 @@ static __global__ void sample_kernel_2hop(Sampler_new *sampler) {
   gpu_graph *graph = &sampler->ggraph;
   curandState state;
   curand_init(TID, 0, 0, &state);
-  // if (TID == 0) printf("%s\n", __FUNCTION__);
 
   size_t idx_i = TID;
   if (idx_i < result.size)  // for 2-hop, hop_num=3
@@ -293,7 +288,7 @@ static __global__ void sample_kernel_2hop(Sampler_new *sampler) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
         *result.GetDataPtr(idx_i, current_itr + 1, i) =
             graph->getOutNode(src_id, candidate);
-        // if (src_id == 1)
+        // if (!src_id)
         //   printf("add %d\t", graph->getOutNode(src_id, candidate));
       }
       // result.sample_lengths[idx_i*] = sample_size;
@@ -308,8 +303,10 @@ static __global__ void sample_kernel_2hop(Sampler_new *sampler) {
       for (size_t i = 0; i < sample_size; i++) {
         uint candidate = (int)floor(curand_uniform(&state) * src_degree);
         *result.GetDataPtr(idx_i, current_itr + 1,
-                           i + k * result.hops[current_itr]) =
+                           i + k * result.hops[current_itr + 1]) =
             graph->getOutNode(src_id, candidate);
+        // if (!idx_i && k==1) printf("add %d\t", graph->getOutNode(src_id,
+        // candidate));
       }
       // result.sample_lengths[idx_i*result.size_of_sample_lengths+ ] =
       // sample_size;
@@ -329,7 +326,7 @@ float UnbiasedSample(Sampler_new &sampler) {
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   int n_sm = prop.multiProcessorCount;
-  LOG("overridding flags_itr for UnbiasedSample\n");
+  LOG("overridding flags_itr for UnbiasedSample for better performance\n");
   FLAGS_peritr = 1;
 
   Sampler_new *sampler_ptr;

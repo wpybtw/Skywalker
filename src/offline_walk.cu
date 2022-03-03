@@ -1,9 +1,9 @@
 /*
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
- * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-02-28 15:07:06
- * @FilePath: /sampling/src/offline_walk.cu
+ * @LastEditors: Pengyu Wang
+ * @LastEditTime: 2022-03-03 19:42:27
+ * @FilePath: /skywalker/src/offline_walk.cu
  */
 #include "app.cuh"
 
