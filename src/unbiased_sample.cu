@@ -2,7 +2,7 @@
  * @Description: just perform RW
  * @Date: 2020-11-30 14:30:06
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2022-03-03 19:19:46
+ * @LastEditTime: 2022-03-03 19:25:55
  * @FilePath: /skywalker/src/unbiased_sample.cu
  */
 #include "app.cuh"
@@ -173,12 +173,6 @@ static __global__ void sample_kernel_second_buffer(Sampler_new *sampler,
           else
 #endif
           {
-            // if (!idx_i && subwarp_idx == 1)
-            //   printf("subwarp_idx 1 add %u\n", graph->getOutNode(src_id,
-            //   candidate));
-            // *result.GetDataPtr(idx_i, current_itr + 1,
-            //                    subwarp_idx * result.hops[2] + i) =
-            //     graph->getOutNode(src_id, candidate);
             buffer.Set(graph->getOutNode(src_id, candidate));
             buffer.CheckFlush(result.GetDataPtr(idx_i, current_itr + 1,
                                       subwarp_idx * result.hops[2]) -1,
