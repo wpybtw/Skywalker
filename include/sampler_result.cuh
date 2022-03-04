@@ -13,6 +13,8 @@ DECLARE_double(q);
 DECLARE_bool(umresult);
 DECLARE_bool(built);
 
+// #define ADD_FRONTIER 1
+
 struct sample_job {
   uint idx;
   uint node_id;
@@ -138,6 +140,14 @@ struct SamplerState<JobType::NODE2VEC, T> {
 //   sizeof(T))); }
 // };
 
+// template<typename T>
+#ifdef ADD_FRONTIER
+struct sampleJob {
+  uint instance_idx;
+  uint offset;
+};
+#endif
+
 template <typename T>
 struct Jobs_result<JobType::NS, T> {
   // using task_t = Task<JobType::RW, T>;
@@ -148,7 +158,6 @@ struct Jobs_result<JobType::NS, T> {
   char *alive;
   uint *length;
 
-  // int *job_sizes_floor = nullptr;
   int *job_sizes = nullptr;
   uint device_id;
   uint length_per_sample = 0;
@@ -159,6 +168,13 @@ struct Jobs_result<JobType::NS, T> {
   uint size_of_sample_lengths;
   uint *offsets;
   uint *seeds;
+
+#ifdef ADD_FRONTIER
+  int *job_sizes_floor = nullptr;
+  Frontier<T> frontier;
+  Vector_gmem<sampleJob> *high_degrees;
+  Vector_gmem<uint> *high_degrees_h;
+#endif
   __device__ void SetSampleLength(uint sampleIdx, uint itr, size_t idx,
                                   uint v) {
     // if (sampleIdx == 0 && idx ==0)
@@ -188,7 +204,13 @@ struct Jobs_result<JobType::NS, T> {
     if (length != nullptr) CUDA_RT_CALL(cudaFree(length));
     if (data != nullptr) CUDA_RT_CALL(cudaFree(data));
     if (job_sizes != nullptr) CUDA_RT_CALL(cudaFree(job_sizes));
-    // if (job_sizes_floor != nullptr) CUDA_RT_CALL(cudaFree(job_sizes_floor));
+#ifdef ADD_FRONTIER
+    if (job_sizes_floor != nullptr) CUDA_RT_CALL(cudaFree(job_sizes_floor));
+    for (size_t i = 0; i < hop_num; i++) {
+      high_degrees_h[i].Free();
+    }
+    if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
+#endif
   }
   void init(uint _size, uint _hop_num, uint *_hops, uint *_seeds,
             uint _device_id = 0) {
@@ -264,6 +286,30 @@ struct Jobs_result<JobType::NS, T> {
     CUDA_RT_CALL(
         cudaMemcpy(seeds, _seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
 
+#ifdef ADD_FRONTIER
+    if (FLAGS_peritr) {
+      high_degrees_h = new Vector_gmem<uint>[hop_num];
+
+      for (size_t i = 0; i < hop_num; i++) {
+        high_degrees_h[i].Allocate(MAX((size * FLAGS_hd), 4000), device_id);
+      }
+      CUDA_RT_CALL(
+          cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
+      CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
+                              hop_num * sizeof(Vector_gmem<uint>),
+                              cudaMemcpyHostToDevice));
+      CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
+      CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
+
+      frontier.Allocate(size);
+      // copy seeds
+      // if layout1, oor
+      CUDA_RT_CALL(cudaMemcpy(frontier.data, seeds, size * sizeof(uint),
+                              cudaMemcpyHostToDevice));
+      setFrontierSize<<<1, 32>>>(frontier.size, size);
+    }
+#endif
+
     initSeed2<<<size / 1024 + 1, 1024>>>(data, seeds, size, length_per_sample);
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaPeekAtLastError());
@@ -309,7 +355,7 @@ struct Jobs_result<JobType::NS, T> {
         printf("\n%dth sample src: %u, 1-hop len: %u \n", j, GetData(j, 0, 0),
                GetSampleLength(j, 0, 0));
 
-        printf("\t 1-hop : " );
+        printf("\t 1-hop : ");
         for (uint k = 0; k < MIN(GetSampleLength(j, 0, 0), 30); k++) {
           printf("%u \t", GetData(j, 1, k));
         }

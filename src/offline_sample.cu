@@ -57,6 +57,7 @@
 //     __syncthreads();
 //   }
 // }
+
 static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
@@ -381,29 +382,34 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
-  if (FLAGS_buffer) {
-    LOG(" buffered sampling has problems\n");
-    sample_kernel_first_buffered<<<sampler.result.size / BLOCK_SIZE + 1,
-                                   BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
-    if (sampler.result.hops_h[1] <= 16)
-      sample_kernel_second_buffer<16>
-          <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
-              sampler_ptr, 1);
-    else if (sampler.result.hops_h[1] >= 16 && sampler.result.hops_h[1] <= 32)
-      sample_kernel_second_buffer<32>
-          <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
-              sampler_ptr, 1);
-  } else {
-    sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
-                          0>>>(sampler_ptr, 0);
-    if (sampler.result.hops_h[1] <= 16)
-      sample_kernel_second<16>
-          <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
-              sampler_ptr, 1);
-    else if (sampler.result.hops_h[1] >= 16 && sampler.result.hops_h[1] <= 32)
-      sample_kernel_second<32>
-          <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
-              sampler_ptr, 1);
+  // if (!FLAGS_peritr) {
+  //   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
+  // } else 
+  {
+    if (FLAGS_buffer) {
+      LOG(" buffered sampling has problems\n");
+      sample_kernel_first_buffered<<<sampler.result.size / BLOCK_SIZE + 1,
+                                     BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
+      if (sampler.result.hops_h[1] <= 16)
+        sample_kernel_second_buffer<16>
+            <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
+                sampler_ptr, 1);
+      else if (sampler.result.hops_h[1] >= 16 && sampler.result.hops_h[1] <= 32)
+        sample_kernel_second_buffer<32>
+            <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
+                sampler_ptr, 1);
+    } else {
+      sample_kernel_first<<<sampler.result.size / BLOCK_SIZE + 1, BLOCK_SIZE, 0,
+                            0>>>(sampler_ptr, 0);
+      if (sampler.result.hops_h[1] <= 16)
+        sample_kernel_second<16>
+            <<<sampler.result.size * 16 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
+                sampler_ptr, 1);
+      else if (sampler.result.hops_h[1] >= 16 && sampler.result.hops_h[1] <= 32)
+        sample_kernel_second<32>
+            <<<sampler.result.size * 32 / BLOCK_SIZE + 1, BLOCK_SIZE, 0, 0>>>(
+                sampler_ptr, 1);
+    }
   }
 
   CUDA_RT_CALL(cudaDeviceSynchronize());
