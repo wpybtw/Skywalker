@@ -10,7 +10,7 @@
             "request": "launch",
             "externalConsole": false,
             "program": "${workspaceFolder}/bin/main",
-            "args": " --sage --ol=0  --input ~/data/lj.w.gr --ngpu=1  --n=40000 -v --buffer=0 --bias=0 --buffer=1 --printresult",
+            "args": " --sage --ol=0  --input ~/data/lj.w.gr --ngpu=1  --n=40000 -v --buffer=1 --bias=0 --printresult ",
             "setupCommands": [
                 {
                     "description": "为 gdb 启用整齐打印",

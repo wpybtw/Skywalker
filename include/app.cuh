@@ -92,7 +92,7 @@ struct matrixBuffer {
     active.sync();
     for (size_t i = WID * 32; i < WID * 32 + 32;
          i++) {  // loop over threads in warp
-      // active.sync();
+      active.sync();
       for (size_t j = rank; j < length[i];
            j += active_size) {  // loop over data // active.size()
         if (ptr_per_thread[i] != nullptr)
@@ -103,7 +103,7 @@ struct matrixBuffer {
   }
   __device__ void CheckFlush(uint *ptr, uint itr, coalesced_group &active) {
     if (active.thread_rank() == 0) mainLength[WID]++;
-    // active.sync();
+    active.sync();
     // printf("active.sync() %u itr %u \n", active.thread_rank(), itr);
 
     if (mainLength[WID] >= tileSize) {
