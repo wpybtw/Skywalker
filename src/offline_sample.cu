@@ -19,6 +19,7 @@ static __global__ void sample_kernel(Sampler_new *sampler) {
     while (job.val && graph->CheckValid(job.src_id)) {
       uint instance_id = job.instance_idx;
       uint src_id = job.src_id;
+      uint offset = job.offset;
       Vector_virtual<uint> alias;
       Vector_virtual<float> prob;
       uint src_degree = graph->getDegree((uint)src_id);
@@ -42,16 +43,21 @@ static __global__ void sample_kernel(Sampler_new *sampler) {
               candidate = col;
             else
               candidate = alias[col];
-
-            result.AddActive(current_itr + 1, instance_id, i,
-                             graph->getOutNode(src_id, i));
+            // if (!instance_id && offset == 1 && current_itr == 1)
+            //   printf("adding %u \n", graph->getOutNode(src_id, candidate));
+            result.AddActive(current_itr + 1, instance_id, offset, i,
+                             graph->getOutNode(src_id, candidate));
           }
         } else if (target_size >= src_degree) {
-          for (size_t i = 0; i < src_degree; i++) {
-            result.AddActive(current_itr + 1, instance_id, i,
+          target_size = src_degree;
+          for (size_t i = 0; i < target_size; i++) {
+            // if (!instance_id && offset == 1 && current_itr == 1)
+            //   printf("adding %u \n", graph->getOutNode(src_id, i));
+            result.AddActive(current_itr + 1, instance_id, offset, i,
                              graph->getOutNode(src_id, i));
           }
         }
+        result.SetSampleLength(instance_id, current_itr, offset, target_size);
       }
       job = result.requireOneJob(current_itr);
     }
