@@ -1,7 +1,7 @@
 {
     "files.associations": {
-        "*.cuh": "cpp",
         "*.cu": "cpp",
+        "*.cuh": "cpp",
         "*.tcu": "cpp",
         "array": "cpp",
         "string": "cpp",
@@ -94,6 +94,7 @@
         "slist": "cpp",
         "__bit_reference": "cpp",
         "cross_module_gil_utils.cpp": "cuda-cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "*.inc": "cpp"
     }
 }

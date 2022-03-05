@@ -1,62 +1,69 @@
 #include "app.cuh"
 
-// static __global__ void sample_kernel(Sampler_new *sampler) {
-//   Jobs_result<JobType::NS, uint> &result = sampler->result;
-//   gpu_graph *graph = &sampler->ggraph;
-//   curandState state;
-//   curand_init(TID, 0, 0, &state);
-//   __shared__ uint current_itr;
-//   if (threadIdx.x == 0) current_itr = 0;
-//   __syncthreads();
+static __global__ void sample_kernel(Sampler_new *sampler) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  __shared__ uint current_itr;
+  if (threadIdx.x == 0) current_itr = 0;
+  __syncthreads();
 
-//   for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
-//   {
-//     sample_job job;
-//     __threadfence_block();
-//     job = result.requireOneJob(current_itr);
-//     while (job.val && graph->CheckValid(job.node_id)) {
-//       uint src_id = job.node_id;
-//       Vector_virtual<uint> alias;
-//       Vector_virtual<float> prob;
-//       uint src_degree = graph->getDegree((uint)src_id);
-//       alias.Construt(
-//           graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
-//           src_degree);
-//       prob.Construt(
-//           graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
-//           src_degree);
-//       alias.Init(src_degree);
-//       prob.Init(src_degree);
-//       {
-//         uint target_size = result.hops[current_itr + 1];
-//         if ((target_size > 0) && (target_size < src_degree)) {
-//           //   int itr = 0;
-//           for (size_t i = 0; i < target_size; i++) {
-//             int col = (int)floor(curand_uniform(&state) * src_degree);
-//             float p = curand_uniform(&state);
-//             uint candidate;
-//             if (p < prob[col])
-//               candidate = col;
-//             else
-//               candidate = alias[col];
-//             result.AddActive(current_itr, result.getNextAddr(current_itr),
-//                              graph->getOutNode(src_id, candidate));
-//           }
-//         } else if (target_size >= src_degree) {
-//           for (size_t i = 0; i < src_degree; i++) {
-//             result.AddActive(current_itr, result.getNextAddr(current_itr),
-//                              graph->getOutNode(src_id, i));
-//           }
-//         }
-//       }
+  for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
+  {
+    sampleJob<uint> job;
+    __threadfence_block();
+    // if(!TID)
+    // printf("result.frontier.sizes[0] %u\n",result.frontier.sizes[0] );
+    job = result.frontier.requireOneJob(current_itr);
+    while (job.val && graph->CheckValid(job.src_id)) {
+      uint instance_id = job.instance_idx;
+      uint src_id = job.src_id;
+      Vector_virtual<uint> alias;
+      Vector_virtual<float> prob;
+      uint src_degree = graph->getDegree((uint)src_id);
+      alias.Construt(
+          graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      prob.Construt(
+          graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      alias.Init(src_degree);
+      prob.Init(src_degree);
+      {
+        uint target_size = result.hops[current_itr + 1];
+        if ((target_size > 0) && (target_size < src_degree)) {
+          //   int itr = 0;
+          for (size_t i = 0; i < target_size; i++) {
+            int col = (int)floor(curand_uniform(&state) * src_degree);
+            float p = curand_uniform(&state);
+            uint candidate;
+            if (p < prob[col])
+              candidate = col;
+            else
+              candidate = alias[col];
 
-//       job = result.requireOneJob(current_itr);
-//     }
-//     __syncthreads();
-//     if (threadIdx.x == 0) result.NextItr(current_itr);
-//     __syncthreads();
-//   }
-// }
+            result.AddActive(current_itr + 1, instance_id, i,
+                             graph->getOutNode(src_id, i));
+          }
+        } else if (target_size >= src_degree) {
+          for (size_t i = 0; i < src_degree; i++) {
+            result.AddActive(current_itr + 1, instance_id, i,
+                             graph->getOutNode(src_id, i));
+          }
+        }
+      }
+      job = result.requireOneJob(current_itr);
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) current_itr++;
+    __syncthreads();
+  }
+  // if (!TID)
+  //   for (size_t i = 0; i < 3; i++) {
+  //     printf("result.frontier.sizes[[i]] %u\n", result.frontier.sizes[i]);
+  //   }
+}
 
 static __global__ void sample_kernel_first(Sampler_new *sampler, uint itr) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
@@ -382,10 +389,9 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
-  // if (!FLAGS_peritr) {
-  //   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, 0);
-  // } else 
-  {
+  if (!FLAGS_peritr) {
+    sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+  } else {
     if (FLAGS_buffer) {
       LOG(" buffered sampling has problems\n");
       sample_kernel_first_buffered<<<sampler.result.size / BLOCK_SIZE + 1,
@@ -415,11 +421,11 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+  sampler.sampled_edges = sampler.result.GetSampledNumber(!FLAGS_peritr);
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
       omp_get_thread_num(), total_time * 1000,
-      static_cast<float>(sampler.result.GetSampledNumber() / total_time /
-                         1000000));
-  sampler.sampled_edges = sampler.result.GetSampledNumber();
+      static_cast<float>(sampler.sampled_edges / total_time / 1000000));
+
   LOG("sampled_edges %d\n", sampler.sampled_edges);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
   CUDA_RT_CALL(cudaDeviceSynchronize());

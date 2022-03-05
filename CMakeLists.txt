@@ -63,29 +63,29 @@ endif()
 set_target_properties(skywalker PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 
-add_executable(skywalker_degree
-    ${DIR_SRCS}
-    src/api/bias_degree.cu
-)
-target_link_libraries(skywalker_degree 
-    ${EXTRA_LIBS} 
-    ${CUDA_LIBRARIES}
-)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(skywalker_degree OpenMP::OpenMP_CXX)
-endif()
-set_target_properties(skywalker_degree PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_executable(skywalker_degree
+#     ${DIR_SRCS}
+#     src/api/bias_degree.cu
+# )
+# target_link_libraries(skywalker_degree 
+#     ${EXTRA_LIBS} 
+#     ${CUDA_LIBRARIES}
+# )
+# if(OpenMP_CXX_FOUND)
+#     target_link_libraries(skywalker_degree OpenMP::OpenMP_CXX)
+# endif()
+# set_target_properties(skywalker_degree PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 
-add_executable(skywalker_node2vec
-    ${DIR_SRCS}
-    src/api/bias_node2vec.cu
-)
-target_link_libraries(skywalker_node2vec 
-    ${EXTRA_LIBS} 
-    ${CUDA_LIBRARIES}
-)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(skywalker_node2vec OpenMP::OpenMP_CXX)
-endif()
-set_target_properties(skywalker_node2vec PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_executable(skywalker_node2vec
+#     ${DIR_SRCS}
+#     src/api/bias_node2vec.cu
+# )
+# target_link_libraries(skywalker_node2vec 
+#     ${EXTRA_LIBS} 
+#     ${CUDA_LIBRARIES}
+# )
+# if(OpenMP_CXX_FOUND)
+#     target_link_libraries(skywalker_node2vec OpenMP::OpenMP_CXX)
+# endif()
+# set_target_properties(skywalker_node2vec PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

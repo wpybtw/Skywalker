@@ -13,8 +13,8 @@ DECLARE_double(q);
 DECLARE_bool(umresult);
 DECLARE_bool(built);
 
-// #define ADD_FRONTIER 1
-
+#define ADD_FRONTIER 1
+#define LOCALITY 1
 struct sample_job {
   uint idx;
   uint node_id;
@@ -142,10 +142,81 @@ struct SamplerState<JobType::NODE2VEC, T> {
 
 // template<typename T>
 #ifdef ADD_FRONTIER
+template <typename T = uint>
 struct sampleJob {
   uint instance_idx;
   uint offset;
+  // uint itr;
+  T src_id;
+  bool val;
 };
+// template <typename T>
+// struct JobInFrontier {
+//   uint instance_idx;
+//   uint offset;
+//   // uint itr;
+//   // T src_id;
+// };
+template <typename T = uint>
+static __global__ void InitSampleFrontier(sampleJob<T> *data, uint *seed,
+                                          uint size) {
+  if (TID < size) {
+    sampleJob<T> tmp = {TID, 0, seed[TID], true};
+    data[TID] = tmp;
+  }
+}
+template <typename T, uint depth = 3>
+struct SampleFrontier {
+  sampleJob<T> *data[depth];
+  int capacity[depth];
+  int *sizes;
+  int *floor;
+  int hop_num=depth;
+  // T *seed;
+
+  void Allocate(size_t _size, uint *hops, uint length_per_sample) {
+    capacity[0] = _size;
+    // CUDA_RT_CALL(cudaMalloc(&seed, capacity * sizeof(T)));
+    uint length = 1;
+    for (size_t i = 0; i < depth; i++) {
+      // capacity[0] *= hops[i];
+      CUDA_RT_CALL(cudaMalloc(&data[i], capacity[i] * sizeof(sampleJob<T>)));
+      if (i + 1 < depth) capacity[i + 1] = capacity[i] * hops[i + 1];
+    }
+    CUDA_RT_CALL(cudaMalloc(&sizes, depth * sizeof(int)));
+    CUDA_RT_CALL(cudaMalloc(&floor, depth * sizeof(int)));
+    printf("%s:%d %s for %d\n", __FILE__, __LINE__, __FUNCTION__,0);
+  }
+  __host__ void Init(uint *seed, uint size) {
+    InitSampleFrontier<T><<<size / 1024 + 1, 1024>>>(data[0], seed, size);
+    int tmp = size;
+    CUDA_RT_CALL(cudaMemset(sizes, 0, depth * sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(floor, 0, depth * sizeof(int)));
+    CUDA_RT_CALL(
+        cudaMemcpy(&sizes[0], &tmp, sizeof(int), cudaMemcpyHostToDevice));
+  }
+  // __device__ void CheckActive(uint itr) {}
+  __device__ void Add(uint instance_idx, uint offset, uint itr, T src_id) {
+    size_t old = atomicAdd(&sizes[itr], 1);
+    assert(old < capacity[itr]);
+    sampleJob<T> tmp = {instance_idx, offset, src_id, true};
+    data[itr][old] = tmp;
+  }
+  // __device__ void Reset(uint itr) { size[itr % 3] = 0; }
+  __device__ int Size(uint itr) { return sizes[itr]; }
+  __device__ sampleJob<T> Get(uint itr, uint idx) { return data[itr][idx]; }
+  __device__ sampleJob<T> requireOneJob(uint itr) {
+    size_t old = atomicAdd(&floor[itr], 1);
+    if (old < sizes[itr]) {
+      return data[itr][old];
+    } else {
+      atomicSub(&floor[itr], 1);
+      sampleJob<T> tmp = {0, 0, 0, false};
+      return tmp;
+    }
+  }
+};
+
 #endif
 
 template <typename T>
@@ -171,9 +242,9 @@ struct Jobs_result<JobType::NS, T> {
 
 #ifdef ADD_FRONTIER
   int *job_sizes_floor = nullptr;
-  Frontier<T> frontier;
-  Vector_gmem<sampleJob> *high_degrees;
-  Vector_gmem<uint> *high_degrees_h;
+  SampleFrontier<T> frontier;
+  // Vector_gmem<sampleJob> *high_degrees;
+  // Vector_gmem<sampleJob> *high_degrees_h;
 #endif
   __device__ void SetSampleLength(uint sampleIdx, uint itr, size_t idx,
                                   uint v) {
@@ -206,10 +277,10 @@ struct Jobs_result<JobType::NS, T> {
     if (job_sizes != nullptr) CUDA_RT_CALL(cudaFree(job_sizes));
 #ifdef ADD_FRONTIER
     if (job_sizes_floor != nullptr) CUDA_RT_CALL(cudaFree(job_sizes_floor));
-    for (size_t i = 0; i < hop_num; i++) {
-      high_degrees_h[i].Free();
-    }
-    if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
+      // for (size_t i = 0; i < hop_num; i++) {
+      //   high_degrees_h[i].Free();
+      // }
+      // if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
 #endif
   }
   void init(uint _size, uint _hop_num, uint *_hops, uint *_seeds,
@@ -287,26 +358,30 @@ struct Jobs_result<JobType::NS, T> {
         cudaMemcpy(seeds, _seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
 
 #ifdef ADD_FRONTIER
-    if (FLAGS_peritr) {
-      high_degrees_h = new Vector_gmem<uint>[hop_num];
+    // if (FLAGS_peritr) 
+    {
+      // printf("%s:%d %s for %d\n", __FILE__, __LINE__, __FUNCTION__,0);
+      // high_degrees_h = new Vector_gmem<sampleJob>[hop_num];
 
-      for (size_t i = 0; i < hop_num; i++) {
-        high_degrees_h[i].Allocate(MAX((size * FLAGS_hd), 4000), device_id);
-      }
-      CUDA_RT_CALL(
-          cudaMalloc(&high_degrees, hop_num * sizeof(Vector_gmem<uint>)));
-      CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
-                              hop_num * sizeof(Vector_gmem<uint>),
-                              cudaMemcpyHostToDevice));
+      // for (size_t i = 0; i < hop_num; i++) {
+      //   high_degrees_h[i].Allocate(MAX((size * FLAGS_hd), 4000), device_id);
+      // }
+      // CUDA_RT_CALL(
+      //     cudaMalloc(&high_degrees, hop_num *
+      //     sizeof(Vector_gmem<sampleJob>)));
+      // CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
+      //                         hop_num * sizeof(Vector_gmem<sampleJob>),
+      //                         cudaMemcpyHostToDevice));
       CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
       CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
 
-      frontier.Allocate(size);
+      frontier.Allocate(size, hops_h, length_per_sample);
+      frontier.Init(seeds, size);
       // copy seeds
       // if layout1, oor
-      CUDA_RT_CALL(cudaMemcpy(frontier.data, seeds, size * sizeof(uint),
-                              cudaMemcpyHostToDevice));
-      setFrontierSize<<<1, 32>>>(frontier.size, size);
+      // CUDA_RT_CALL(cudaMemcpy(frontier.data, seeds, size * sizeof(uint),
+      //                         cudaMemcpyHostToDevice));
+      // setFrontierSize<<<1, 32>>>(frontier.size, size);
     }
 #endif
 
@@ -314,14 +389,23 @@ struct Jobs_result<JobType::NS, T> {
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaPeekAtLastError());
   }
-  __host__ size_t GetSampledNumber() {
+  __host__ size_t GetSampledNumber(bool new_frontier=false) {
+    if(new_frontier)
+    return get_sum(frontier.sizes, frontier.hop_num );
+    else
     return get_sum(sample_lengths, size * size_of_sample_lengths);
   }
-  // __device__ void AddActive(uint current_itr, uint candidate) {
-  //   int old = atomicAdd(&job_sizes[current_itr + 1], 1);
-  //   *(getNextAddr(current_itr) + old) = candidate;
-  //   // printf("Add new ele %u with degree %d\n", candidate,  );
-  // }
+  __device__ void AddActive(uint itr, uint sampleIdx, uint offset,
+                            uint candidate) {
+    // int old = atomicAdd(&job_sizes[current_itr + 1], 1);
+    // *(getNextAddr(current_itr) + old) = candidate;
+    *GetDataPtr(sampleIdx, itr, offset) = candidate;
+    frontier.Add(sampleIdx, offset, itr, candidate);
+    // printf("Add new ele %u with degree %d\n", candidate,  );
+  }
+  __device__ sampleJob<T> requireOneJob(uint itr){
+    return frontier.requireOneJob(itr);
+  }
   // __device__ void PrintResult() {
   //   if (LTID == 0) {
   //     for (int j = 0; j < MIN(3, size); j++) {
