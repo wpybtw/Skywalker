@@ -46,7 +46,8 @@ static __global__ void sample_kernel_loc(Sampler_new *sampler) {
             else
               candidate = alias[col];
             // if (!instance_id && offset == 1 )
-            //   printf(" itr %u adding %u ,  \n", current_itr + 1, graph->getOutNode(src_id, candidate));
+            //   printf(" itr %u adding %u ,  \n", current_itr + 1,
+            //   graph->getOutNode(src_id, candidate));
             result.AddActive(current_itr + 1, instance_id, offset, i,
                              graph->getOutNode(src_id, candidate),
                              (current_itr + 2) != result.hop_num);
@@ -464,10 +465,12 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
   if (!FLAGS_peritr) {
-    if ( LOCALITY) //FLAGS_loc &&
-      sample_kernel_loc<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
-    else
-      sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+// if ( LOCALITY) //FLAGS_loc &&
+#ifdef LOCALITY
+    sample_kernel_loc<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+#else
+    sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+#endif
   } else {
     if (FLAGS_buffer) {
       LOG(" buffered sampling has problems\n");
