@@ -113,6 +113,17 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
     if (abort) exit(code);
   }
 }
+
+template<typename T>
+__forceinline__ __device__ T atomicAggInc(T *ctr)
+{
+  auto g = coalesced_threads();
+  T warp_res;
+  if (g.thread_rank() == 0)
+    warp_res = atomicAdd(ctr, g.size());
+  return g.shfl(warp_res, 0) + g.thread_rank();
+}
+
 __device__ void active_size(int n);
 __device__ int active_size2(char *txt, int n);
 #define LOG(...) \

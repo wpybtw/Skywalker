@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Pengyu Wang
- * @LastEditTime: 2022-03-04 13:27:13
+ * @LastEditTime: 2022-03-06 20:06:04
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -101,6 +101,9 @@ DEFINE_bool(built, false, "has built table");
 
 DEFINE_bool(gmem, false, "do not use shmem as buffer");
 
+DEFINE_bool(loc, false, "use locality-aware frontier");
+
+
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -112,6 +115,9 @@ int main(int argc, char *argv[]) {
   //      << "ALLOWED_ELE_PER_SUBWARP " << ALLOWED_ELE_PER_SUBWARP << endl;
 
   // override flag
+  if (FLAGS_loc){
+    FLAGS_peritr = false;
+  }
   if (FLAGS_hmgraph) {
     FLAGS_umgraph = false;
     FLAGS_gmgraph = false;

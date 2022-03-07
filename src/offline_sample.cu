@@ -1,5 +1,73 @@
 #include "app.cuh"
 
+static __global__ void sample_kernel_loc(Sampler_new *sampler) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *graph = &sampler->ggraph;
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+  // __shared__ uint current_itr;
+  // if (threadIdx.x == 0) current_itr = 0;
+  // __syncthreads();
+
+  // for (; current_itr < result.hop_num - 1;)  // for 2-hop, hop_num=3
+  // while (true)
+  {
+    sampleJob<uint> job;
+    // __threadfence_block();
+    // if(!TID)
+    // printf("result.frontier.sizes[0] %u\n",result.frontier.sizes[0] );
+    job = result.requireOneJob();
+    while (job.val && graph->CheckValid(job.src_id)) {
+      uint instance_id = job.instance_idx;
+      uint src_id = job.src_id;
+      uint offset = job.offset;
+      uint current_itr = job.itr;
+      Vector_virtual<uint> alias;
+      Vector_virtual<float> prob;
+      uint src_degree = graph->getDegree((uint)src_id);
+      alias.Construt(
+          graph->alias_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      prob.Construt(
+          graph->prob_array + graph->xadj[src_id] - graph->local_vtx_offset,
+          src_degree);
+      alias.Init(src_degree);
+      prob.Init(src_degree);
+      {
+        uint target_size = result.hops[current_itr + 1];
+        if ((target_size > 0) && (target_size < src_degree)) {
+          //   int itr = 0;
+          for (size_t i = 0; i < target_size; i++) {
+            int col = (int)floor(curand_uniform(&state) * src_degree);
+            float p = curand_uniform(&state);
+            uint candidate;
+            if (p < prob[col])
+              candidate = col;
+            else
+              candidate = alias[col];
+            // if (!instance_id && offset == 1 )
+            //   printf(" itr %u adding %u ,  \n", current_itr + 1, graph->getOutNode(src_id, candidate));
+            result.AddActive(current_itr + 1, instance_id, offset, i,
+                             graph->getOutNode(src_id, candidate),
+                             (current_itr + 2) != result.hop_num);
+          }
+        } else if (target_size >= src_degree) {
+          target_size = src_degree;
+          for (size_t i = 0; i < target_size; i++) {
+            // if (!instance_id && offset == 1 && current_itr == 1)
+            //   printf("adding %u \n", graph->getOutNode(src_id, i));
+            result.AddActive(current_itr + 1, instance_id, offset, i,
+                             graph->getOutNode(src_id, i),
+                             (current_itr + 2) != result.hop_num);
+          }
+        }
+        result.SetSampleLength(instance_id, current_itr, offset, target_size);
+      }
+      job = result.requireOneJob();
+    }
+  }
+}
+
 static __global__ void sample_kernel(Sampler_new *sampler) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
   gpu_graph *graph = &sampler->ggraph;
@@ -15,7 +83,7 @@ static __global__ void sample_kernel(Sampler_new *sampler) {
     __threadfence_block();
     // if(!TID)
     // printf("result.frontier.sizes[0] %u\n",result.frontier.sizes[0] );
-    job = result.frontier.requireOneJob(current_itr);
+    job = result.requireOneJob(current_itr);
     while (job.val && graph->CheckValid(job.src_id)) {
       uint instance_id = job.instance_idx;
       uint src_id = job.src_id;
@@ -396,7 +464,10 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
   if (!FLAGS_peritr) {
-    sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+    if ( LOCALITY) //FLAGS_loc &&
+      sample_kernel_loc<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
+    else
+      sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
   } else {
     if (FLAGS_buffer) {
       LOG(" buffered sampling has problems\n");

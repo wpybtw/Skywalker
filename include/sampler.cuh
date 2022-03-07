@@ -361,7 +361,7 @@ class Sampler_new {
     valid=old.valid;
     device_id=old.device_id;
     sampled_edges=old.sampled_edges;
-    result.init(num_seed, old.result.hop_num,old.result.hops_h, old.result.seeds, device_id);
+    result.init(num_seed, old.result.hop_num,old.result.hops_h, old.result.seeds, device_id, old.ggraph.vtx_num);
     // ggraph=old.ggraph;
     // ggraph=old.ggraph;
     // ggraph=old.ggraph;
@@ -472,7 +472,7 @@ class Walker {
         seeds[n] = n + dev_id * num_seed;
       }
     }
-    result.init(num_seed, _hop_num, seeds, device_id);
+    result.init(num_seed, _hop_num, seeds, device_id );
     CUDA_RT_CALL(cudaFree(seeds));
   }
   // void Start();

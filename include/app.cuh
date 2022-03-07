@@ -18,7 +18,7 @@ DECLARE_bool(peritr);
 
 DECLARE_bool(static);
 DECLARE_bool(buffer);
-
+DECLARE_bool(loc);
 template <typename T, uint length>
 struct duplicate_checker {
   T sampled[length];
