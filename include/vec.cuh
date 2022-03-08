@@ -7,7 +7,7 @@
 DECLARE_bool(v);
 DECLARE_bool(umbuf);
 DECLARE_int32(device);
-enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2, SWC=3 };
+enum class ExecutionPolicy { WC = 0, BC = 1, TC = 2, SWC = 3 };
 
 template <typename T>
 class Vector_itf {
@@ -116,7 +116,6 @@ struct Vector_shmem<T, thread_block_tile<SUBWARP_SIZE>, _size, false> {
   __device__ T Get(size_t id) { return data.data[id]; }
 };
 
-
 template <typename T, uint _size>
 struct Vector_shmem<T, thread_block, _size, false> {
   long long size;
@@ -161,7 +160,6 @@ struct Vector_shmem<T, thread_block, _size, false> {
   __device__ T &operator[](size_t id) { return data.data[id]; }
   __device__ T &Get(size_t id) { return data.data[id]; }
 };
-
 
 template <typename T>
 struct Global_buffer {
@@ -285,8 +283,8 @@ struct Global_buffer {
 template <typename T>
 class Vector_gmem {
  public:
-  u64 *size, size_h, *floor;
-  u64 *capacity, capacity_h;
+  int *size, size_h, *floor;
+  int *capacity, capacity_h;
   T *data = nullptr;
   // bool use_self_buffer = false;
   // T data[VECTOR_SHMEM_SIZE];
@@ -302,25 +300,25 @@ class Vector_gmem {
   __host__ void Free() {
     if (data != nullptr) cudaFree(data);
     if (capacity != nullptr) cudaFree(capacity);
-    if (size != nullptr) cudaFree(size);
-    if (floor != nullptr) cudaFree(floor);
+    if (size != nullptr) cudaFree((void *)size);
+    if (floor != nullptr) cudaFree((void *)floor);
   }
   __device__ __host__ ~Vector_gmem() {}
   __host__ void Allocate(int _capacity, uint gpuid) {
     capacity_h = _capacity;
     size_h = 0;
-    cudaMalloc(&size, sizeof(u64));
-    cudaMalloc(&capacity, sizeof(u64));
-    cudaMalloc(&floor, sizeof(u64));
-    u64 floor_h = 0;
+    cudaMalloc(&size, sizeof(int));
+    cudaMalloc(&capacity, sizeof(int));
+    cudaMalloc(&floor, sizeof(int));
+    int floor_h = 0;
+    CUDA_RT_CALL(cudaMemcpy((void *)floor, &floor_h, sizeof(int),
+                            cudaMemcpyHostToDevice));
     CUDA_RT_CALL(
-        cudaMemcpy(floor, &floor_h, sizeof(u64), cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(
-        cudaMemcpy(size, &size_h, sizeof(u64), cudaMemcpyHostToDevice));
+        cudaMemcpy((void *)size, &size_h, sizeof(int), cudaMemcpyHostToDevice));
 
     // paster(_capacity);
     CUDA_RT_CALL(
-        cudaMemcpy(capacity, &capacity_h, sizeof(u64), cudaMemcpyHostToDevice));
+        cudaMemcpy(capacity, &capacity_h, sizeof(int), cudaMemcpyHostToDevice));
 
     if (!FLAGS_umbuf) {
       // paster(  _capacity * sizeof(T));
@@ -377,21 +375,27 @@ class Vector_gmem {
   //     data[i] = 0;
   //   }
   // }
-  __host__ __device__ u64 Size() { return *size; }
+  __forceinline__ __host__ __device__ volatile const int Size() {
+    return *size;
+  }
   __host__ __device__ void SetSize(size_t s) { *size = s; }
-  // __host__ __device__ u64 &SizeRef() { return *size; }
-  __device__ void Add(T t) {
-    u64 old = atomicAdd(size, 1);
+  // __host__ __device__ int &SizeRef() { return *size; }
+  __forceinline__ __device__ void Add(T t) {
+    int old = atomicAdd((int *)size, 1);
+#ifndef NDEBUG
+    if (old >= *capacity)
+      printf("%s:%d %s capacity %u loc %llu\n", __FILE__, __LINE__,
+             __FUNCTION__, *capacity, old);
+#endif
     assert(old < *capacity);
-    // if (old < *capacity)
     data[old] = t;
     // else
     // printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__,
     //        old, *capacity);
     // printf("gvector overflow %d\n", old);
   }
-  __device__ void AddTillSize(T t, u64 target_size) {
-    u64 old = atomicAdd(size, 1);
+  __device__ void AddTillSize(T t, int target_size) {
+    int old = atomicAdd(size, 1);
     if (old < *capacity && old < target_size) {
       data[old] = t;
     }
@@ -399,32 +403,43 @@ class Vector_gmem {
     // else
     //   printf("already full %d\n", old);
   }
-  __device__ bool Empty() {
+  __forceinline__ __device__ bool Empty() {
     // return !(static_cast<bool>(*size));
     if (*size == 0) return true;
     return false;
   }
   __device__ T &operator[](size_t id) {
-    assert(id < *size);
+#ifndef NDEBUG
+    if (id >= *capacity)
+      printf("%s:%d %s capacity %u loc %llu\n", __FILE__, __LINE__,
+             __FUNCTION__, *size, (unsigned long long)id);
+#endif
+    assert(id < *capacity);
     return data[id];
     // else
     //   printf("%s\t:%d Vector_gmem overflow, size: %llu idx: %llu\n",
     //   __FILE__,
     //          __LINE__, *size, id);
   }
-  __device__ T Get(size_t id) {
+  __device__ T Get(int id) {  // size_t change to int
     // todo fix this potential error
     // if ((id >= *size))
     //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
     //   __FILE__,
-    //          __LINE__, *capacity, *size, (u64)id);
+    //          __LINE__, *capacity, *size, (int)id);
     // assert(id < *size);
-
+#ifndef NDEBUG
+    if (id >= *capacity)
+      printf("%s:%d %s capacity %u loc %llu\n", __FILE__, __LINE__,
+             __FUNCTION__, *capacity, (unsigned long long)id);
+#endif
     assert(id < *capacity);
+    assert(id >= 0);
+
     return data[id];
     // else
     //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
-    //   __FILE__, __LINE__, *capacity, *size, (u64)id);
+    //   __FILE__, __LINE__, *capacity, *size, (int)id);
   }
 };
 // template <>
@@ -445,8 +460,8 @@ class Vector_gmem {
 template <typename T>
 class Vector_virtual {
  public:
-  u64 size, floor;
-  u64 capacity;
+  int size, floor;
+  int capacity;
   T *data = nullptr;
 
   __device__ __host__ Vector_virtual() {}
@@ -472,10 +487,10 @@ class Vector_virtual {
       data[i] = 0;
     }
   }
-  __host__ __device__ u64 Size() { return size; }
+  __host__ __device__ int Size() { return size; }
   __host__ __device__ void SetSize(size_t s) { size = s; }
   __device__ void Add(T t) {
-    u64 old = atomicAdd(size, (T)1);
+    int old = atomicAdd(size, (T)1);
     assert(old < capacity);
     data[old] = t;
     // else

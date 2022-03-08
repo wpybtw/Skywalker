@@ -14,8 +14,7 @@ DECLARE_bool(umresult);
 DECLARE_bool(built);
 
 #define ADD_FRONTIER 1
-#define LOCALITY 1
-
+// #define LOCALITY 1
 
 struct sample_job {
   uint idx;
@@ -205,7 +204,7 @@ struct LocalitySampleFrontier {
     uint length = 1;
     size_per_bucket =
         capacity * 26;  //  / bucket_num, hard to tell the buffer size
-    // paster(size_per_bucket);
+    paster(size_per_bucket);
     // paster(bucket_num);
     data_h = new sampleJob<T> *[bucket_num];
     CUDA_RT_CALL(cudaMalloc(&data, bucket_num * sizeof(sampleJob<T> *)));
@@ -387,8 +386,8 @@ struct Jobs_result<JobType::NS, T> {
 #else
   SampleFrontier<T> frontier;
 #endif
-  // Vector_gmem<sampleJob> *high_degrees;
-  // Vector_gmem<sampleJob> *high_degrees_h;
+  Vector_gmem<sampleJob<T>> *high_degrees;
+  Vector_gmem<sampleJob<T>> *high_degrees_h;
 #endif
   __device__ void SetSampleLength(uint sampleIdx, uint itr, size_t idx,
                                   uint v) {
@@ -421,10 +420,10 @@ struct Jobs_result<JobType::NS, T> {
     if (job_sizes != nullptr) CUDA_RT_CALL(cudaFree(job_sizes));
 #ifdef ADD_FRONTIER
     if (job_sizes_floor != nullptr) CUDA_RT_CALL(cudaFree(job_sizes_floor));
-      // for (size_t i = 0; i < hop_num; i++) {
-      //   high_degrees_h[i].Free();
-      // }
-      // if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
+    for (size_t i = 0; i < hop_num; i++) {
+      high_degrees_h[i].Free();
+    }
+    if (high_degrees != nullptr) CUDA_RT_CALL(cudaFree(high_degrees));
 #endif
   }
   void init(uint _size, uint _hop_num, uint *_hops, uint *_seeds,
@@ -502,24 +501,23 @@ struct Jobs_result<JobType::NS, T> {
         cudaMemcpy(seeds, _seeds, size * sizeof(uint), cudaMemcpyHostToDevice));
 
 #ifdef ADD_FRONTIER
-    if (!FLAGS_peritr)
-    {
+    if (!FLAGS_peritr) {
       // printf("%s:%d %s for %d\n", __FILE__, __LINE__, __FUNCTION__,0);
-      // high_degrees_h = new Vector_gmem<sampleJob>[hop_num];
+      high_degrees_h = new Vector_gmem<sampleJob<T>>[hop_num];
 
-      // for (size_t i = 0; i < hop_num; i++) {
-      //   high_degrees_h[i].Allocate(MAX((size * FLAGS_hd), 4000), device_id);
-      // }
-      // CUDA_RT_CALL(
-      //     cudaMalloc(&high_degrees, hop_num *
-      //     sizeof(Vector_gmem<sampleJob>)));
-      // CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
-      //                         hop_num * sizeof(Vector_gmem<sampleJob>),
-      //                         cudaMemcpyHostToDevice));
+      for (size_t i = 0; i < hop_num; i++) {
+        high_degrees_h[i].Allocate(MAX((size * FLAGS_hd * 25), 4000),
+                                   device_id);
+      }
+      CUDA_RT_CALL(cudaMalloc(&high_degrees,
+                              hop_num * sizeof(Vector_gmem<sampleJob<T>>)));
+      CUDA_RT_CALL(cudaMemcpy(high_degrees, high_degrees_h,
+                              hop_num * sizeof(Vector_gmem<sampleJob<T>>),
+                              cudaMemcpyHostToDevice));
       CUDA_RT_CALL(cudaMalloc(&job_sizes_floor, (hop_num) * sizeof(int)));
       CUDA_RT_CALL(cudaMalloc(&job_sizes, (hop_num) * sizeof(int)));
 
-      // if (/* condition */) 
+      // if (/* condition */)
       {
         frontier.Allocate(size, hops_h, num_vtx);
         frontier.Init(seeds, size);
@@ -546,19 +544,20 @@ struct Jobs_result<JobType::NS, T> {
   }
   __device__ void AddActive(uint itr, uint sampleIdx, uint offset,
                             uint local_offset, uint candidate,
-                            bool should_add = true) {
+                            bool should_add = true, uint limit = 0) {
     // int old = atomicAdd(&job_sizes[current_itr + 1], 1);
     // *(getNextAddr(current_itr) + old) = candidate;
 
     uint tmp = offset * hops[itr] + local_offset;
-    // if (!sampleIdx && itr == 2 && (offset == 1 || offset == 0))
-    //   printf("sampleIdx %u offset %u adding %u to tmp %u \n", sampleIdx,
-    //   offset,
-    //          candidate, tmp);
+    // if (!sampleIdx)  // offset == 1 || && itr == 1 && (offset == 0)
+    //   printf("itr %u sampleIdx %u offset %u local_offset %u loc %u adding
+    //   %u\n",
+    //          itr, sampleIdx, offset, local_offset, tmp, candidate);
     *GetDataPtr(sampleIdx, itr, tmp) = candidate;
     if (should_add) frontier.Add(sampleIdx, tmp, itr, candidate);
     // printf("Add new ele %u with degree %d\n", candidate,  );
   }
+
   __forceinline__ __device__ sampleJob<T> requireOneJob(uint itr = 0) {
 #ifdef LOCALITY
     auto tmp = frontier.requireOneJob();
@@ -566,6 +565,35 @@ struct Jobs_result<JobType::NS, T> {
 #else
     return frontier.requireOneJob(itr);
 #endif
+  }
+  // __forceinline__ __device__ void AddHighDegree(uint current_itr,
+  //                                               uint instance_idx, uint
+  //                                               offset, uint itr, T src_id) {
+  //   // printf("AddHighDegree %u %u \n",current_itr,instance_idx);
+  //   sampleJob<T> tmp = {instance_idx, offset, src_id, current_itr, true};
+  //   high_degrees[current_itr].Add(tmp);
+  // }
+  __forceinline__ __device__ void AddHighDegree(uint current_itr,
+                                                sampleJob<T> tmp) {
+    // printf("AddHighDegree %u %u \n",current_itr,instance_idx);
+    // sampleJob<T> tmp = {instance_idx, offset, src_id, current_itr, true};
+    high_degrees[current_itr].Add(tmp);
+  }
+  __forceinline__ __device__ sampleJob<T> requireOneHighDegreeJob(
+      uint current_itr) {
+    sampleJob<T> job;
+    // int old = atomicSub(&job_sizes[current_itr], 1) - 1;
+    job.val = false;
+    int old = atomicAdd(high_degrees[current_itr].floor, 1);
+    if (old < high_degrees[current_itr].Size()) {
+      job = high_degrees[current_itr].Get(old);
+      job.val = true;
+    } else {
+      int old = atomicAdd(high_degrees[current_itr].floor, -1);
+      // int old = my_atomicSub(high_degrees[current_itr].floor, 1);
+      // job.val = false;
+    }
+    return job;
   }
   // __device__ void PrintResult() {
   //   if (LTID == 0) {

@@ -347,70 +347,105 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM,
     // todo block lock step
     while ((!buffer.small.Empty()) && (!buffer.large.Empty())) {
 #ifdef SPEC_EXE
-      // if (using_spec)
-      {
-        thread_block tb = this_thread_block();
-        long long old_small_idx = buffer.small.Size() - LTID - 1;
-        long long old_small_size = buffer.small.Size();
-        bool act = (old_small_idx >= 0);
-        int active_size = MIN(old_small_size, blockDim.x);
-        // if (old_small_idx >= 0) {
-        MySync();
-        // coalesced_group active = coalesced_threads();
-        if (LTID == 0) {
-          *buffer.small.size -= active_size;
+
+      thread_block tb = this_thread_block();
+      int old_small_idx = buffer.small.Size() - LTID - 1;
+      int old_small_size = buffer.small.Size();
+      int old_large_size = buffer.large.Size();
+      bool act = (old_small_idx >= 0);
+      int active_size = MIN(old_small_size, blockDim.x);
+      // if (old_small_idx >= 0) {
+      MySync();
+      // coalesced_group active = coalesced_threads();
+      if (LTID == 0) {
+        *buffer.small.size -= active_size;
+      }
+      MySync();
+      // u64 tmp4 = (u64)buffer.small.size;
+      T smallV, largeV;
+      if (act) {
+        assert(old_small_idx >= 0);
+        assert(((int)old_small_idx) >= 0);
+        smallV = buffer.small.Get(old_small_idx);
+      }
+      // T largeV;
+      bool holder =
+          ((LTID < MIN(buffer.large.Size(), old_small_size)) ? true : false);
+
+      // volatile __shared__ int act_num, t_num, h_num;
+      // {
+      //   if (LTID == 0) {
+      //     act_num = 0;
+      //     t_num = 0;
+      //   }
+      //   __syncthreads();
+      //   atomicAdd((int *)&t_num, 1);
+      //   if (act) atomicAdd((int *)&act_num, 1);
+      //   __syncthreads();
+      // }
+      // {
+      //   if (LTID == 0) {
+      //     h_num = 0;
+      //   }
+      //   __syncthreads();
+      //   if (holder) atomicAdd((int *)&h_num, 1);
+      //   __syncthreads();
+      // }
+      // if (LTID == 0) {
+      //   printf(
+      //       "%d  buffer.large.Size() %d buffer.large.size %d old_large_size "
+      //       "%d "
+      //       "old_small_size %d act_num %d  h_num %d active_size %d t_num "
+      //       "%d\n",
+      //       __LINE__, (int)buffer.large.Size(), (int)*buffer.large.size,
+      //       (int)old_large_size, (int)old_small_size, act_num, h_num,
+      //       active_size, t_num);
+      // }
+
+      if (act) {
+        if (buffer.large.Size() < active_size) {
+          int res = old_small_idx % buffer.large.Size();
+          largeV = buffer.large.Get(buffer.large.Size() - res - 1);
+          // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
+          // largeV);
+        } else {
+          largeV = buffer.large.Get(buffer.large.Size() - LTID - 1);
         }
-        MySync();
-        // u64 tmp4 = (u64)buffer.small.size;
-        T smallV, largeV;
-        if (act) smallV = buffer.small.Get(old_small_idx);
-        // T largeV;
-        bool holder =
-            ((LTID < MIN(buffer.large.Size(), old_small_size)) ? true : false);
-        if (act) {
-          if (buffer.large.Size() < active_size) {
-            int res = old_small_idx % buffer.large.Size();
-            largeV = buffer.large.Get(buffer.large.Size() - res - 1);
-            // printf("%d   LID %d res %d largeV %u \n", holder, LID, res,
-            // largeV);
-          } else {
-            largeV = buffer.large.Get(buffer.large.Size() - LTID - 1);
-          }
-        }
-        MySync();
-        if (LTID == 0) {
-          *buffer.large.size -=
-              MIN(MIN(buffer.large.Size(), old_small_size), active_size);
-        }
-        MySync();
-        float old;
-        if (holder)
-          old = atomicAdd(&buffer.prob.data[largeV],
-                          buffer.prob.Get(smallV) - 1.0);
-        MySync();
-        if (!holder && act)
-          old = atomicAdd(&buffer.prob.data[largeV],
-                          buffer.prob.Get(smallV) - 1.0);
-        MySync();
-        if (act) {
-          if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
-            atomicAdd(&buffer.prob.data[largeV], 1 - buffer.prob.Get(smallV));
-            buffer.small.Add(smallV);
-          } else {
-            buffer.alias.data[smallV] = largeV;
-            if (holder) {
-              if (buffer.prob.Get(largeV) < 1.0) {
-                buffer.small.Add(largeV);
-              } else if (buffer.prob.Get(largeV) > 1.0) {
-                buffer.large.Add(largeV);
-              }
+      }
+      __syncthreads();
+      if (LTID == 0) {
+        *buffer.large.size -=
+            MIN(MIN(buffer.large.Size(), old_small_size), active_size);
+      }
+      MySync();
+      float old;
+      if (holder)
+        old =
+            atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
+      MySync();
+      if (!holder && act)
+        old =
+            atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
+      MySync();
+      if (act) {
+        if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
+          atomicAdd(&buffer.prob.data[largeV], 1 - buffer.prob.Get(smallV));
+          buffer.small.Add(smallV);
+        } else {
+          buffer.alias.data[smallV] = largeV;
+          if (holder) {
+            if (buffer.prob.Get(largeV) < 1.0) {
+              buffer.small.Add(largeV);
+            } else if (buffer.prob.Get(largeV) > 1.0) {
+              buffer.large.Add(largeV);
             }
           }
         }
-        // MySync();
-        if (LTID == 0) itr++;
-        MySync();
       }
+      // MySync();
+      if (LTID == 0) itr++;
+      MySync();
+
 #else
       // else
       {
@@ -473,6 +508,11 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       buffer.alias = pack->alias;
       buffer.prob = pack->prob;
       buffer.selected = pack->selected;
+      buffer.large.Init();
+      buffer.small.Init();
+      buffer.alias.Init();
+      buffer.prob.Init();
+      buffer.selected.Init();
     }
   }
   __host__ __device__ uint Size() { return buffer.size; }
@@ -550,7 +590,8 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
   }
   template <typename sample_result>
   __device__ void roll_atomic(int target_size, curandState *state,
-                              sample_result result) {
+                              sample_result result, uint instance_id = 0,
+                              uint offset = 0, uint local_offset = 0) {
     if (target_size > 0) {
       buffer.selected.CleanData();
       int itr = 0;
@@ -574,7 +615,9 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
   }
   template <typename sample_result>
   __device__ bool roll_once(uint *local_size, curandState *local_state,
-                            size_t target_size, sample_result result) {
+                            size_t target_size, sample_result result,
+                            uint instance_id = 0, uint offset = 0,
+                            uint local_offset = 0) {
     int col = (int)floor(curand_uniform(local_state) * buffer.size);
     float p = curand_uniform(local_state);
     uint candidate;
@@ -614,43 +657,105 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
     __shared__ uint roll_backs;
     if (LTID == 0) roll_backs = 0;
     while ((!buffer.small.Empty()) && (!buffer.large.Empty())) {
+      __syncthreads();
       itr++;
       thread_block tb = this_thread_block();
-      long long old_small_idx = buffer.small.Size() - LTID - 1;
-      long long old_small_size = buffer.small.Size();
-      bool act = (old_small_idx >= 0);
+      int old_small_idx = buffer.small.Size() - LTID - 1;
+      int old_small_size = buffer.small.Size();
+      int old_large_size = buffer.large.Size();
+      // bool act = (old_small_idx >= 0); //why this would cause error?
       int active_size = MIN(old_small_size, blockDim.x);
-      // if (old_small_idx >= 0) {
-      MySync();
+      bool act = (LTID < active_size);
+      __syncthreads();
       // coalesced_group active = coalesced_threads();
       if (LTID == 0) {
         *buffer.small.size -= active_size;
       }
-      MySync();
-      // u64 tmp4 = (u64) buffer.small.size;
+      __syncthreads();
       T smallV, largeV;
-      if (act) smallV = buffer.small.Get(old_small_idx);
-      // T largeV;
-      bool holder =
-          ((LTID < MIN(buffer.large.Size(), old_small_size)) ? true : false);
+      volatile __shared__ int act_num, t_num, h_num;
+      {
+        if (LTID == 0) {
+          act_num = 0;
+          t_num = 0;
+        }
+        __syncthreads();
+        atomicAdd((int *)&t_num, 1);
+        if (act) atomicAdd((int *)&act_num, 1);
+        __syncthreads();
+      }
+      assert(buffer.large.Size() == old_large_size);
       if (act) {
-        if (buffer.large.Size() < active_size) {
-          int res = old_small_idx % buffer.large.Size();
-          largeV = buffer.large.Get(buffer.large.Size() - res - 1);
+        assert(old_small_idx >= 0);
+        // if (old_small_idx >= 20293) {
+        //   printf("old_small_size %llu old_large_size %llu\n", old_small_size,
+        //          old_large_size);
+        // }
+        // assert(old_small_idx < 20293);
+        // assert(buffer.small.Get(old_small_idx) < 20293);
+        smallV = buffer.small.Get(old_small_idx);
+      }
+      assert(buffer.large.Size() == old_large_size);
+      __syncthreads();
+      bool holder = (LTID < MIN(old_large_size, old_small_size)) ? true : false;
+      // {
+      //   if (LTID == 0) {
+      //     h_num = 0;
+      //   }
+      //   __syncthreads();
+      //   if (holder) atomicAdd((int *)&h_num, 1);
+      //   __syncthreads();
+      // }
+
+      assert(buffer.large.Size() == old_large_size);
+      if (act) {
+        if (old_large_size < active_size) {
+          int res = old_small_idx % old_large_size;
+          largeV = buffer.large.Get(old_large_size - res - 1);
         } else {
-          largeV = buffer.large.Get(buffer.large.Size() - LTID - 1);
+          largeV = buffer.large.Get(old_large_size - LTID - 1);
         }
       }
-      MySync();
-      if (LTID == 0) {
-        *buffer.large.size -=
-            MIN(MIN(buffer.large.Size(), old_small_size), active_size);
+      assert(buffer.large.Size() == old_large_size);
+      __syncthreads();
+      // int new_large, new_large2;
+      // if (tb.thread_rank() == 0)
+      {
+        // new_large = *buffer.large.size;
+        // new_large2 = buffer.large.Size();
+        // assert(old_large_size==new_large);
       }
-      MySync();
+      assert(buffer.large.Size() == old_large_size);
+      __syncthreads();
+      if (tb.thread_rank() == 0) {
+        atomicSub(buffer.large.size, MIN(old_large_size, active_size));
+        // printf(
+        //     "itr %d new_large %d  update buffer.large.size %d "
+        //     " buffer.large.size() %d"
+        //     "old_large_size %d old_small_size %d active_size %d mining %d\n",
+        //     itr, new_large, (int)*buffer.large.size, buffer.large.Size(),
+        //     (int)old_large_size, (int)old_small_size, active_size,
+        //     MIN(old_large_size, active_size));
+        // assert(*buffer.large.size >= 0);
+      }
+      __syncthreads();
       float old;
-      if (holder)
-        old =
-            atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
+      if (holder) {
+        // if (!act)
+        // if (LTID == 0) {
+        //   printf(
+        //       "%d  buffer.large.Size() %d buffer.large.size %d old_large_size "
+        //       "%d "
+        //       "old_small_size %d act_num %d  h_num %d active_size %d t_num "
+        //       "%d\n",
+        //       __LINE__, (int)buffer.large.Size(), (int)*buffer.large.size,
+        //       (int)old_large_size, (int)old_small_size, act_num, h_num,
+        //       active_size, t_num);
+        // }
+        assert(act);
+        old = atomicAdd(&buffer.prob.data[largeV],
+                        buffer.prob.Get(smallV) - 1.0);  // smallV error
+      }
       MySync();
       if (!holder && act)
         old =
@@ -672,13 +777,115 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
               buffer.large.Add(largeV);
             }
           }
-          // }
         }
       }
-      // MySync();
-      // if (LTID == 0)
-      MySync();
+      __syncthreads();
     }
+    // while ((!buffer.small.Empty()) && (!buffer.large.Empty())) {
+    //   itr++;
+    //   thread_block tb = this_thread_block();
+    //   long long old_small_idx = buffer.small.Size() - LTID - 1;
+    //   long long old_small_size = buffer.small.Size();
+    //   long long old_large_size = buffer.large.Size();
+    //   bool act = (old_small_idx >= 0);
+    //   int active_size = MIN(old_small_size, blockDim.x);
+    //   // if (old_small_idx >= 0) {
+    //   // MySync();
+    //   __syncthreads();
+    //   // coalesced_group active = coalesced_threads();
+    //   if (LTID == 0) {
+    //     *buffer.small.size -= active_size;
+    //   }
+    //   __syncthreads();
+    //   // u64 tmp4 = (u64) buffer.small.size;
+    //   T smallV, largeV;
+    //   volatile __shared__ int act_num, t_num, h_num;
+    //   {
+    //     if (LTID == 0) {
+    //       act_num = 0;
+    //       t_num = 0;
+    //     }
+    //     __syncthreads();
+    //     atomicAdd((int *)&t_num, 1);
+    //     if (act) atomicAdd((int *)&act_num, 1);
+    //     __syncthreads();
+    //   }
+    //   if (act) {
+    //     assert(old_small_idx < 20293);
+    //     assert(buffer.small.Get(old_small_idx) < 20293);
+    //     smallV = buffer.small.Get(old_small_idx);
+    //   }
+    //   __syncthreads();
+    //   bool holder =
+    //       ((LTID < MIN((buffer.large.Size()), (old_small_size))) ? true
+    //                                                              : false);
+    //   {
+    //     if (LTID == 0) {
+    //       h_num = 0;
+    //     }
+    //     __syncthreads();
+    //     if (holder) atomicAdd((int *)&h_num, 1);
+    //     __syncthreads();
+    //   }
+    //   if (act) {
+    //     if (buffer.large.Size() < active_size) {
+    //       int res = old_small_idx % buffer.large.Size();
+    //       largeV = buffer.large.Get(buffer.large.Size() - res - 1);
+    //     } else {
+    //       largeV = buffer.large.Get(buffer.large.Size() - LTID - 1);
+    //     }
+    //   }
+    //   __syncthreads();
+    //   if (LTID == 0) {
+    //     *buffer.large.size -=
+    //         MIN(MIN(buffer.large.Size(), old_small_size), active_size);
+    //         printf("update buffer.large.size %d\n", (int)*buffer.large.size
+    //         );
+    //   }
+    //   __syncthreads();
+    //   float old;
+    //   if (holder) {
+    //     if (!act) {
+    //       printf(
+    //           "buffer.large.Size() %d buffer.large.size %d old_large_size %d
+    //           old_small_size %d act_num %d  h_num %d active_size %d t_num
+    //           %d\n", (int )buffer.large.Size(),
+    //           (int)*buffer.large.size,(int)old_large_size,
+    //           (int)old_small_size, act_num, h_num, active_size,t_num); //
+    //     }
+    //     assert(act);
+    //     old = atomicAdd(&buffer.prob.data[largeV],
+    //                     buffer.prob.Get(smallV) - 1.0);  // smallV error
+    //   }
+    //   MySync();
+    //   if (!holder && act)
+    //     old =
+    //         atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV)
+    //         - 1.0);
+    //   MySync();
+
+    //   if (act) {
+    //     if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
+    //       // active_size2(" buffer.prob<0 ", __LINE__);
+    //       atomicAdd(&roll_backs, 1);
+    //       atomicAdd(&buffer.prob.data[largeV], 1 - buffer.prob.Get(smallV));
+    //       buffer.small.Add(smallV);
+    //     } else {
+    //       buffer.alias.data[smallV] = largeV;
+    //       if (holder) {
+    //         if (buffer.prob.Get(largeV) < 1.0) {
+    //           buffer.small.Add(largeV);
+    //         } else if (buffer.prob.Get(largeV) > 1.0) {
+    //           buffer.large.Add(largeV);
+    //         }
+    //       }
+    //       // }
+    //     }
+    //   }
+    //   // MySync();
+    //   // if (LTID == 0)
+    //   MySync();
+    // }
     // if (LTID == 0)
     //   printf("%d %u\n", buffer.ggraph->getDegree((uint)buffer.src_id),
     //          roll_backs);
@@ -1123,7 +1330,8 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
     };
   }
   template <typename sample_result>
-  __device__ void roll_atomic(curandState *state, sample_result result) {
+  __device__ void roll_atomic(curandState *state, sample_result result,
+                              uint instance_id = 0, uint offset = 0) {
     uint target_size = result.hops[buffer.current_itr + 1];
     if ((target_size > 0) &&
         (target_size < buffer.ggraph->getDegree(buffer.src_id))) {
@@ -1153,7 +1361,9 @@ struct alias_table_constructor_shmem<T, thread_block_tile<32>,
   }
   template <typename sample_result>
   __device__ bool roll_once(uint *local_size, curandState *local_state,
-                            size_t target_size, sample_result result) {
+                            size_t target_size, sample_result result,
+                            uint instance_id = 0, uint offset = 0,
+                            uint local_offset = 0) {
     int col = (int)floor(curand_uniform(local_state) * buffer.size);
     float p = curand_uniform(local_state);
     uint candidate;

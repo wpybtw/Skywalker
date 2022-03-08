@@ -485,6 +485,7 @@ float OnlineWalkShMem(Walker &walker);
 float OnlineWalkGMem(Walker &walker);
 float OnlineGBSample(Sampler &sampler);
 float OnlineGBSampleTWC(Sampler &sampler);
+float OnlineGBSampleNew(Sampler_new &sampler);
 
 float OnlineSplicedSample(Sampler &sampler);
 // void Start(Sampler &sampler);  //useless as must overflow,

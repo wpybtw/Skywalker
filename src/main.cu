@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Pengyu Wang
- * @LastEditTime: 2022-03-06 20:06:04
+ * @LastEditTime: 2022-03-07 13:03:34
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -102,6 +102,7 @@ DEFINE_bool(built, false, "has built table");
 DEFINE_bool(gmem, false, "do not use shmem as buffer");
 
 DEFINE_bool(loc, false, "use locality-aware frontier");
+DEFINE_bool(newsampler, false, "use new sampler");
 
 
 int main(int argc, char *argv[]) {
@@ -115,7 +116,7 @@ int main(int argc, char *argv[]) {
   //      << "ALLOWED_ELE_PER_SUBWARP " << ALLOWED_ELE_PER_SUBWARP << endl;
 
   // override flag
-  if (FLAGS_loc){
+  if (FLAGS_loc) {
     FLAGS_peritr = false;
   }
   if (FLAGS_hmgraph) {
@@ -135,10 +136,10 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
-  if (FLAGS_hmtable){
+  if (FLAGS_hmtable) {
     LOG("Using host memory for alias table!\n");
   }
-  if (!FLAGS_dt){
+  if (!FLAGS_dt) {
     LOG("using duplicated table on each GPU\n");
   }
   if (FLAGS_node2vec) {
@@ -263,10 +264,15 @@ int main(int argc, char *argv[]) {
                                  dev_id);
         if (!FLAGS_rw) {
           // if (!FLAGS_sp)
-          if (!FLAGS_twc)
-            time[dev_id] = OnlineGBSample(samplers[dev_id]);
-          else
-            time[dev_id] = OnlineGBSampleTWC(samplers[dev_id]);
+          if (FLAGS_newsampler) {
+            samplers_new[dev_id] = samplers[dev_id];
+            time[dev_id] = OnlineGBSampleNew(samplers_new[dev_id]);
+          } else {
+            if (!FLAGS_twc)
+              time[dev_id] = OnlineGBSample(samplers[dev_id]);
+            else
+              time[dev_id] = OnlineGBSampleTWC(samplers[dev_id]);
+          }
           // else
           // time[dev_id] = OnlineSplicedSample(samplers[dev_id]); //to add
           // spliced
