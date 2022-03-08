@@ -16,6 +16,8 @@ debug:
 	
 test: 
 	./build/skywalker --k 2 --d 2 --ol=1  --input ~/data/lj.w.gr --ngpu=4 --hd=1 --n=400000
+	./build/skywalker  -bias=1 --ol=1 --ngpu=1 --s --sage --input ~/data/orkut.w.gr  -v
+	./build/skywalker  -bias=1 --ol=0 --ngpu=1 --s --sage --input ~/data/orkut.w.gr  -v
 
 
 clean:
