@@ -375,6 +375,9 @@ class Vector_gmem {
   __forceinline__ __host__ __device__ volatile const int Size() {
     return *size;
   }
+  __forceinline__ __host__ __device__ volatile const int Capacity() {
+    return *capacity;
+  }
   __forceinline__ __host__ __device__ int *GetSizePtr() {
     printf("%s:%d %s \n", __FILE__, __LINE__, __FUNCTION__);
     return size;
@@ -395,7 +398,7 @@ class Vector_gmem {
       printf("%s:%d %s capacity %d loc %d\n", __FILE__, __LINE__,
              __FUNCTION__, *capacity, old);
 #endif
-    assert(old < *capacity);
+    // assert(old < *capacity);
     data[old] = t;
     // else
     // printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__,

@@ -9,6 +9,8 @@
 // #include "sampler.cuh"
 #define verbose
 
+#define INSPECT 1
+
 namespace cg = cooperative_groups;
 // using namespace cooperative_groups;
 // template <typename T>
@@ -633,8 +635,136 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       roll_backs = 0;
       alive = 1;
     }
+    thread_block tb = this_thread_block();
 
     while (alive) {
+      __syncthreads();
+      itr++;
+
+      const int old_small_size = buffer.small.Size();
+      const int old_large_size = buffer.large.Size();
+
+      const int active_size = MIN(old_small_size, blockDim.x);
+      const int old_small_idx = buffer.small.Size() - LTID - 1;
+      const bool act = (LTID < active_size);
+
+      assert(act == (old_small_idx >= 0));
+
+      __syncthreads();
+
+      if (LTID == 0) {
+        printf(
+            "%s:%d  buffer.large.Size() %d  old_large_size "
+            "%d old_small_size %d \n",
+            __FILE__, __LINE__, (int)buffer.large.Size(), (int)old_large_size,
+            (int)old_small_size);
+      }
+      __syncthreads();
+
+      if (LTID == 0) {
+        buffer.small.SizeAtomicAdd(-active_size);
+      }
+
+      T smallV, largeV;
+      if (act) {
+        assert(old_small_idx < buffer.small.Capacity());
+        assert(old_small_idx >= 0);
+        smallV = buffer.small.Get(old_small_idx);
+      }
+
+      __syncthreads();
+      bool holder = (LTID < MIN(old_large_size, old_small_size)) ? true : false;
+
+      __shared__ int act_num, t_num, h_num;
+
+      if (LTID == 0) {
+        act_num = 0;
+        t_num = 0;
+        h_num = 0;
+      }
+      __syncthreads();
+      atomicAdd((int *)&t_num, 1);
+      __syncthreads();
+      if (act) atomicAdd((int *)&act_num, 1);
+      __syncthreads();
+      if (holder) atomicAdd((int *)&h_num, 1);
+      __syncthreads();
+
+      if (LTID == 0) {
+        printf(
+            "%s:%d  buffer.large.Size() %d buffer.large.size %d old_large_size "
+            "%d "
+            "old_small_size %d act_num %d  h_num %d active_size %d t_num "
+            "%d\n",
+            __FILE__, __LINE__, (int)buffer.large.Size(),
+            (int)buffer.large.Size(), (int)old_large_size, (int)old_small_size,
+            act_num, h_num, active_size, t_num);
+      }
+      __syncthreads();
+
+      if (act) {
+        if (old_large_size < active_size) {
+          int res = old_small_idx % old_large_size;
+          largeV = buffer.large.Get(old_large_size - res - 1);  //
+        } else {
+          largeV = buffer.large.Get(old_large_size - LTID - 1);
+        }
+      }
+      __syncthreads();
+      if (tb.thread_rank() == 0) {
+        buffer.large.SizeAtomicAdd(-MIN(old_large_size, active_size));
+      }
+      __syncthreads();
+      float old;
+      if (holder) {
+        if (!act)
+          if (LTID == 0) {
+            printf(
+                "%d  buffer.large.Size() %d buffer.large.size %d "
+                "old_large_size "
+                "%d "
+                "old_small_size %d act_num %d  h_num %d active_size %d t_num "
+                "%d\n",
+                __LINE__, (int)buffer.large.Size(), (int)buffer.large.Size(),
+                (int)old_large_size, (int)old_small_size, act_num, h_num,
+                active_size, t_num);
+          }
+        assert(act);
+        old = atomicAdd(&buffer.prob.data[largeV],
+                        buffer.prob.Get(smallV) - 1.0);  // smallV error
+      }
+      MySync();
+      if (!holder && act)
+        old =
+            atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
+      MySync();
+
+      if (act) {
+        if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
+          // active_size2(" buffer.prob<0 ", __LINE__);
+          atomicAdd(&roll_backs, 1);
+          atomicAdd(&buffer.prob.data[largeV], 1 - buffer.prob.Get(smallV));
+          buffer.small.Add(smallV);
+        } else {
+          buffer.alias.data[smallV] = largeV;
+          if (holder) {
+            if (buffer.prob.Get(largeV) < 1.0) {
+              buffer.small.Add(largeV);
+            } else if (buffer.prob.Get(largeV) > 1.0) {
+              buffer.large.Add(largeV);
+            }
+          }
+        }
+      }
+      __syncthreads();
+      __syncthreads();
+      if (LTID == 0) {
+        alive = (!buffer.small.Empty()) && (!buffer.large.Empty());
+      }
+      __syncthreads();
+
+    }
+    while (false) {
       __syncthreads();
       itr++;
       thread_block tb = this_thread_block();
@@ -650,7 +780,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
         printf(" %s:%d buffer.large.Size() %d -------------------------\n",
                __FILE__, __LINE__, buffer.large.Size());
       __syncthreads();
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d \n", __FILE__, __LINE__,
                buffer.large.Size());
       // coalesced_group active = coalesced_threads();
@@ -658,7 +788,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
         // *buffer.small.size -= active_size;
         buffer.small.SizeAtomicAdd(-active_size);
       }
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d \n", __FILE__, __LINE__,
                buffer.large.Size());
       __syncthreads();
@@ -677,18 +807,18 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
         t_num = 0;
         h_num = 0;
       }
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d \n", __FILE__, __LINE__,
                buffer.large.Size());
       __syncthreads();
       atomicAdd((int *)&t_num, 1);
       if (act) atomicAdd((int *)&act_num, 1);
       if (holder) atomicAdd((int *)&h_num, 1);
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d \n", __FILE__, __LINE__,
                buffer.large.Size());
       __syncthreads();
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d \n", __FILE__, __LINE__,
                buffer.large.Size());
 
@@ -703,7 +833,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
             act_num, h_num, active_size, t_num);
       }
       __syncthreads();
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d \n", __FILE__, __LINE__,
                buffer.large.Size());
       if (act) {
@@ -714,7 +844,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
           largeV = buffer.large.Get(old_large_size - LTID - 1);
         }
       }
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d\n", __FILE__, __LINE__,
                buffer.large.Size());
       __syncthreads();
@@ -726,7 +856,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       }
       __syncthreads();
       float old;
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d\n", __FILE__, __LINE__,
                buffer.large.Size());
       if (holder) {
@@ -746,7 +876,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
         old = atomicAdd(&buffer.prob.data[largeV],
                         buffer.prob.Get(smallV) - 1.0);  // smallV error
       }
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d\n", __FILE__, __LINE__,
                buffer.large.Size());
       MySync();
@@ -754,7 +884,7 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
         old =
             atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
       MySync();
-      if (!LTID)
+      if (!LTID && INSPECT)
         printf(" %s:%d buffer.large.Size() %d\n", __FILE__, __LINE__,
                buffer.large.Size());
       if (act) {
