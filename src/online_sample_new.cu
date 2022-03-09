@@ -124,12 +124,13 @@ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>::
         Jobs_result<JobType::NS, uint> result, uint instance_id, uint offset,
         uint local_offset) {
   __shared__ uint size;
+  // use only the first warp to sample
   if (WID == 0) {
     buffer.selected.CleanDataWC();
     int itr = 0;
     // uint *local_size = &sizes[0];
     if (LID == 0) size = 0;
-    MySync();
+    __syncwarp();
     while (size < target_size) {
       roll_once(&size, state, target_size, result, instance_id, offset, 0);
       itr++;
@@ -141,7 +142,8 @@ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>::
     if (LID == 0)
       result.SetSampleLength(instance_id, buffer.current_itr, offset, size);
   }
-  __syncthreads();
+  // __syncthreads();
+  __syncthreads_count(1);
 }
 
 static __device__ void SampleWarpCentic(Jobs_result<JobType::NS, uint> &result,
@@ -177,18 +179,18 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::NS, uint> &result,
   table->loadGlobalBuffer(vector_packs);
   // if(LTID)
   // printf("vector_packs->selected.size %u\n",vector_packs->selected.size );
-  __syncthreads();
+  __syncthreads_count(blockDim.x);
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(src_id), ggraph,
                            ggraph->getDegree(src_id), current_itr, src_id);
-  __syncthreads();
+  __syncthreads_count(blockDim.x);
   if (not_all_zero) {
     table->constructBC();
     uint target_size =
         MIN(ggraph->getDegree(src_id), result.hops[current_itr + 1]);
     table->roll_atomic(target_size, &state, result, instance_idx, offset);
   }
-  __syncthreads();
+  __syncthreads_count(blockDim.x);
   table->Clean();
 }
 
@@ -317,7 +319,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
 
   LOG("alllocate GMEM buffer %d MB\n",
       block_num * gbuff_size * MEM_PER_ELE / 1024 / 1024);
-  paster(gbuff_size);
+  // paster(gbuff_size);
   Vector_pack<uint> *vector_pack_h = new Vector_pack<uint>[block_num];
   for (size_t i = 0; i < block_num; i++) {
     vector_pack_h[i].Allocate(gbuff_size, sampler.device_id);
@@ -335,7 +337,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   start_time = wtime();
 #ifndef NDEBUG
-  sample_kernel<<<1, 256, 0, 0>>>(sampler_ptr, vector_packs);
+  sample_kernel<<<1, 64, 0, 0>>>(sampler_ptr, vector_packs);
 #else
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #endif
