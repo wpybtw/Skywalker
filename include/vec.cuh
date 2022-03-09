@@ -360,18 +360,6 @@ class Vector_gmem {
       data[i] = 0;
     }
   }
-  // template <ExecutionPolicy policy = ExecutionPolicy::BC>
-  // __device__ void CleanData();
-  // template <> __device__ void CleanData<ExecutionPolicy::WC>() {
-  //   for (size_t i = LTID; i < *size; i += blockDim.x) {
-  //     data[i] = 0;
-  //   }
-  // }
-  // template <> __device__ void CleanData<ExecutionPolicy::BC>() {
-  //   for (size_t i = LTID; i < *size; i += blockDim.x) {
-  //     data[i] = 0;
-  //   }
-  // }
   __forceinline__ __host__ __device__ volatile const int Size() {
     return *size;
   }
@@ -400,10 +388,6 @@ class Vector_gmem {
 #endif
     assert(old < *capacity);
     data[old] = t;
-    // else
-    // printf("%s:%d Vector_gmem overflow to %llu  %llu\n", __FILE__, __LINE__,
-    //        old, *capacity);
-    // printf("gvector overflow %d\n", old);
   }
   __device__ void AddTillSize(T t, int target_size) {
     int old = atomicAdd(size, 1);
@@ -431,12 +415,7 @@ class Vector_gmem {
     //   __FILE__,
     //          __LINE__, *size, id);
   }
-  __device__ T Get(int id) {  // size_t change to int
-                              // todo fix this potential error
-                              // if ((id >= *size))
-    //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
-    //   __FILE__,
-    //          __LINE__, *capacity, *size, (int)id);
+  __device__ T Get(int id) {  
 #ifndef NDEBUG
     if (id >= *capacity)
       printf("%s:%d %s capacity %u loc %llu\n", __FILE__, __LINE__,
@@ -451,20 +430,6 @@ class Vector_gmem {
     //   __FILE__, __LINE__, *capacity, *size, (int)id);
   }
 };
-// template <>
-// template <>
-// __device__ void Vector_gmem<char>::CleanData<ExecutionPolicy::WC>() {
-//   for (size_t i = LTID; i < *size; i += blockDim.x) {
-//     data[i] = 0;
-//   }
-// }
-// template <>
-// template <>
-// __device__ void Vector_gmem<char>::CleanData<ExecutionPolicy::BC>() {
-//   for (size_t i = LTID; i < *size; i += blockDim.x) {
-//     data[i] = 0;
-//   }
-// }
 
 template <typename T>
 class Vector_virtual {

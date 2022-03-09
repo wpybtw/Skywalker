@@ -142,7 +142,6 @@ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>::
     if (LID == 0)
       result.SetSampleLength(instance_id, buffer.current_itr, offset, size);
   }
-  // __syncthreads();
   __syncthreads_count(1);
 }
 
