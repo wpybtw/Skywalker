@@ -313,7 +313,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
   block_num = 1;
 #endif
 
-  int gbuff_size = sampler.ggraph.MaxDegree;
+  int gbuff_size = sampler.ggraph.MaxDegree + 10;
 
   LOG("alllocate GMEM buffer %d MB\n",
       block_num * gbuff_size * MEM_PER_ELE / 1024 / 1024);
@@ -335,7 +335,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   start_time = wtime();
 #ifndef NDEBUG
-  sample_kernel<<<1, 128, 0, 0>>>(sampler_ptr, vector_packs);
+  sample_kernel<<<1, 256, 0, 0>>>(sampler_ptr, vector_packs);
 #else
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #endif

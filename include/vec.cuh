@@ -282,8 +282,11 @@ struct Global_buffer {
 
 template <typename T>
 class Vector_gmem {
+ private:
+  int *size;
+
  public:
-  int *size, size_h, *floor;
+  int size_h, *floor;
   int *capacity, capacity_h;
   T *data = nullptr;
   // bool use_self_buffer = false;
@@ -353,12 +356,6 @@ class Vector_gmem {
     }
   }
   __device__ void CleanDataWC() {
-    // if (LID==0)
-    // {
-    //   printf("%x\n",data ); //misalignment
-    //   printf("size %llu\t", *size);
-    // }
-
     for (size_t i = LID; i < *size; i += 32) {
       data[i] = 0;
     }
@@ -378,13 +375,24 @@ class Vector_gmem {
   __forceinline__ __host__ __device__ volatile const int Size() {
     return *size;
   }
-  __host__ __device__ void SetSize(size_t s) { *size = s; }
+  __forceinline__ __host__ __device__ int *GetSizePtr() {
+    printf("%s:%d %s \n", __FILE__, __LINE__, __FUNCTION__);
+    return size;
+  }
+  __forceinline__  __device__ void SizeAtomicAdd(int i) {
+    printf("%s:%d %s \n", __FILE__, __LINE__, __FUNCTION__);
+    atomicAdd(size, i);
+  }
+  __forceinline__  __device__ void SetSize(size_t s) {
+    printf("%s:%d %s \n", __FILE__, __LINE__, __FUNCTION__);
+    *size = s;
+  }
   // __host__ __device__ int &SizeRef() { return *size; }
   __forceinline__ __device__ void Add(T t) {
     int old = atomicAdd((int *)size, 1);
 #ifndef NDEBUG
     if (old >= *capacity)
-      printf("%s:%d %s capacity %u loc %llu\n", __FILE__, __LINE__,
+      printf("%s:%d %s capacity %d loc %d\n", __FILE__, __LINE__,
              __FUNCTION__, *capacity, old);
 #endif
     assert(old < *capacity);
@@ -404,8 +412,7 @@ class Vector_gmem {
     //   printf("already full %d\n", old);
   }
   __forceinline__ __device__ bool Empty() {
-    // return !(static_cast<bool>(*size));
-    if (*size == 0) return true;
+    if (*size <= 0) return true; // relax to <=0 due to unspecified error
     return false;
   }
   __device__ T &operator[](size_t id) {
@@ -422,19 +429,18 @@ class Vector_gmem {
     //          __LINE__, *size, id);
   }
   __device__ T Get(int id) {  // size_t change to int
-    // todo fix this potential error
-    // if ((id >= *size))
+                              // todo fix this potential error
+                              // if ((id >= *size))
     //   printf("%s\t:%d overflow capacity %llu size %llu idx %llu \n",
     //   __FILE__,
     //          __LINE__, *capacity, *size, (int)id);
-    // assert(id < *size);
 #ifndef NDEBUG
     if (id >= *capacity)
       printf("%s:%d %s capacity %u loc %llu\n", __FILE__, __LINE__,
              __FUNCTION__, *capacity, (unsigned long long)id);
 #endif
     assert(id < *capacity);
-    assert(id >= 0);
+    // assert(id >= 0); // why 1 cause error
 
     return data[id];
     // else

@@ -204,7 +204,7 @@ struct LocalitySampleFrontier {
     uint length = 1;
     size_per_bucket =
         capacity * 26;  //  / bucket_num, hard to tell the buffer size
-    paster(size_per_bucket);
+    // paster(size_per_bucket);
     // paster(bucket_num);
     data_h = new sampleJob<T> *[bucket_num];
     CUDA_RT_CALL(cudaMalloc(&data, bucket_num * sizeof(sampleJob<T> *)));
@@ -336,6 +336,11 @@ struct SampleFrontier {
   // __device__ void CheckActive(uint itr) {}
   __device__ void Add(uint instance_idx, uint offset, uint itr, T src_id) {
     size_t old = atomicAdd(&sizes[itr], 1);
+#ifndef NDEBUG
+    if (old >= capacity[itr])
+      printf("%s:%d %s vec overflow capacity %u loc %llu\n", __FILE__, __LINE__,
+             __FUNCTION__, capacity[itr], (unsigned long long)old);
+#endif
     assert(old < capacity[itr]);
     sampleJob<T> tmp = {instance_idx, offset, src_id, 0, true};
     data[itr][old] = tmp;
@@ -476,7 +481,7 @@ struct Jobs_result<JobType::NS, T> {
     //   printf("sampleIdx %u itr %u idx %u loc %u \n", sampleIdx, itr, idx,
     //   tmp);
     // }
-    printf("\n ");
+    // printf("\n ");
     CUDA_RT_CALL(cudaMalloc(&offsets, hop_num * sizeof(uint)));
     CUDA_RT_CALL(cudaMemcpy(offsets, offsets_h, hop_num * sizeof(uint),
                             cudaMemcpyHostToDevice));

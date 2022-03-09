@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Pengyu Wang
- * @LastEditTime: 2022-03-07 13:03:34
+ * @LastEditTime: 2022-03-09 10:33:49
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -103,7 +103,7 @@ DEFINE_bool(gmem, false, "do not use shmem as buffer");
 
 DEFINE_bool(loc, false, "use locality-aware frontier");
 DEFINE_bool(newsampler, false, "use new sampler");
-
+DEFINE_bool(csv, false, "CSV output");
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -364,18 +364,26 @@ int main(int argc, char *argv[]) {
     }
     if (FLAGS_s) break;
   }
-  if (!FLAGS_ol && FLAGS_bias)
+  if (FLAGS_csv) {
     for (size_t i = 0; i < FLAGS_ngpu; i++) {
-      printf("%0.2f\t", table_times[i]);
+      if (!FLAGS_ol && FLAGS_bias) printf("%0.2f,\t", table_times[i]);
+      printf("%0.2f,\t", times[i]);
+      printf("%0.2f,\n", tp[i]);
     }
-  printf("\n");
-  for (size_t i = 0; i < FLAGS_ngpu; i++) {
-    printf("%0.2f\t", times[i]);
+  } else {
+    if (!FLAGS_ol && FLAGS_bias)
+      for (size_t i = 0; i < FLAGS_ngpu; i++) {
+        printf("%0.2f\t", table_times[i]);
+      }
+    printf("\n");
+    for (size_t i = 0; i < FLAGS_ngpu; i++) {
+      printf("%0.2f\t", times[i]);
+    }
+    printf("\n");
+    for (size_t i = 0; i < FLAGS_ngpu; i++) {
+      printf("%0.2f\t", tp[i]);
+    }
+    printf("\n");
   }
-  printf("\n");
-  for (size_t i = 0; i < FLAGS_ngpu; i++) {
-    printf("%0.2f\t", tp[i]);
-  }
-  printf("\n");
   return 0;
 }
