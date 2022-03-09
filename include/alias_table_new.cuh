@@ -706,7 +706,6 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       }
       __syncthreads_count(1);
     }
-    // if (LID == 0 || LID == 16) printf("thread exiting %d\n", threadIdx.x);
     // if (LTID == 0)
     //   printf("%d %u\n", buffer.ggraph->getDegree((uint)buffer.src_id),
     //          roll_backs);
