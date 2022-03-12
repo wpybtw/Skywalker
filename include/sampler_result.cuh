@@ -197,8 +197,6 @@ struct Jobs_result<JobType::NS, T> {
                                                   uint idx, uint v) {
     uint tmp = sampleIdx * size_of_sample_lengths + offsets[itr] + idx;
     sample_lengths[tmp] = v;
-    if ((sampleIdx == 2 || itr == 2))
-      printf(" 444 roll_atomic idx %u  length %d\n", idx, v);
   }
   __device__ uint GetSampleLength(uint sampleIdx, uint itr, size_t idx) {
     // printf("size_of_sample_lengths %u\n",size_of_sample_lengths);
@@ -336,11 +334,11 @@ struct Jobs_result<JobType::NS, T> {
                             bool should_add = true, uint limit = 0) {
     // int old = atomicAdd(&job_sizes[current_itr + 1], 1);
     // *(getNextAddr(current_itr) + old) = candidate;
-    if (itr >= 2 && should_add)
-      printf(
-          "add itr %u sampleIdx %u offset %u local_offset %u adding "
-          "%u\n ",
-          itr, sampleIdx, offset, local_offset,  candidate);
+    // if (itr >= 2 && should_add)
+    //   printf(
+    //       "add itr %u sampleIdx %u offset %u local_offset %u adding "
+    //       "%u\n ",
+    //       itr, sampleIdx, offset, local_offset,  candidate);
     uint tmp = offset * hops[itr] + local_offset;
     // if (!sampleIdx)  // offset == 1 || && itr == 1 && (offset == 0)
     //   printf("itr %u sampleIdx %u offset %u local_offset %u loc %u
