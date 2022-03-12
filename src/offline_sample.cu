@@ -452,7 +452,7 @@ float OfflineSample(Sampler_new &sampler) {
   int n_sm = prop.multiProcessorCount;
 
   Sampler_new *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Sampler_new));
+  MyCudaMalloc(&sampler_ptr, sizeof(Sampler_new));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler_new),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;

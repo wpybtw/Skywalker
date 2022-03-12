@@ -24,11 +24,11 @@ using uint = unsigned int;
 #ifdef USING_HALF
 #include <cuda_fp16.h>
 using prob_t = __half;
-using offset_t = uint16_t;  //65535
+using offset_t = uint16_t;  // 65535
 #else
 using prob_t = float;
-using offset_t = uint32_t;  
-#endif // USING_HALF
+using offset_t = uint32_t;
+#endif  // USING_HALF
 
 #define SPEC_EXE
 // #define RECORD_SPEC_FAIL
@@ -67,14 +67,47 @@ using offset_t = uint32_t;
 #define MEM_PER_ELE (4 + 4 + 4 + 4 + 2)
 // #define MEM_PER_ELE (4 + 4 + 4 + 4 + 1)
 // alignment
-#define ALLOWED_ELE_PER_SUBWARP (SHMEM_PER_WARP*SUBWARP_SIZE/32/MEM_PER_ELE-5)
+#define ALLOWED_ELE_PER_SUBWARP \
+  (SHMEM_PER_WARP * SUBWARP_SIZE / 32 / MEM_PER_ELE - 5)
 #define ALLOWED_ELE_PER_WARP (SHMEM_PER_WARP / MEM_PER_ELE - 12)  // 73
 
 #define ALLOWED_ELE_PER_BLOCK (SHMEM_PER_BLK / MEM_PER_ELE - 26)  // 656
 
 #define ELE_PER_SUBWARP 8
 #define ELE_PER_WARP 64
-#define ELE_PER_BLOCK  656 
+#define ELE_PER_BLOCK 656
+
+#define LOG(...) \
+  if (FLAGS_v) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
+
+#define MyCudaMalloc(ptr, size) \
+  MyCudaMallocF(ptr, size, __FILE__, __LINE__, #ptr)
+#define MyCudaMallocManaged(ptr, size) \
+  MyCudaMallocManagedF(ptr, size, __FILE__, __LINE__, #ptr)
+
+// #define PRINT_MEM_ALLOC
+
+template <typename T>
+inline cudaError_t MyCudaMallocF(T **ptr, size_t size, const char *file, int line,
+                                 const char *v) {
+  cudaError_t cudaStatus = cudaMalloc(ptr, size);
+#ifdef PRINT_MEM_ALLOC
+  int mb = size / 1024 / 1024;
+  if (mb > 100) printf(" %s:%d malloc %s %d MB\n", file, line, v, mb);
+#endif
+  return cudaStatus;
+}
+
+template <typename T>
+inline cudaError_t MyCudaMallocManagedF(T **ptr, size_t size, const char *file,
+                                        int line, const char *v) {
+  cudaError_t cudaStatus = cudaMallocManaged(ptr, size);
+#ifdef PRINT_MEM_ALLOC
+  int mb = size / 1024 / 1024;
+  if (mb > 100) printf(" %s:%d malloc UM %s %d MB\n", file, line, v, mb);
+#endif
+  return cudaStatus;
+}
 
 #define CUDA_RT_CALL(call)                                               \
   {                                                                      \
@@ -114,20 +147,16 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
   }
 }
 
-template<typename T>
-__forceinline__ __device__ T atomicAggInc(T *ctr)
-{
+template <typename T>
+__forceinline__ __device__ T atomicAggInc(T *ctr) {
   auto g = coalesced_threads();
   T warp_res;
-  if (g.thread_rank() == 0)
-    warp_res = atomicAdd(ctr, g.size());
+  if (g.thread_rank() == 0) warp_res = atomicAdd(ctr, g.size());
   return g.shfl(warp_res, 0) + g.thread_rank();
 }
 
 __device__ void active_size(int n);
 __device__ int active_size2(char *txt, int n);
-#define LOG(...) \
-  if (FLAGS_v) print::myprintf(__FILE__, __LINE__, __VA_ARGS__)
 
 namespace print {
 template <typename... Args>
@@ -235,81 +264,68 @@ __device__ long long my_atomicAdd(long long *address, long long val);
 //   float tp;
 // };
 
-
 //
-// ref: https://github.com/pytorch/pytorch/blob/master/aten/src/THC/THCAtomics.cuh
+// ref:
+// https://github.com/pytorch/pytorch/blob/master/aten/src/THC/THCAtomics.cuh
 //
-__device__ __inline__ void atomic_max(int64_t *addr, int64_t val)
-{
-    if (*addr >= val)
-        return;
+__device__ __inline__ void atomic_max(int64_t *addr, int64_t val) {
+  if (*addr >= val) return;
 
-    unsigned long long *const addr_as_ull = (unsigned long long *)addr;
-    unsigned long long old               = *addr_as_ull, assumed;
-    do {
-        assumed = old;
-        if (reinterpret_cast<int64_t&>(assumed) >= val)
-            break;
-        old = atomicCAS(addr_as_ull, assumed, val);
-    } while (assumed != old);
+  unsigned long long *const addr_as_ull = (unsigned long long *)addr;
+  unsigned long long old = *addr_as_ull, assumed;
+  do {
+    assumed = old;
+    if (reinterpret_cast<int64_t &>(assumed) >= val) break;
+    old = atomicCAS(addr_as_ull, assumed, val);
+  } while (assumed != old);
 }
 
-__device__ __inline__ void atomic_add(int64_t *addr, int64_t val)
-{
-    if (*addr >= val)
-        return;
+__device__ __inline__ void atomic_add(int64_t *addr, int64_t val) {
+  if (*addr >= val) return;
 
-    unsigned long long *const addr_as_ull = (unsigned long long *)addr;
-    unsigned long long old               = *addr_as_ull, assumed;
-    do {
-        assumed = old;
-        old = atomicCAS(addr_as_ull, assumed, reinterpret_cast<int64_t&>(old) + val);
-    } while (assumed != old);
+  unsigned long long *const addr_as_ull = (unsigned long long *)addr;
+  unsigned long long old = *addr_as_ull, assumed;
+  do {
+    assumed = old;
+    old =
+        atomicCAS(addr_as_ull, assumed, reinterpret_cast<int64_t &>(old) + val);
+  } while (assumed != old);
 }
 
-__device__ __inline__ void atomic_min(int64_t *addr, int64_t val)
-{
-    if (*addr >= val)
-        return;
+__device__ __inline__ void atomic_min(int64_t *addr, int64_t val) {
+  if (*addr >= val) return;
 
-    unsigned long long *const addr_as_ull = (unsigned long long *)addr;
-    unsigned long long old               = *addr_as_ull, assumed;
-    do {
-        assumed = old;
-        if (reinterpret_cast<int64_t&>(assumed) <= val)
-            break;
-        old = atomicCAS(addr_as_ull, assumed, val);
-    } while (assumed != old);
+  unsigned long long *const addr_as_ull = (unsigned long long *)addr;
+  unsigned long long old = *addr_as_ull, assumed;
+  do {
+    assumed = old;
+    if (reinterpret_cast<int64_t &>(assumed) <= val) break;
+    old = atomicCAS(addr_as_ull, assumed, val);
+  } while (assumed != old);
 }
 
-__device__ __inline__ void atomic_max(float *addr, float val)
-{
-    if (*addr >= val)
-        return;
+__device__ __inline__ void atomic_max(float *addr, float val) {
+  if (*addr >= val) return;
 
-    unsigned int *const addr_as_ui = (unsigned int *)addr;
-    unsigned int old               = *addr_as_ui, assumed;
-    do {
-        assumed = old;
-        if (__uint_as_float(assumed) >= val)
-            break;
-        old = atomicCAS(addr_as_ui, assumed, __float_as_uint(val));
-    } while (assumed != old);
+  unsigned int *const addr_as_ui = (unsigned int *)addr;
+  unsigned int old = *addr_as_ui, assumed;
+  do {
+    assumed = old;
+    if (__uint_as_float(assumed) >= val) break;
+    old = atomicCAS(addr_as_ui, assumed, __float_as_uint(val));
+  } while (assumed != old);
 }
 
-__device__ __inline__ void atomic_min(float *addr, float val)
-{
-    if (*addr <= val)
-        return;
+__device__ __inline__ void atomic_min(float *addr, float val) {
+  if (*addr <= val) return;
 
-    unsigned int *const addr_as_ui = (unsigned int *)addr;
-    unsigned int old               = *addr_as_ui, assumed;
-    do {
-        assumed = old;
-        if (__uint_as_float(assumed) <= val)
-            break;
-        old = atomicCAS(addr_as_ui, assumed, __float_as_uint(val));
-    } while (assumed != old);
+  unsigned int *const addr_as_ui = (unsigned int *)addr;
+  unsigned int old = *addr_as_ui, assumed;
+  do {
+    assumed = old;
+    if (__uint_as_float(assumed) <= val) break;
+    old = atomicCAS(addr_as_ui, assumed, __float_as_uint(val));
+  } while (assumed != old);
 }
 
 // __device__ __inline__ void atomic_add(half *address, half val)
@@ -317,17 +333,19 @@ __device__ __inline__ void atomic_min(float *addr, float val)
 // #if (__CUDA_ARCH__ >= 700) && (PPL_CUDA_NVCC_VERSION >= 100010)
 //     atomicAdd(address, val);
 // #else
-//     unsigned int *base_address = (unsigned int *)((char *)address - ((size_t)address & 2));
-//     unsigned int old           = *base_address;
+//     unsigned int *base_address = (unsigned int *)((char *)address -
+//     ((size_t)address & 2)); unsigned int old           = *base_address;
 //     unsigned int assumed;
 //     unsigned short x;
 
 //     do {
 //         assumed = old;
 //         x       = (size_t)address & 2 ? (old >> 16) : (old & 0xffff);
-//         x       = __half_as_short(__float2half(__half2float(*reinterpret_cast<const __half *>(&x)) + __half2float(val)));
-//         old     = (size_t)address & 2 ? (old & 0xffff) | (x << 16) : (old & 0xffff0000) | x;
-//         old     = atomicCAS(base_address, assumed, old);
+//         x       =
+//         __half_as_short(__float2half(__half2float(*reinterpret_cast<const
+//         __half *>(&x)) + __half2float(val))); old     = (size_t)address & 2 ?
+//         (old & 0xffff) | (x << 16) : (old & 0xffff0000) | x; old     =
+//         atomicCAS(base_address, assumed, old);
 //     } while (assumed != old);
 // #endif
 // }

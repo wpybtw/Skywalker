@@ -330,7 +330,7 @@ float UnbiasedSample(Sampler_new &sampler) {
   FLAGS_peritr = 1;
 
   Sampler_new *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Sampler_new));
+  MyCudaMalloc(&sampler_ptr, sizeof(Sampler_new));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler_new),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
@@ -342,7 +342,7 @@ float UnbiasedSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaPeekAtLastError());
 
   uint size_h, *size_d;
-  cudaMalloc(&size_d, sizeof(uint));
+  MyCudaMalloc(&size_d, sizeof(uint));
 #pragma omp barrier
   start_time = wtime();
   if (FLAGS_peritr) {

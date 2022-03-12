@@ -48,11 +48,11 @@ struct Buffer_pointer {
 
   void allocate(uint _size) {
     size = _size;
-    CUDA_RT_CALL(cudaMalloc(&b0, size * sizeof(uint)));
-    CUDA_RT_CALL(cudaMalloc(&b1, size * sizeof(uint)));
-    CUDA_RT_CALL(cudaMalloc(&b2, size * sizeof(offset_t)));
-    CUDA_RT_CALL(cudaMalloc(&b3, size * sizeof(prob_t)));
-    CUDA_RT_CALL(cudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
+    CUDA_RT_CALL(MyCudaMalloc(&b0, size * sizeof(uint)));
+    CUDA_RT_CALL(MyCudaMalloc(&b1, size * sizeof(uint)));
+    CUDA_RT_CALL(MyCudaMalloc(&b2, size * sizeof(offset_t)));
+    CUDA_RT_CALL(MyCudaMalloc(&b3, size * sizeof(prob_t)));
+    CUDA_RT_CALL(MyCudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
   }
   __host__ ~Buffer_pointer() {
     if (b0 != nullptr) CUDA_RT_CALL(cudaFree(b0));

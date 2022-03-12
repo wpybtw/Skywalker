@@ -187,7 +187,7 @@ float OfflineWalk(Walker &walker) {
   int n_sm = prop.multiProcessorCount;
 
   Walker *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Walker));
+  MyCudaMalloc(&sampler_ptr, sizeof(Walker));
   CUDA_RT_CALL(
       cudaMemcpy(sampler_ptr, &walker, sizeof(Walker), cudaMemcpyHostToDevice));
   double start_time, total_time;

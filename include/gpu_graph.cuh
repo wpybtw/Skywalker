@@ -17,6 +17,7 @@ DECLARE_bool(weight);
 DECLARE_bool(randomweight);
 DECLARE_bool(pf);
 DECLARE_bool(ab);
+DECLARE_double(pfr);
 // typedef uint edge_t;
 // typedef unsigned int vtx_t;
 // typedef float weight_t;
@@ -74,18 +75,18 @@ class gpu_graph {
     avg_degree = ginst->numEdge / ginst->numNode;
 
     if (FLAGS_umgraph) {
-      CUDA_RT_CALL(cudaMallocManaged(&xadj, (vtx_num + 1) * sizeof(edge_t)));
-      CUDA_RT_CALL(cudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
+      CUDA_RT_CALL(MyCudaMallocManaged(&xadj, (vtx_num + 1) * sizeof(edge_t)));
+      CUDA_RT_CALL(MyCudaMallocManaged(&adjncy, edge_num * sizeof(vtx_t)));
       if (FLAGS_weight || FLAGS_randomweight)
-        CUDA_RT_CALL(cudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
+        CUDA_RT_CALL(MyCudaMallocManaged(&adjwgt, edge_num * sizeof(weight_t)));
     }
     if (FLAGS_gmgraph) {
       LOG("GMGraph\n");
       CUDA_RT_CALL(cudaSetDevice(FLAGS_gmid));
-      CUDA_RT_CALL(cudaMalloc(&xadj, (vtx_num + 1) * sizeof(edge_t)));
-      CUDA_RT_CALL(cudaMalloc(&adjncy, edge_num * sizeof(vtx_t)));
+      CUDA_RT_CALL(MyCudaMalloc(&xadj, (vtx_num + 1) * sizeof(edge_t)));
+      CUDA_RT_CALL(MyCudaMalloc(&adjncy, edge_num * sizeof(vtx_t)));
       if (FLAGS_weight || FLAGS_randomweight)
-        CUDA_RT_CALL(cudaMalloc(&adjwgt, edge_num * sizeof(weight_t)));
+        CUDA_RT_CALL(MyCudaMalloc(&adjwgt, edge_num * sizeof(weight_t)));
 
       CUDA_RT_CALL(cudaSetDevice(dev_id));
       if (dev_id != FLAGS_gmid) {
@@ -118,6 +119,7 @@ class gpu_graph {
     LOG("Set_Mem_Policy\n");
     // LOG("cudaMemAdvise %d %d\n", device_id, omp_get_thread_num());
     if (FLAGS_ab) {
+      LOG("Policy ab\n");
       CUDA_RT_CALL(cudaMemAdvise(xadj, (vtx_num + 1) * sizeof(edge_t),
                                  cudaMemAdviseSetAccessedBy, device_id));
       CUDA_RT_CALL(cudaMemAdvise(adjncy, edge_num * sizeof(vtx_t),
@@ -128,14 +130,23 @@ class gpu_graph {
     }
 
     if (FLAGS_pf) {
-      CUDA_RT_CALL(cudaMemPrefetchAsync(xadj, (vtx_num + 1) * sizeof(edge_t),
-                                        device_id, 0));
-      CUDA_RT_CALL(
-          cudaMemPrefetchAsync(adjncy, edge_num * sizeof(vtx_t), device_id, 0));
+      LOG("Policy pf\n");
+      if ((edge_num + 1) * sizeof(edge_t) / 1024 / 1024 / 1024 >
+          (needWeight ? 5 : 10)) {
+        FLAGS_pfr = 0.5;
+        LOG(" Overridding PF ratio to %f\n", (double)FLAGS_pfr);
+      }
+      CUDA_RT_CALL(cudaMemPrefetchAsync(
+          xadj, (size_t)((vtx_num + 1) * sizeof(edge_t) * FLAGS_pfr), device_id,
+          0));
+      CUDA_RT_CALL(cudaMemPrefetchAsync(
+          adjncy, (size_t)(edge_num * sizeof(vtx_t) * FLAGS_pfr), device_id,
+          0));
 
       if (needWeight)
-        CUDA_RT_CALL(cudaMemPrefetchAsync(adjwgt, edge_num * sizeof(weight_t),
-                                          device_id, 0));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(
+            adjwgt, (size_t)(edge_num * sizeof(weight_t) * FLAGS_pfr),
+            device_id, 0));
 
     } else {
       LOG("UM from host\n");

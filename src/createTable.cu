@@ -133,7 +133,7 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   //                                   AliasTableStorePolicy::STORE>));
 
   Sampler *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Sampler));
+  MyCudaMalloc(&sampler_ptr, sizeof(Sampler));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
@@ -153,7 +153,7 @@ float ConstructTable(Sampler &sampler, uint ngpu, uint index) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack2<uint> *vector_packs;
   CUDA_RT_CALL(
-      cudaMalloc(&vector_packs, sizeof(Vector_pack2<uint>) * block_num));
+      MyCudaMalloc(&vector_packs, sizeof(Vector_pack2<uint>) * block_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
                           sizeof(Vector_pack2<uint>) * block_num,
                           cudaMemcpyHostToDevice));

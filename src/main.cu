@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2020-11-17 13:28:27
  * @LastEditors: Pengyu Wang
- * @LastEditTime: 2022-03-09 19:05:37
+ * @LastEditTime: 2022-03-11 13:16:55
  * @FilePath: /skywalker/src/main.cu
  */
 #include <arpa/inet.h>
@@ -94,6 +94,7 @@ DEFINE_bool(sp, false, "using spliced buffer");
 DEFINE_bool(pf, true, "using UM prefetching");
 DEFINE_bool(ab, true, "using UM AB hint");
 // DEFINE_bool(pf, true, "using UM prefetching");
+DEFINE_double(pfr, 1.0, "UM prefetching ratio");
 
 DEFINE_bool(async, false, "using async execution");
 DEFINE_bool(replica, false, "same task for all gpus");
@@ -346,7 +347,7 @@ int main(int argc, char *argv[]) {
     }
     {
       size_t sampled = 0;
-      if ((!FLAGS_bias || !FLAGS_ol) && (!FLAGS_rw)|| FLAGS_newsampler)
+      if ((!FLAGS_bias || !FLAGS_ol) && (!FLAGS_rw) || FLAGS_newsampler)
         for (size_t i = 0; i < num_device; i++) {
           sampled += samplers_new[i].sampled_edges;  // / total_time /1000000
         }

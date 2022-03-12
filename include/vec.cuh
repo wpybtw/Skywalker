@@ -310,9 +310,9 @@ class Vector_gmem {
   __host__ void Allocate(int _capacity, uint gpuid) {
     capacity_h = _capacity;
     size_h = 0;
-    cudaMalloc(&size, sizeof(int));
-    cudaMalloc(&capacity, sizeof(int));
-    cudaMalloc(&floor, sizeof(int));
+    MyCudaMalloc(&size, sizeof(int));
+    MyCudaMalloc(&capacity, sizeof(int));
+    MyCudaMalloc(&floor, sizeof(int));
     int floor_h = 0;
     CUDA_RT_CALL(cudaMemcpy((void *)floor, &floor_h, sizeof(int),
                             cudaMemcpyHostToDevice));
@@ -325,10 +325,10 @@ class Vector_gmem {
 
     if (!FLAGS_umbuf) {
       // paster(  _capacity * sizeof(T));
-      CUDA_RT_CALL(cudaMalloc(&data, _capacity * sizeof(T)));
+      CUDA_RT_CALL(MyCudaMalloc(&data, _capacity * sizeof(T)));
     } else {
       // LOG("FLAGS_device not solved for vec\n");
-      CUDA_RT_CALL(cudaMallocManaged(&data, _capacity * sizeof(T)));
+      CUDA_RT_CALL(MyCudaMallocManaged(&data, _capacity * sizeof(T)));
       CUDA_RT_CALL(cudaMemAdvise(data, _capacity * sizeof(T),
                                  cudaMemAdviseSetAccessedBy, gpuid));
     }
@@ -336,6 +336,10 @@ class Vector_gmem {
   __device__ void Init(int _size = 0) {
     *size = _size;
     *floor = 0;
+  }
+  __device__ void printSize() {
+    printf("%s:%d %s size %d floor %d\n", __FILE__, __LINE__, __FUNCTION__,
+           *size, *floor);
   }
 
   __device__ void Clean() {
@@ -370,11 +374,11 @@ class Vector_gmem {
     // printf("%s:%d %s \n", __FILE__, __LINE__, __FUNCTION__);
     return size;
   }
-  __forceinline__  __device__ void SizeAtomicAdd(int i) {
+  __forceinline__ __device__ void SizeAtomicAdd(int i) {
     // printf("%s:%d %s \n", __FILE__, __LINE__, __FUNCTION__);
     atomicAdd(size, i);
   }
-  __forceinline__  __device__ void SetSize(size_t s) {
+  __forceinline__ __device__ void SetSize(size_t s) {
     // printf("%s:%d %s \n", __FILE__, __LINE__, __FUNCTION__);
     *size = s;
   }
@@ -383,8 +387,8 @@ class Vector_gmem {
     int old = atomicAdd((int *)size, 1);
 #ifndef NDEBUG
     if (old >= *capacity)
-      printf("%s:%d %s capacity %d loc %d\n", __FILE__, __LINE__,
-             __FUNCTION__, *capacity, old);
+      printf("%s:%d %s capacity %d loc %d\n", __FILE__, __LINE__, __FUNCTION__,
+             *capacity, old);
 #endif
     assert(old < *capacity);
     data[old] = t;
@@ -399,7 +403,7 @@ class Vector_gmem {
     //   printf("already full %d\n", old);
   }
   __forceinline__ __device__ bool Empty() {
-    if (*size <= 0) return true; // relax to <=0 due to unspecified error
+    if (*size <= 0) return true;  // relax to <=0 due to unspecified error
     return false;
   }
   __device__ T &operator[](size_t id) {
@@ -415,7 +419,7 @@ class Vector_gmem {
     //   __FILE__,
     //          __LINE__, *size, id);
   }
-  __device__ T Get(int id) {  
+  __device__ T Get(int id) {
 #ifndef NDEBUG
     if (id >= *capacity)
       printf("%s:%d %s capacity %u loc %llu\n", __FILE__, __LINE__,
