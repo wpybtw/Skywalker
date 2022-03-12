@@ -140,7 +140,7 @@ float OnlineGBSample(Sampler &sampler) {
   int n_sm = prop.multiProcessorCount;
 
   Sampler *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Sampler));
+  MyCudaMalloc(&sampler_ptr, sizeof(Sampler));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
@@ -161,7 +161,7 @@ float OnlineGBSample(Sampler &sampler) {
 #pragma omp barrier
   Vector_pack<uint> *vector_packs;
   CUDA_RT_CALL(
-      cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+      MyCudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
                           sizeof(Vector_pack<uint>) * block_num,
                           cudaMemcpyHostToDevice));

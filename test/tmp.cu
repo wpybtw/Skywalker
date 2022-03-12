@@ -31,12 +31,12 @@ int main(int argc, char const *argv[]) {
   int size = 40;
 
   cudaSetDevice(1);
-  cudaMalloc(&buf7, size / 2 * sizeof(int));
+  MyCudaMalloc(&buf7, size / 2 * sizeof(int));
 
   int *id_ptr;
   float *weight_ptr;
-  cudaMalloc(&id_ptr, size * sizeof(int));
-  cudaMalloc(&weight_ptr, size * sizeof(float));
+  MyCudaMalloc(&id_ptr, size * sizeof(int));
+  MyCudaMalloc(&weight_ptr, size * sizeof(float));
   init_range<int>(id_ptr, size);
   init_array<float>(weight_ptr, size / 8 * 7, 0.5);
   init_array<float>(weight_ptr + size / 8 * 7, size - size / 8 * 7, 2.0);

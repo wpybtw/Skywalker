@@ -9,6 +9,8 @@
 // #include "sampler.cuh"
 #define verbose
 
+#define SYNC __syncthreads() // __syncthreads_count(1)
+
 namespace cg = cooperative_groups;
 // using namespace cooperative_groups;
 // template <typename T>
@@ -51,11 +53,11 @@ struct Buffer_pointer {
 
   void allocate(uint _size) {
     size = _size;
-    CUDA_RT_CALL(cudaMalloc(&b0, size * sizeof(uint)));
-    CUDA_RT_CALL(cudaMalloc(&b1, size * sizeof(uint)));
-    CUDA_RT_CALL(cudaMalloc(&b2, size * sizeof(offset_t)));
-    CUDA_RT_CALL(cudaMalloc(&b3, size * sizeof(prob_t)));
-    CUDA_RT_CALL(cudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
+    CUDA_RT_CALL(MyCudaMalloc(&b0, size * sizeof(uint)));
+    CUDA_RT_CALL(MyCudaMalloc(&b1, size * sizeof(uint)));
+    CUDA_RT_CALL(MyCudaMalloc(&b2, size * sizeof(offset_t)));
+    CUDA_RT_CALL(MyCudaMalloc(&b3, size * sizeof(prob_t)));
+    CUDA_RT_CALL(MyCudaMalloc(&b4, size * sizeof(char)));  // unsigned short int
   }
   __host__ ~Buffer_pointer() {
     if (b0 != nullptr) CUDA_RT_CALL(cudaFree(b0));
@@ -618,7 +620,6 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       alive = 1;
     }
 
-    __syncthreads_count(1);
     for (size_t i = LTID; i < buffer.size; i += blockDim.x)  // BLOCK_SIZE
     {
       if (buffer.prob.Get(i) > 1)
@@ -632,9 +633,9 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
     // todo block lock step
 #ifdef SPEC_EXE
 
-    __syncthreads_count(1);
+    SYNC;
     while (alive) {
-      __syncthreads_count(1);
+      // SYNC;
       itr++;
       // if (LID == 0 || LID == 16) printf("thread starting %d\n", threadIdx.x);
 
@@ -644,8 +645,8 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       const int old_small_idx = buffer.small.Size() - LTID - 1;
       const bool act = (LTID < active_size);
 
-      assert(act == (old_small_idx >= 0));
-      __syncthreads_count(1);
+      // assert(act == (old_small_idx >= 0));
+      SYNC;
       if (LTID == 0) {
         buffer.small.SizeAtomicAdd(-active_size);
       }
@@ -654,10 +655,9 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
       if (act) {
         smallV = buffer.small.Get(old_small_idx);
       }
-      __syncthreads_count(1);
       bool holder = (LTID < MIN(old_large_size, old_small_size)) ? true : false;
 
-      __syncthreads_count(1);
+      // SYNC;
       if (act) {
         if (old_large_size < active_size) {
           int res = old_small_idx % old_large_size;
@@ -666,22 +666,22 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
           largeV = buffer.large.Get(old_large_size - LTID - 1);
         }
       }
-      __syncthreads_count(1);
+      // SYNC;
       if (LTID == 0) {
         buffer.large.SizeAtomicAdd(-MIN(old_large_size, active_size));
       }
-      __syncthreads_count(1);
+      SYNC;
       float old;
       if (holder) {
         assert(act);
         old = atomicAdd(&buffer.prob.data[largeV],
                         buffer.prob.Get(smallV) - 1.0);  // smallV error
       }
-      __syncthreads_count(1);
+      SYNC;
       if (!holder && act)
         old =
             atomicAdd(&buffer.prob.data[largeV], buffer.prob.Get(smallV) - 1.0);
-      __syncthreads_count(1);
+      SYNC;
 
       if (act) {
         if (old + buffer.prob.Get(smallV) - 1.0 < 0) {
@@ -700,11 +700,11 @@ struct alias_table_constructor_shmem<T, thread_block, BufferType::GMEM> {
           }
         }
       }
-      __syncthreads_count(1);
+      SYNC;
       if (LTID == 0) {
         alive = (!buffer.small.Empty()) && (!buffer.large.Empty());
       }
-      __syncthreads_count(1);
+      SYNC;
     }
     // if (LTID == 0)
     //   printf("%d %u\n", buffer.ggraph->getDegree((uint)buffer.src_id),

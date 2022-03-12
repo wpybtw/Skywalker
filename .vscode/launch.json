@@ -10,7 +10,7 @@
             "request": "launch",
             "externalConsole": false,
             "program": "${workspaceFolder}/build/skywalker",
-            "args": "-bias=1 --ol=1 --ngpu=1 --s --sage --input /home/pywang/data/orkut.w.gr --hd=1 --n=4000 -v  --printresult=1   --newsampler=1",
+            "args": "-bias=1 --ol=1 --ngpu=1 --s --sage --input /home/pywang/data/lj.w.gr --hd=1 --n=40000 -v  --printresult=1   --newsampler=1 --loc=1",
             "setupCommands": [
                 {
                     "description": "为 gdb 启用整齐打印",

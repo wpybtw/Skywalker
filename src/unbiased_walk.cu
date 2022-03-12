@@ -200,13 +200,13 @@ float UnbiasedWalk(Walker &walker) {
   int n_sm = prop.multiProcessorCount;
 
   Walker *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Walker));
+  MyCudaMalloc(&sampler_ptr, sizeof(Walker));
   CUDA_RT_CALL(
       cudaMemcpy(sampler_ptr, &walker, sizeof(Walker), cudaMemcpyHostToDevice));
 
   float *tp_d, tp;
   tp = FLAGS_tp;
-  cudaMalloc(&tp_d, sizeof(float));
+  MyCudaMalloc(&tp_d, sizeof(float));
   CUDA_RT_CALL(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
 
   double start_time, total_time;
@@ -222,7 +222,7 @@ float UnbiasedWalk(Walker &walker) {
   CUDA_RT_CALL(cudaPeekAtLastError());
 
   uint size_h, *size_d;
-  cudaMalloc(&size_d, sizeof(uint));
+  MyCudaMalloc(&size_d, sizeof(uint));
 
   // cudaEventRecord(start);
   start_time = wtime();

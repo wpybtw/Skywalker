@@ -259,7 +259,7 @@ float OnlineWalkShMem(Walker &sampler) {
   int n_sm = prop.multiProcessorCount;
 
   Walker *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Walker));
+  MyCudaMalloc(&sampler_ptr, sizeof(Walker));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Walker),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
@@ -281,14 +281,14 @@ float OnlineWalkShMem(Walker &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   Vector_pack<uint> *vector_packs;
   CUDA_RT_CALL(
-      cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+      MyCudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
                           sizeof(Vector_pack<uint>) * block_num,
                           cudaMemcpyHostToDevice));
 
   float *tp_d, tp;
   tp = FLAGS_tp;
-  cudaMalloc(&tp_d, sizeof(float));
+  MyCudaMalloc(&tp_d, sizeof(float));
   CUDA_RT_CALL(cudaMemcpy(tp_d, &tp, sizeof(float), cudaMemcpyHostToDevice));
 
   //  Global_buffer

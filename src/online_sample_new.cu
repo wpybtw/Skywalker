@@ -24,7 +24,7 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
       result.AddActive(buffer.current_itr + 1, instance_id, offset,
                        *local_size + active.thread_rank(),
                        buffer.ggraph->getOutNode(buffer.src_id, candidate),
-                       (buffer.current_itr + 2) != result.hop_num);
+                       (buffer.current_itr + 2) < result.hop_num);
     }
     if (active.thread_rank() == 0) *local_size += active.size();
 
@@ -57,26 +57,9 @@ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>::roll_once<
       result.AddActive(buffer.current_itr + 1, instance_id, offset,
                        *local_size + active.thread_rank(),
                        buffer.ggraph->getOutNode(buffer.src_id, candidate),
-                       (buffer.current_itr + 2) != result.hop_num);
-      // if (!instance_id)  // offset == 1 || && itr == 1 && (offset == 0)
-      //   printf(
-      //       " itr %u instance_id %u offset %u local_offset %u adding %u\n",
-      //       buffer.current_itr + 1, instance_id, offset, *local_size +
-      //       active.thread_rank(), buffer.ggraph->getOutNode(buffer.src_id,
-      //       candidate));
+                       ((buffer.current_itr + 2) < result.hop_num));
     }
     if (active.thread_rank() == 0) *local_size += active.size();
-    // if (AddTillSize(local_size, target_size)) {
-    //   result.AddActive(buffer.current_itr + 1, instance_id, offset,
-    //                    local_offset,
-    //                    buffer.ggraph->getOutNode(buffer.src_id, candidate),
-    //                    (buffer.current_itr + 2) != result.hop_num);
-    //   // if (!instance_id && offset == 1)
-    //   //   printf("offset %u local_offset %u   should %d\n", offset,
-    //   //   local_offset, buffer.ggraph->getOutNode(buffer.src_id,
-    //   local_offset),
-    //   //   (buffer.current_itr + 2) != result.hop_num);
-    // }
     return true;
   } else
     return false;
@@ -87,8 +70,9 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
     roll_atomic<Jobs_result<JobType::NS, uint>>(
         curandState *state, Jobs_result<JobType::NS, uint> result,
         uint instance_id, uint offset) {
+
   uint target_size = result.hops[buffer.current_itr + 1];
-  // (target_size > 0) &&
+
   if (target_size < buffer.ggraph->getDegree(buffer.src_id)) {
     int itr = 0;
     __shared__ uint sizes[WARP_PER_BLK];
@@ -108,12 +92,15 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
     target_size = buffer.ggraph->getDegree(buffer.src_id);
     for (size_t i = LID; i < target_size; i += 32) {
       result.AddActive(buffer.current_itr + 1, instance_id, offset, i,
-                       buffer.ggraph->getOutNode(buffer.src_id, i));
+                       buffer.ggraph->getOutNode(buffer.src_id, i),
+                       (buffer.current_itr + 2) < result.hop_num);
     }
   }
-  if (LID == 0)
+  if (LID == 0) {
     result.SetSampleLength(instance_id, buffer.current_itr, offset,
                            target_size);
+  }
+  __syncwarp();
 }
 
 template <>
@@ -156,7 +143,6 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::NS, uint> &result,
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(src_id), ggraph,
                            ggraph->getDegree(src_id), current_itr, src_id);
-  // if(!LID) printf("buffer.current_itr %u\n", table->buffer.current_itr);
   if (not_all_zero) {
     table->construct();
     table->roll_atomic(&state, result, instance_idx, offset);
@@ -176,8 +162,6 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::NS, uint> &result,
   alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *table =
       &tables[0];
   table->loadGlobalBuffer(vector_packs);
-  // if(LTID)
-  // printf("vector_packs->selected.size %u\n",vector_packs->selected.size );
   __syncthreads_count(blockDim.x);
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(src_id), ggraph,
@@ -193,6 +177,7 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::NS, uint> &result,
   table->Clean();
 }
 
+#ifndef LOCALITY
 __global__ void sample_kernel(Sampler_new *sampler,
                               Vector_pack<uint> *vector_pack) {
   Jobs_result<JobType::NS, uint> &result = sampler->result;
@@ -234,10 +219,12 @@ __global__ void sample_kernel(Sampler_new *sampler,
       }
       __syncwarp(FULL_WARP_MASK);
       if (LID == 0) job = result.requireOneJob(current_itr);
+      __syncwarp(FULL_WARP_MASK);
       job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
       job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
       job.src_id = __shfl_sync(FULL_WARP_MASK, job.src_id, 0);
       job.offset = __shfl_sync(FULL_WARP_MASK, job.offset, 0);
+      // if (!LID) printf("%s:%d sync done  %d\n", __FILE__, __LINE__, WID);
     }
     __syncthreads();
     __shared__ sampleJob<uint> high_degree_job;
@@ -266,16 +253,193 @@ __global__ void sample_kernel(Sampler_new *sampler,
     }
     __syncthreads();
     if (threadIdx.x == 0) {
-      // while (!result.checkFinish(current_itr))
-      // {
-      //   printf("waiting ");
-      // }
-      // result.NextItr(current_itr);
       current_itr++;
     }
     __syncthreads();
   }
 }
+#else
+__global__ void sample_kernel_loc(Sampler_new *sampler,
+                                  Vector_pack<uint> *vector_pack) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *ggraph = &sampler->ggraph;
+  Vector_pack<uint> *vector_packs = &vector_pack[BID];
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
+      table[WARP_PER_BLK];
+
+  void *buffer = &table[0];
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+
+  // __shared__ uint current_itr;
+  // if (threadIdx.x == 0) current_itr = 0;
+  __syncthreads();
+  while (result.frontier.needWork() || result.frontier.needWork()) {
+    for (int current_bucket = 0; current_bucket < result.frontier._bucket_num;
+         current_bucket++)  // for 2-hop, hop_num=3
+    {
+      while (result.frontier.checkFocus(current_bucket) ||
+             result.high_degree.checkFocus(current_bucket)) {
+        // Vector_gmem<uint> *high_degrees =
+        //     &sampler->result.high_degrees[current_itr];
+        sampleJob<uint> job;
+        __threadfence_block();
+        if (LID == 0)
+          job = result.frontier.requireOneJobFromBucket(current_bucket);
+        {
+          if (LID == 0 && (job.src_id == 430119 || job.src_id == 462435))
+            printf(" got %u degree %d\n", job.src_id,
+                   ggraph->getDegree(job.src_id));
+        }
+        __syncwarp(FULL_WARP_MASK);
+        job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+        job.offset = __shfl_sync(FULL_WARP_MASK, job.offset, 0);
+        job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+        job.src_id = __shfl_sync(FULL_WARP_MASK, job.src_id, 0);
+        job.itr = __shfl_sync(FULL_WARP_MASK, job.itr, 0);
+        __syncwarp(FULL_WARP_MASK);
+        while (job.val) {
+          if (ggraph->getDegree(job.src_id) < ELE_PER_WARP) {
+            SampleWarpCentic(result, ggraph, state, job.itr, job.instance_idx,
+                             job.src_id, buffer, job.offset);
+          } else {
+#ifdef skip8k
+            if (LID == 0 && ggraph->getDegree(job.src_id) < 8000)
+#else
+            if (LID == 0)
+#endif  // skip8k
+              result.AddHighDegree(job.itr, job);
+          }
+          // if (!LID) printf("%s:%d before  %d\n", __FILE__, __LINE__, WID);
+          __syncwarp(FULL_WARP_MASK);
+          // if (!LID) printf("%s:%d after  %d\n", __FILE__, __LINE__, WID);
+          if (LID == 0)
+            job = result.frontier.requireOneJobFromBucket(current_bucket);
+          __syncwarp(FULL_WARP_MASK);
+          job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+          job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+          job.src_id = __shfl_sync(FULL_WARP_MASK, job.src_id, 0);
+          job.offset = __shfl_sync(FULL_WARP_MASK, job.offset, 0);
+          job.itr = __shfl_sync(FULL_WARP_MASK, job.itr, 0);
+          // if (!LID) printf("%s:%d sync done  %d\n", __FILE__, __LINE__, WID);
+        }
+        __syncthreads();
+        __shared__ sampleJob<uint> high_degree_job;
+        if (LTID == 0) {
+          job = result.high_degree.requireOneJobFromBucket(current_bucket);
+          high_degree_job.instance_idx = job.instance_idx;
+          high_degree_job.val = job.val;
+          high_degree_job.src_id = job.src_id;
+          high_degree_job.offset = job.offset;
+          high_degree_job.itr = job.itr;
+        }
+        __syncthreads();
+        while (high_degree_job.val) {
+          SampleBlockCentic(result, ggraph, state, high_degree_job.itr,
+                            high_degree_job.src_id, buffer, vector_packs,
+                            high_degree_job.instance_idx,
+                            high_degree_job.offset);  // buffer_pointer
+          __syncthreads();
+          if (LTID == 0) {
+            job = result.high_degree.requireOneJobFromBucket(current_bucket);
+            high_degree_job.instance_idx = job.instance_idx;
+            high_degree_job.val = job.val;
+            high_degree_job.src_id = job.src_id;
+            high_degree_job.offset = job.offset;
+            high_degree_job.itr = job.itr;
+          }
+          __syncthreads();
+        }
+        __syncthreads();
+      }
+    }
+  }
+}
+
+__global__ void sample_kernel_loc2(Sampler_new *sampler,
+                                   Vector_pack<uint> *vector_pack) {
+  Jobs_result<JobType::NS, uint> &result = sampler->result;
+  gpu_graph *ggraph = &sampler->ggraph;
+  Vector_pack<uint> *vector_packs = &vector_pack[BID];
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>>
+      table[WARP_PER_BLK];
+
+  void *buffer = &table[0];
+  curandState state;
+  curand_init(TID, 0, 0, &state);
+
+  // __shared__ uint current_itr;
+  // if (threadIdx.x == 0) current_itr = 0;
+  __syncthreads();
+  while (result.frontier.needWork() || result.frontier.needWork()) {
+    for (int current_bucket = 0; current_bucket < result.frontier._bucket_num;
+         current_bucket++)  // for 2-hop, hop_num=3
+    {
+      while (result.frontier.checkFocus(current_bucket) ||
+             result.high_degree.checkFocus(current_bucket)) {
+        __syncthreads();
+        __shared__ sampleJob<uint> high_degree_job;
+        sampleJob<uint> job;
+        if (LTID == 0) {
+          job = result.high_degree.requireOneJobFromBucket(current_bucket);
+          high_degree_job.instance_idx = job.instance_idx;
+          high_degree_job.val = job.val;
+          high_degree_job.src_id = job.src_id;
+          high_degree_job.offset = job.offset;
+          high_degree_job.itr = job.itr;
+        }
+        __syncthreads();
+        while (high_degree_job.val) {
+          SampleBlockCentic(result, ggraph, state, high_degree_job.itr,
+                            high_degree_job.src_id, buffer, vector_packs,
+                            high_degree_job.instance_idx,
+                            high_degree_job.offset);  // buffer_pointer
+          __syncthreads();
+          if (LTID == 0) {
+            job = result.high_degree.requireOneJobFromBucket(current_bucket);
+            high_degree_job.instance_idx = job.instance_idx;
+            high_degree_job.val = job.val;
+            high_degree_job.src_id = job.src_id;
+            high_degree_job.offset = job.offset;
+            high_degree_job.itr = job.itr;
+          }
+          __syncthreads();
+        }
+
+        if (LID == 0)
+          job = result.frontier.requireOneJobFromBucket(current_bucket);
+        __syncwarp(FULL_WARP_MASK);
+        job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+        job.offset = __shfl_sync(FULL_WARP_MASK, job.offset, 0);
+        job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+        job.src_id = __shfl_sync(FULL_WARP_MASK, job.src_id, 0);
+        job.itr = __shfl_sync(FULL_WARP_MASK, job.itr, 0);
+        __syncwarp(FULL_WARP_MASK);
+        while (job.val) {
+          if (ggraph->getDegree(job.src_id) < ELE_PER_WARP) {
+            SampleWarpCentic(result, ggraph, state, job.itr, job.instance_idx,
+                             job.src_id, buffer, job.offset);
+          } else {
+            if (LID == 0) result.AddHighDegree(job.itr, job);
+          }
+          // if (!LID) printf("%s:%d before  %d\n", __FILE__, __LINE__, WID);
+          __syncwarp(FULL_WARP_MASK);
+          // if (!LID) printf("%s:%d after  %d\n", __FILE__, __LINE__, WID);
+          if (LID == 0)
+            job = result.frontier.requireOneJobFromBucket(current_bucket);
+          __syncwarp(FULL_WARP_MASK);
+          job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
+          job.val = __shfl_sync(FULL_WARP_MASK, job.val, 0);
+          job.src_id = __shfl_sync(FULL_WARP_MASK, job.src_id, 0);
+          job.offset = __shfl_sync(FULL_WARP_MASK, job.offset, 0);
+          job.itr = __shfl_sync(FULL_WARP_MASK, job.itr, 0);
+          // if (!LID) printf("%s:%d sync done  %d\n", __FILE__, __LINE__, WID);
+        }
+      }
+    }
+  }
+}
+#endif
 
 static __global__ void print_result(Sampler_new *sampler) {
   sampler->result.PrintResult();
@@ -285,12 +449,19 @@ static __global__ void print_result(Sampler_new *sampler) {
 float OnlineGBSampleNew(Sampler_new &sampler) {
   // orkut max degree 932101
 
-#ifdef LOCALITY
-  printf("error: cannot run with  LOCALITY yet \n");
-  return 0.0;
+#ifndef LOCALITY
+  if (FLAGS_loc) {
+    printf("error: must compile with defining LOCALITY \n");
+    return 0.0;
+  }
+#else
+  if (!FLAGS_loc) {
+    printf("error: must not compile with defining LOCALITY \n");
+    return 0.0;
+  }
 #endif
 
-  LOG("%s\n", __FUNCTION__);
+  // LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
   LOG("skipping 8k\n");
 #endif  // skip8k
@@ -302,11 +473,19 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
   int n_sm = prop.multiProcessorCount;
 
   Sampler_new *sampler_ptr;
-  cudaMalloc(&sampler_ptr, sizeof(Sampler_new));
+  MyCudaMalloc(&sampler_ptr, sizeof(Sampler_new));
   CUDA_RT_CALL(cudaMemcpy(sampler_ptr, &sampler, sizeof(Sampler_new),
                           cudaMemcpyHostToDevice));
   double start_time, total_time;
   // init_kernel_ptr<<<1, 32, 0, 0>>>(sampler_ptr, true);
+
+  int numBlocksPerSm = 0;
+  // Number of threads my_kernel will be launched with
+  int numThreads = BLOCK_SIZE;
+  // cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+  //     &numBlocksPerSm, sample_kernel, numThreads, 0);
+
+  // paster(numBlocksPerSm);
 
   // allocate global buffer
   int block_num = n_sm * FLAGS_m;
@@ -327,7 +506,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
 #pragma omp barrier
   Vector_pack<uint> *vector_packs;
   CUDA_RT_CALL(
-      cudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
+      MyCudaMalloc(&vector_packs, sizeof(Vector_pack<uint>) * block_num));
   CUDA_RT_CALL(cudaMemcpy(vector_packs, vector_pack_h,
                           sizeof(Vector_pack<uint>) * block_num,
                           cudaMemcpyHostToDevice));
@@ -336,9 +515,24 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   start_time = wtime();
 #ifndef NDEBUG
-  sample_kernel<<<1, 64, 0, 0>>>(sampler_ptr, vector_packs);
+#ifdef LOCALITY
+  if (FLAGS_loc) {
+    printf("%s:%d %s \n", __FILE__, __LINE__, "sample_kernel_loc");
+    sample_kernel_loc<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
+  }
+#else
+  {
+    printf("%s:%d %s \n", __FILE__, __LINE__, "sample_kernel");
+    sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
+  }
+#endif
+#else
+#ifdef LOCALITY
+  // if (FLAGS_loc)
+  sample_kernel_loc<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #else
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
+#endif
 #endif
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
@@ -349,6 +543,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
       static_cast<float>(sampler.sampled_edges / total_time / 1000000));
   LOG("sampled_edges %d\n", sampler.sampled_edges);
   if (FLAGS_printresult) print_result<<<1, 32, 0, 0>>>(sampler_ptr);
+  // sampler.result.printSize();
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return total_time;
 }

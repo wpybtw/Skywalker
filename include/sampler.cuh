@@ -169,19 +169,19 @@ class Sampler {
     if (!FLAGS_umtable && !FLAGS_hmtable) {
       // LOG("GM table\n");
       CUDA_RT_CALL(
-          cudaMalloc((void **)&prob_array, local_edge_size * sizeof(float)));
+          MyCudaMalloc((void **)&prob_array, local_edge_size * sizeof(float)));
       CUDA_RT_CALL(
-          cudaMalloc((void **)&alias_array, local_edge_size * sizeof(uint)));
-      CUDA_RT_CALL(cudaMalloc((void **)&valid, local_vtx_num * sizeof(char)));
+          MyCudaMalloc((void **)&alias_array, local_edge_size * sizeof(uint)));
+      CUDA_RT_CALL(MyCudaMalloc((void **)&valid, local_vtx_num * sizeof(char)));
     }
     if (FLAGS_umtable) {
       // LOG("UM table\n");
-      CUDA_RT_CALL(cudaMallocManaged((void **)&prob_array,
+      CUDA_RT_CALL(MyCudaMallocManaged((void **)&prob_array,
                                      local_edge_size * sizeof(float)));
-      CUDA_RT_CALL(cudaMallocManaged((void **)&alias_array,
+      CUDA_RT_CALL(MyCudaMallocManaged((void **)&alias_array,
                                      local_edge_size * sizeof(uint)));
       CUDA_RT_CALL(
-          cudaMallocManaged((void **)&valid, local_vtx_num * sizeof(char)));
+          MyCudaMallocManaged((void **)&valid, local_vtx_num * sizeof(char)));
 
       CUDA_RT_CALL(cudaMemAdvise(prob_array, local_edge_size * sizeof(float),
                                  cudaMemAdviseSetAccessedBy, device_id));
@@ -202,7 +202,7 @@ class Sampler {
                                  cudaHostAllocWriteCombined));
     }
     // if (!FLAGS_ol)
-    //   CUDA_RT_CALL(cudaMalloc((void **)&avg_bias, ggraph.vtx_num *
+    //   CUDA_RT_CALL(MyCudaMalloc((void **)&avg_bias, ggraph.vtx_num *
     //   sizeof(float)));
     ggraph.local_vtx_offset = local_vtx_offset;
     ggraph.local_edge_offset = local_edge_offset;
@@ -221,18 +221,18 @@ class Sampler {
 
     if (!FLAGS_umtable && !FLAGS_hmtable) {
       CUDA_RT_CALL(
-          cudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
+          MyCudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
       CUDA_RT_CALL(
-          cudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
-      CUDA_RT_CALL(cudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
+          MyCudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
+      CUDA_RT_CALL(MyCudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
     }
     if (FLAGS_umtable) {
-      CUDA_RT_CALL(cudaMallocManaged((void **)&prob_array,
+      CUDA_RT_CALL(MyCudaMallocManaged((void **)&prob_array,
                                      ggraph.edge_num * sizeof(float)));
-      CUDA_RT_CALL(cudaMallocManaged((void **)&alias_array,
+      CUDA_RT_CALL(MyCudaMallocManaged((void **)&alias_array,
                                      ggraph.edge_num * sizeof(uint)));
       CUDA_RT_CALL(
-          cudaMallocManaged((void **)&valid, ggraph.vtx_num * sizeof(char)));
+          MyCudaMallocManaged((void **)&valid, ggraph.vtx_num * sizeof(char)));
 
       CUDA_RT_CALL(cudaMemAdvise(prob_array, ggraph.edge_num * sizeof(float),
                                  cudaMemAdviseSetAccessedBy, device_id));
@@ -260,7 +260,7 @@ class Sampler {
                                  cudaHostAllocWriteCombined));
     }
     // if (!FLAGS_ol)
-    //   CUDA_RT_CALL(cudaMalloc((void **)&avg_bias, ggraph.vtx_num *
+    //   CUDA_RT_CALL(MyCudaMalloc((void **)&avg_bias, ggraph.vtx_num *
     //   sizeof(float)));
     ggraph.valid = valid;
     ggraph.prob_array = prob_array;
@@ -418,9 +418,9 @@ class Walker {
   void Free() { result.Free(); }
   __device__ void BindResult() { ggraph.result = &result; }
   // void AllocateAliasTable() {
-  //   CUDA_RT_CALL(cudaMalloc((void **)&prob_array, ggraph.edge_num *
-  //   sizeof(float))); CUDA_RT_CALL(cudaMalloc((void **)&alias_array,
-  //   ggraph.edge_num * sizeof(uint))); CUDA_RT_CALL(cudaMalloc((void
+  //   CUDA_RT_CALL(MyCudaMalloc((void **)&prob_array, ggraph.edge_num *
+  //   sizeof(float))); CUDA_RT_CALL(MyCudaMalloc((void **)&alias_array,
+  //   ggraph.edge_num * sizeof(uint))); CUDA_RT_CALL(MyCudaMalloc((void
   //   **)&valid, ggraph.vtx_num * sizeof(char)));
   //   CUDA_RT_CALL(cudaMemset(valid, 0, ggraph.vtx_num * sizeof(char)));
   //   ggraph.valid = valid;
@@ -461,7 +461,7 @@ class Walker {
     std::uniform_int_distribution<> dis(1, 10000);  // ggraph.vtx_num);
     // uint *seeds = new uint[num_seed];
     uint *seeds;
-    CUDA_RT_CALL(cudaMallocManaged(&seeds, num_seed * sizeof(uint)));
+    CUDA_RT_CALL(MyCudaMallocManaged(&seeds, num_seed * sizeof(uint)));
     if (FLAGS_itl) {
       for (int n = 0; n < num_seed; ++n) {
         // // seeds[n] = dis(gen);
