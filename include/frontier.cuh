@@ -3,7 +3,7 @@
  * @LastEditors: Pengyu Wang
  * @Description:
  * @FilePath: /skywalker/include/frontier.cuh
- * @LastEditTime: 2022-03-12 13:20:00
+ * @LastEditTime: 2022-03-12 15:00:42
  */
 
 #pragma once
@@ -11,7 +11,7 @@
 #include "vec.cuh"
 #define ADD_FRONTIER 1
 
-#define LOCALITY 1
+// #define LOCALITY 1
 
 #ifdef ADD_FRONTIER
 template <typename T = uint>

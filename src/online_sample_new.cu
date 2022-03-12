@@ -58,25 +58,8 @@ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>::roll_once<
                        *local_size + active.thread_rank(),
                        buffer.ggraph->getOutNode(buffer.src_id, candidate),
                        ((buffer.current_itr + 2) < result.hop_num));
-      // if (!instance_id)  // offset == 1 || && itr == 1 && (offset == 0)
-      //   printf(
-      //       " itr %u instance_id %u offset %u local_offset %u adding %u\n",
-      //       buffer.current_itr + 1, instance_id, offset, *local_size +
-      //       active.thread_rank(), buffer.ggraph->getOutNode(buffer.src_id,
-      //       candidate));
     }
     if (active.thread_rank() == 0) *local_size += active.size();
-    // if (AddTillSize(local_size, target_size)) {
-    //   result.AddActive(buffer.current_itr + 1, instance_id, offset,
-    //                    local_offset,
-    //                    buffer.ggraph->getOutNode(buffer.src_id, candidate),
-    //                    (buffer.current_itr + 2) != result.hop_num);
-    //   // if (!instance_id && offset == 1)
-    //   //   printf("offset %u local_offset %u   should %d\n", offset,
-    //   //   local_offset, buffer.ggraph->getOutNode(buffer.src_id,
-    //   local_offset),
-    //   //   (buffer.current_itr + 2) != result.hop_num);
-    // }
     return true;
   } else
     return false;
@@ -87,14 +70,8 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
     roll_atomic<Jobs_result<JobType::NS, uint>>(
         curandState *state, Jobs_result<JobType::NS, uint> result,
         uint instance_id, uint offset) {
-  // if (!LID)
-  //   printf("buffer.current_itr+1 %u  %u\n", buffer.current_itr + 1,
-  //          result.hops[buffer.current_itr + 1]);
-  uint target_size = result.hops[buffer.current_itr + 1];
 
-  // if (LID == 0 && (buffer.src_id == 430119 || buffer.src_id == 462435))
-  //   printf(" roll_atomic got %u degree %d\n", buffer.src_id,
-  //          buffer.ggraph->getDegree(buffer.src_id));
+  uint target_size = result.hops[buffer.current_itr + 1];
 
   if (target_size < buffer.ggraph->getDegree(buffer.src_id)) {
     int itr = 0;
@@ -103,9 +80,6 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
     if (LID == 0) *local_size = 0;
     MySync();
     while (*local_size < target_size) {
-      // if (LID == 0 && (buffer.src_id == 430119 || buffer.src_id == 462435))
-      //   printf(" 111 roll_atomic got %u degree %d\n", buffer.src_id,
-      //          buffer.ggraph->getDegree(buffer.src_id));
       roll_once(local_size, state, target_size, result, instance_id, offset, 0);
       itr++;
       if (itr > 10) {
@@ -115,9 +89,6 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
     }
     MySync();
   } else if (target_size >= buffer.ggraph->getDegree(buffer.src_id)) {
-    // if (LID == 0 && (buffer.src_id == 430119 || buffer.src_id == 462435))
-    //   printf(" 222 roll_atomic got %u degree %d\n", buffer.src_id,
-    //          buffer.ggraph->getDegree(buffer.src_id));
     target_size = buffer.ggraph->getDegree(buffer.src_id);
     for (size_t i = LID; i < target_size; i += 32) {
       result.AddActive(buffer.current_itr + 1, instance_id, offset, i,
@@ -169,23 +140,14 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::NS, uint> &result,
       (alias_table_constructor_shmem<uint, thread_block_tile<32>> *)buffer;
   alias_table_constructor_shmem<uint, thread_block_tile<32>> *table =
       &tables[WID];
-  // if (LID == 0 && (src_id == 430119 || src_id == 462435))
-  //   printf(" iiii got %u degree %d\n", src_id, ggraph->getDegree(src_id));
-  // if (!LID)
-  //   printf("  starting job instance_idx %u %u \n", instance_idx,
-  //          ggraph->getDegree(src_id));
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(src_id), ggraph,
                            ggraph->getDegree(src_id), current_itr, src_id);
-  // if(!LID) printf("buffer.current_itr %u\n", table->buffer.current_itr);
   if (not_all_zero) {
     table->construct();
     table->roll_atomic(&state, result, instance_idx, offset);
   }
   table->Clean();
-  // if (!LID)
-  //   printf("  finish  job instance_idx %u %u \n", instance_idx,
-  //          ggraph->getDegree(src_id));
 }
 
 static __device__ void SampleBlockCentic(Jobs_result<JobType::NS, uint> &result,
@@ -200,9 +162,6 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::NS, uint> &result,
   alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *table =
       &tables[0];
   table->loadGlobalBuffer(vector_packs);
-  // if (!LTID)
-  //   printf("  starting high degree job instance_idx %u %u \n", instance_idx,
-  //          ggraph->getDegree(src_id));
   __syncthreads_count(blockDim.x);
   bool not_all_zero =
       table->loadFromGraph(ggraph->getNeighborPtr(src_id), ggraph,
@@ -216,9 +175,6 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::NS, uint> &result,
   }
   __syncthreads_count(blockDim.x);
   table->Clean();
-  // if (!LTID)
-  //   printf("  finish high degree job instance_idx %u %u \n", instance_idx,
-  //          ggraph->getDegree(src_id));
 }
 
 #ifndef LOCALITY
@@ -297,11 +253,6 @@ __global__ void sample_kernel(Sampler_new *sampler,
     }
     __syncthreads();
     if (threadIdx.x == 0) {
-      // while (!result.checkFinish(current_itr))
-      // {
-      //   printf("waiting ");
-      // }
-      // result.NextItr(current_itr);
       current_itr++;
     }
     __syncthreads();
