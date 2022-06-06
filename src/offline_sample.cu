@@ -465,7 +465,6 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaPeekAtLastError());
   start_time = wtime();
   if (!FLAGS_peritr) {
-// if ( LOCALITY) //FLAGS_loc &&
 #ifdef LOCALITY
     sample_kernel_loc<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr);
 #else

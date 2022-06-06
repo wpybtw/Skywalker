@@ -448,18 +448,6 @@ static __global__ void print_result(Sampler_new *sampler) {
 float OnlineGBSampleNew(Sampler_new &sampler) {
   // orkut max degree 932101
 
-#ifndef LOCALITY
-  if (FLAGS_loc) {
-    printf("error: must compile with defining LOCALITY \n");
-    return 0.0;
-  }
-#else
-  if (!FLAGS_loc) {
-    printf("error: must not compile with defining LOCALITY \n");
-    return 0.0;
-  }
-#endif
-
   // LOG("%s\n", __FUNCTION__);
 #ifdef skip8k
   LOG("skipping 8k\n");
@@ -515,7 +503,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
   start_time = wtime();
 #ifndef NDEBUG
 #ifdef LOCALITY
-  if (FLAGS_loc) {
+  {
     printf("%s:%d %s \n", __FILE__, __LINE__, "sample_kernel_loc");
     sample_kernel_loc<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
   }
@@ -527,7 +515,6 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
 #endif
 #else
 #ifdef LOCALITY
-  // if (FLAGS_loc)
   sample_kernel_loc<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #else
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);

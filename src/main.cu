@@ -104,7 +104,7 @@ DEFINE_bool(built, false, "has built table");
 
 DEFINE_bool(gmem, false, "do not use shmem as buffer");
 
-DEFINE_bool(loc, false, "use locality-aware frontier");
+// DEFINE_bool(loc, false, "use locality-aware frontier");
 DEFINE_bool(newsampler, false, "use new sampler");
 DEFINE_bool(csv, false, "CSV output");
 
@@ -132,9 +132,10 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   // override flag
-  if (FLAGS_loc) {
+#ifdef LOCALITY
     FLAGS_peritr = false;
-  }
+    LOG("warning: LOCALITY works with fused kernel\n");
+#endif
   if (FLAGS_hmgraph) {
     FLAGS_umgraph = false;
     FLAGS_gmgraph = false;
