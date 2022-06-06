@@ -26,7 +26,10 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
                        buffer.ggraph->getOutNode(buffer.src_id, candidate),
                        (buffer.current_itr + 2) < result.hop_num);
     }
-    if (active.thread_rank() == 0) *local_size += active.size();
+    if (active.thread_rank() == 0) {
+      *local_size=MIN((*local_size+active.size()), target_size);
+      // printf("1*local_size %u\n", *local_size);
+    }
 
     return true;
   } else
@@ -59,7 +62,10 @@ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>::roll_once<
                        buffer.ggraph->getOutNode(buffer.src_id, candidate),
                        ((buffer.current_itr + 2) < result.hop_num));
     }
-    if (active.thread_rank() == 0) *local_size += active.size();
+    if (active.thread_rank() == 0) {
+      // *local_size += active.size();
+      *local_size=MIN((*local_size+active.size()), target_size);
+    }
     return true;
   } else
     return false;
@@ -71,7 +77,9 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
         curandState *state, Jobs_result<JobType::NS, uint> result,
         uint instance_id, uint offset) {
   uint target_size = result.hops[buffer.current_itr + 1];
-
+  // if (!LID)
+  //   printf("src %u buffer.current_itr %u target_size %u\n", buffer.src_id,
+  //          buffer.current_itr, target_size);
   if (target_size < buffer.ggraph->getDegree(buffer.src_id)) {
     int itr = 0;
     __shared__ uint sizes[WARP_PER_BLK];
@@ -110,6 +118,9 @@ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>::
         Jobs_result<JobType::NS, uint> result, uint instance_id, uint offset,
         uint local_offset) {
   __shared__ uint size;
+  // if (!threadIdx.x)
+  //   printf("src %u buffer.current_itr %u target_size %u\n", buffer.src_id,
+  //          buffer.current_itr, target_size);
   // use only the first warp to sample
   if (WID == 0) {
     buffer.selected.CleanDataWC();

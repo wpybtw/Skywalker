@@ -327,6 +327,8 @@ struct Jobs_result<JobType::NS, T> {
     // return get_sum(frontier.sizes, frontier.hop_num); //normal frontier can
     // use this as well?
     // else
+    // printH(hops, hop_num);
+    // printH(sample_lengths, size * size_of_sample_lengths);
     return get_sum(sample_lengths, size * size_of_sample_lengths);
   }
   __device__ void AddActive(uint itr, uint sampleIdx, uint offset,

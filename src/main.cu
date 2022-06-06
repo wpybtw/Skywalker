@@ -105,7 +105,7 @@ DEFINE_bool(built, false, "has built table");
 DEFINE_bool(gmem, false, "do not use shmem as buffer");
 
 // DEFINE_bool(loc, false, "use locality-aware frontier");
-DEFINE_bool(newsampler, false, "use new sampler");
+DEFINE_bool(newsampler, true, "use new sampler");
 DEFINE_bool(csv, false, "CSV output");
 
 int main(int argc, char *argv[]) {
@@ -127,10 +127,10 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 #endif
-  if (FLAGS_newsampler && FLAGS_ngpu != 1) {
-    LOG("warning: LOCALITY now only support single GPU\n");
-    return 1;
-  }
+  // if (FLAGS_newsampler && FLAGS_ngpu != 1) {
+  //   LOG("warning: LOCALITY now only support single GPU\n");
+  //   return 1;
+  // }
   // override flag
 #ifdef LOCALITY
     FLAGS_peritr = false;
