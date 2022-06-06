@@ -501,6 +501,7 @@ float OfflineSample(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   sampler.sampled_edges = sampler.result.GetSampledNumber(!FLAGS_peritr);
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
       omp_get_thread_num(), total_time * 1000,

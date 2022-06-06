@@ -1,77 +1,152 @@
 [
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/kernel.o src/kernel.cu",
-    "file": "src/kernel.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/createTable.cu.o -MF CMakeFiles/skywalker.dir/src/createTable.cu.o.d -x cu -c /home/pywang/skywalker/src/createTable.cu -o CMakeFiles/skywalker.dir/src/createTable.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/createTable.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/unbiased_walk.o src/unbiased_walk.cu",
-    "file": "src/unbiased_walk.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/kernel.cu.o -MF CMakeFiles/skywalker.dir/src/kernel.cu.o.d -x cu -c /home/pywang/skywalker/src/kernel.cu -o CMakeFiles/skywalker.dir/src/kernel.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/kernel.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/online_walk.o src/online_walk.cu",
-    "file": "src/online_walk.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/main.cu.o -MF CMakeFiles/skywalker.dir/src/main.cu.o.d -x cu -c /home/pywang/skywalker/src/main.cu -o CMakeFiles/skywalker.dir/src/main.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/main.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/createTable.o src/createTable.cu",
-    "file": "src/createTable.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/offline_sample.cu.o -MF CMakeFiles/skywalker.dir/src/offline_sample.cu.o.d -x cu -c /home/pywang/skywalker/src/offline_sample.cu -o CMakeFiles/skywalker.dir/src/offline_sample.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/offline_sample.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/offline_sample.o src/offline_sample.cu",
-    "file": "src/offline_sample.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/offline_walk.cu.o -MF CMakeFiles/skywalker.dir/src/offline_walk.cu.o.d -x cu -c /home/pywang/skywalker/src/offline_walk.cu -o CMakeFiles/skywalker.dir/src/offline_walk.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/offline_walk.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/online_sample.o src/online_sample.cu",
-    "file": "src/online_sample.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/online_sample.cu.o -MF CMakeFiles/skywalker.dir/src/online_sample.cu.o.d -x cu -c /home/pywang/skywalker/src/online_sample.cu -o CMakeFiles/skywalker.dir/src/online_sample.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/online_sample.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/offline_walk.o src/offline_walk.cu",
-    "file": "src/offline_walk.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/online_sample_new.cu.o -MF CMakeFiles/skywalker.dir/src/online_sample_new.cu.o.d -x cu -c /home/pywang/skywalker/src/online_sample_new.cu -o CMakeFiles/skywalker.dir/src/online_sample_new.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/online_sample_new.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/vec.o src/vec.cu",
-    "file": "src/vec.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/online_sample_twc.cu.o -MF CMakeFiles/skywalker.dir/src/online_sample_twc.cu.o.d -x cu -c /home/pywang/skywalker/src/online_sample_twc.cu -o CMakeFiles/skywalker.dir/src/online_sample_twc.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/online_sample_twc.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/sampler.o src/sampler.cu",
-    "file": "src/sampler.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/online_walk.cu.o -MF CMakeFiles/skywalker.dir/src/online_walk.cu.o.d -x cu -c /home/pywang/skywalker/src/online_walk.cu -o CMakeFiles/skywalker.dir/src/online_walk.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/online_walk.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/main.o src/main.cu",
-    "file": "src/main.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/online_walk_gmem.cu.o -MF CMakeFiles/skywalker.dir/src/online_walk_gmem.cu.o.d -x cu -c /home/pywang/skywalker/src/online_walk_gmem.cu -o CMakeFiles/skywalker.dir/src/online_walk_gmem.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/online_walk_gmem.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/util.o src/util.cu",
-    "file": "src/util.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/online_walk_loc.cu.o -MF CMakeFiles/skywalker.dir/src/online_walk_loc.cu.o.d -x cu -c /home/pywang/skywalker/src/online_walk_loc.cu -o CMakeFiles/skywalker.dir/src/online_walk_loc.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/online_walk_loc.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/sampler_spliced.o src/sampler_spliced.cu",
-    "file": "src/sampler_spliced.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/unbiased_sample.cu.o -MF CMakeFiles/skywalker.dir/src/unbiased_sample.cu.o.d -x cu -c /home/pywang/skywalker/src/unbiased_sample.cu -o CMakeFiles/skywalker.dir/src/unbiased_sample.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/unbiased_sample.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/api/bias_static.o src/api/bias_static.cu",
-    "file": "src/api/bias_static.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/unbiased_walk.cu.o -MF CMakeFiles/skywalker.dir/src/unbiased_walk.cu.o.d -x cu -c /home/pywang/skywalker/src/unbiased_walk.cu -o CMakeFiles/skywalker.dir/src/unbiased_walk.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/unbiased_walk.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/api/bias_degree.o src/api/bias_degree.cu",
-    "file": "src/api/bias_degree.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/util.cu.o -MF CMakeFiles/skywalker.dir/src/util.cu.o.d -x cu -c /home/pywang/skywalker/src/util.cu -o CMakeFiles/skywalker.dir/src/util.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/util.cu.o"
   },
   {
-    "directory": "/home/pywang/sampling",
-    "command": "nvcc  -Xcompiler -fopenmp -lineinfo -gencode=arch=compute_75,code=sm_75  -I./include -I/usr/local/cuda-11.0/targets/x86_64-linux/include -I/home/pywang/sampling/build/deps/gflags/include -rdc=true -std=c++11   -c -o bin/obj/api/bias_node2vec.o src/api/bias_node2vec.cu",
-    "file": "src/api/bias_node2vec.cu"
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker.dir/src/api/bias_static.cu.o -MF CMakeFiles/skywalker.dir/src/api/bias_static.cu.o.d -x cu -c /home/pywang/skywalker/src/api/bias_static.cu -o CMakeFiles/skywalker.dir/src/api/bias_static.cu.o",
+    "file": "CMakeFiles/skywalker.dir/src/api/bias_static.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/createTable.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/createTable.cu.o.d -x cu -c /home/pywang/skywalker/src/createTable.cu -o CMakeFiles/skywalker_node2vec.dir/src/createTable.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/createTable.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/kernel.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/kernel.cu.o.d -x cu -c /home/pywang/skywalker/src/kernel.cu -o CMakeFiles/skywalker_node2vec.dir/src/kernel.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/kernel.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/main.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/main.cu.o.d -x cu -c /home/pywang/skywalker/src/main.cu -o CMakeFiles/skywalker_node2vec.dir/src/main.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/main.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/offline_sample.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/offline_sample.cu.o.d -x cu -c /home/pywang/skywalker/src/offline_sample.cu -o CMakeFiles/skywalker_node2vec.dir/src/offline_sample.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/offline_sample.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/offline_walk.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/offline_walk.cu.o.d -x cu -c /home/pywang/skywalker/src/offline_walk.cu -o CMakeFiles/skywalker_node2vec.dir/src/offline_walk.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/offline_walk.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/online_sample.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/online_sample.cu.o.d -x cu -c /home/pywang/skywalker/src/online_sample.cu -o CMakeFiles/skywalker_node2vec.dir/src/online_sample.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/online_sample.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/online_sample_new.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/online_sample_new.cu.o.d -x cu -c /home/pywang/skywalker/src/online_sample_new.cu -o CMakeFiles/skywalker_node2vec.dir/src/online_sample_new.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/online_sample_new.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/online_sample_twc.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/online_sample_twc.cu.o.d -x cu -c /home/pywang/skywalker/src/online_sample_twc.cu -o CMakeFiles/skywalker_node2vec.dir/src/online_sample_twc.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/online_sample_twc.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/online_walk.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/online_walk.cu.o.d -x cu -c /home/pywang/skywalker/src/online_walk.cu -o CMakeFiles/skywalker_node2vec.dir/src/online_walk.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/online_walk.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/online_walk_gmem.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/online_walk_gmem.cu.o.d -x cu -c /home/pywang/skywalker/src/online_walk_gmem.cu -o CMakeFiles/skywalker_node2vec.dir/src/online_walk_gmem.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/online_walk_gmem.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/online_walk_loc.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/online_walk_loc.cu.o.d -x cu -c /home/pywang/skywalker/src/online_walk_loc.cu -o CMakeFiles/skywalker_node2vec.dir/src/online_walk_loc.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/online_walk_loc.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/unbiased_sample.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/unbiased_sample.cu.o.d -x cu -c /home/pywang/skywalker/src/unbiased_sample.cu -o CMakeFiles/skywalker_node2vec.dir/src/unbiased_sample.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/unbiased_sample.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/unbiased_walk.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/unbiased_walk.cu.o.d -x cu -c /home/pywang/skywalker/src/unbiased_walk.cu -o CMakeFiles/skywalker_node2vec.dir/src/unbiased_walk.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/unbiased_walk.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/util.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/util.cu.o.d -x cu -c /home/pywang/skywalker/src/util.cu -o CMakeFiles/skywalker_node2vec.dir/src/util.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/util.cu.o"
+  },
+  {
+    "directory": "/home/pywang/skywalker/build",
+    "command": "/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler -DGFLAGS_IS_A_DLL=0 -I/home/pywang/skywalker/build/deps/gflags/include -I/home/pywang/skywalker/include -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v  -lineinfo -O3 -Xcompiler  -DNDEBUG  -std=c++11 -MD -MT CMakeFiles/skywalker_node2vec.dir/src/api/bias_node2vec.cu.o -MF CMakeFiles/skywalker_node2vec.dir/src/api/bias_node2vec.cu.o.d -x cu -c /home/pywang/skywalker/src/api/bias_node2vec.cu -o CMakeFiles/skywalker_node2vec.dir/src/api/bias_node2vec.cu.o",
+    "file": "CMakeFiles/skywalker_node2vec.dir/src/api/bias_node2vec.cu.o"
   }
 ]

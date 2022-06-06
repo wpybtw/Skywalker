@@ -3,6 +3,8 @@ alias-method/*
 build/*
 bin/*
 deps/*
+bin_old/*
+
 perf_result/*
 .clangd/*
 .VSCodeCounter/*

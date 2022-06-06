@@ -491,7 +491,7 @@ struct Jobs_result<JobType::RW, T> {
     device_id = _device_id;
     size = _size;
     hop_num = _hop_num;
-    paster(hop_num);
+    // paster(hop_num);
     if (size * hop_num > 400000000) FLAGS_umresult = true;
     if (!FLAGS_umresult) {
       CUDA_RT_CALL(MyCudaMalloc(&data, size * hop_num * sizeof(uint)));

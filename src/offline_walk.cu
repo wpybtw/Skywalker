@@ -217,6 +217,7 @@ float OfflineWalk(Walker &walker) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   LOG("Device %d sampling time:\t%.6f ratio:\t %.2f MSEPS\n",
       omp_get_thread_num(), total_time,
       static_cast<float>(walker.result.GetSampledNumber() / total_time /

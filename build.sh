@@ -5,7 +5,7 @@
  # @LastEditTime: 2020-12-29 21:45:17
  # @FilePath: /sampling/src/build.sh
 ### 
-make --always-make --dry-run \
+make -C build --always-make --dry-run \
  | grep -wE 'gcc|g++|nvcc' \
  | grep -w '\-c' \
  | jq -nR '[inputs|{directory:".", command:., file: match(" [^ ]+$").string[1:]}]' \

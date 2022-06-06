@@ -13,9 +13,11 @@ static __device__ void SampleWarpCentic(Jobs_result<JobType::RW, uint> &result,
                                         void *buffer,
                                         Vector_pack<uint> *vector_packs,
                                         uint instance_id = 0) {
-  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::GMEM> tables[WARP_PER_BLK];
-      // *tables = (alias_table_constructor_shmem<uint, thread_block_tile<32>,
-      //                                          BufferType::GMEM> *)buffer;
+  __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>,
+                                           BufferType::GMEM>
+      tables[WARP_PER_BLK];
+  // *tables = (alias_table_constructor_shmem<uint, thread_block_tile<32>,
+  //                                          BufferType::GMEM> *)buffer;
   alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::GMEM>
       *table = &tables[WID];
   table->loadGlobalBuffer(vector_packs + WID);
@@ -49,9 +51,10 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
                                          void *buffer,
                                          Vector_pack<uint> *vector_packs,
                                          uint instance_id = 0) {
-  __shared__ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> tables[1];
-      // (alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *)
-      //     buffer;
+  __shared__ alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM>
+      tables[1];
+  // (alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *)
+  //     buffer;
   alias_table_constructor_shmem<uint, thread_block, BufferType::GMEM> *table =
       &tables[0];
   table->loadGlobalBuffer(vector_packs);
@@ -88,7 +91,7 @@ static __global__ void OnlineWalkKernel(Walker *sampler,
                                         float *tp) {
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
-  Vector_pack<uint> *vector_packs = &vector_pack[BID* WARP_PER_BLK];
+  Vector_pack<uint> *vector_packs = &vector_pack[BID * WARP_PER_BLK];
   __shared__ alias_table_constructor_shmem<uint, thread_block_tile<32>,
                                            BufferType::GMEM>
       table[WARP_PER_BLK];
@@ -320,6 +323,7 @@ float OnlineWalkGMem(Walker &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
       omp_get_thread_num(), total_time * 1000,
       static_cast<float>(sampler.result.GetSampledNumber() / total_time /

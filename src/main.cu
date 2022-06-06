@@ -32,7 +32,7 @@ using namespace std;
 DEFINE_string(input, "/home/pywang/data/lj.w.gr", "input");
 // DEFINE_int32(device, 0, "GPU ID");
 DEFINE_int32(ngpu, 1, "number of GPUs ");
-DEFINE_bool(s, true, "single gpu");
+DEFINE_bool(s, true, "single run");
 
 DEFINE_int32(n, 4000, "sample size");
 DEFINE_int32(k, 2, "neightbor");
@@ -58,7 +58,9 @@ DEFINE_double(q, 0.5, "hyper-parameter q for node2vec");
 DEFINE_double(tp, 0.0, "terminate probabiility");
 
 DEFINE_bool(hmtable, false, "using host mapped mem for alias table");
-DEFINE_bool(dt, true, "using duplicated table on each GPU");
+DEFINE_bool(dt, true,
+            "using duplicated table on each GPU; 'false' indicates using a "
+            "shared HM table");
 
 DEFINE_bool(umgraph, true, "using UM for graph");
 DEFINE_bool(hmgraph, false, "using host registered mem for graph");
@@ -116,6 +118,19 @@ int main(int argc, char *argv[]) {
   // ELE_PER_WARP
   //      << "ALLOWED_ELE_PER_SUBWARP " << ALLOWED_ELE_PER_SUBWARP << endl;
 
+#ifdef LOCALITY
+  LOG("LOCALITY\n");
+#endif
+#ifdef LOCALITY
+  if (FLAGS_ngpu != 1) {
+    LOG("warning: LOCALITY now only support single GPU\n");
+    return 1;
+  }
+#endif
+  if (FLAGS_newsampler && FLAGS_ngpu != 1) {
+    LOG("warning: LOCALITY now only support single GPU\n");
+    return 1;
+  }
   // override flag
   if (FLAGS_loc) {
     FLAGS_peritr = false;
@@ -136,12 +151,6 @@ int main(int argc, char *argv[]) {
       printf("no p2p. We recommond to use GMMEM in NVLink\n");
       return 1;
     }
-  }
-  if (FLAGS_hmtable) {
-    LOG("Using host memory for alias table!\n");
-  }
-  if (!FLAGS_dt) {
-    LOG("using duplicated table on each GPU\n");
   }
   if (FLAGS_node2vec) {
     // FLAGS_ol = true;
@@ -192,13 +201,32 @@ int main(int argc, char *argv[]) {
   }
   Graph *ginst = new Graph();
   if (ginst->numEdge > 600000000) {
+    // if (FLAGS_ngpu == 1) {
     FLAGS_umtable = 1;
+    FLAGS_hmtable = 0;
     LOG("overriding um for alias table\n");
+    // }
+    // else {
+    //   FLAGS_umtable = 0;
+    //   FLAGS_hmtable = 1;
+    //   LOG("overriding hm for alias table\n");
+    // }
   }
+  // {
+  //   FLAGS_umtable = 0;
+  //   FLAGS_hmtable = 1;
+  //   LOG("overriding hm for alias table\n");
+  // }
   if (ginst->MaxDegree > 500000) {
     FLAGS_umbuf = 1;
     LOG("overriding um buffer\n");
   }
+  if (FLAGS_hmtable && FLAGS_umtable) {
+    LOG("Using host memory or unified memory for alias table!\n");
+    return 1;
+  }
+  LOG("umtable %d hmtable %d duplicate_table %d umbuf %d \n", FLAGS_umtable,
+      FLAGS_hmtable, FLAGS_dt, FLAGS_umbuf);
   if (FLAGS_full && !FLAGS_stream) {
     sample_size = ginst->numNode;
     FLAGS_n = ginst->numNode;
@@ -299,7 +327,7 @@ int main(int argc, char *argv[]) {
             samplers[dev_id].UseGlobalAliasTable(global_table);
           else {
             // LOG("CopyFromGlobalAliasTable");
-            samplers[dev_id].CopyFromGlobalAliasTable(global_table);
+            samplers[dev_id].CopyFromGlobalAliasTable(global_table, samplers);
           }
         }
 #pragma omp barrier
@@ -366,7 +394,9 @@ int main(int argc, char *argv[]) {
     if (FLAGS_s) break;
   }
   if (FLAGS_csv) {
-    for (size_t i = 0; i < FLAGS_ngpu; i++) {
+    // for (size_t i = 0; i < FLAGS_ngpu; i++)
+    size_t i = FLAGS_ngpu - 1;
+    {
       if (!FLAGS_ol && FLAGS_bias) printf("%0.2f,\t", table_times[i]);
       printf("%0.2f,\t", times[i]);
       printf("%0.2f,\n", tp[i]);

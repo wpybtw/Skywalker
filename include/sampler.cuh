@@ -38,7 +38,7 @@ void printH(T *ptr, int size) {
 //   char *valid;
 // };
 
-// Sampler_new is for unbiased and offline sampling 
+// Sampler_new is for unbiased and offline sampling
 
 class Sampler {
  public:
@@ -79,7 +79,7 @@ class Sampler {
     alias_array = nullptr;
     valid = nullptr;
   }
-  void CopyFromGlobalAliasTable(AliasTable &table) {
+  void CopyFromGlobalAliasTable(AliasTable &table, Sampler *samplers) {
     LOG("CopyFromGlobalAliasTable\n");
     // if (prob_array != nullptr) CUDA_RT_CALL(cudaFree(prob_array));
     // if (alias_array != nullptr) CUDA_RT_CALL(cudaFree(alias_array));
@@ -87,7 +87,11 @@ class Sampler {
     prob_array = nullptr;
     alias_array = nullptr;
     valid = nullptr;
-
+    //     if (FLAGS_hmtable) {
+    // #pragma omp master
+    //       AllocateSharedAliasTable(samplers);
+    // #pragma omp barrier
+    //     } else
     AllocateAliasTable();
     CUDA_RT_CALL(cudaMemcpy((prob_array), table.prob_array,
                             ggraph.edge_num * sizeof(float),
@@ -177,9 +181,9 @@ class Sampler {
     if (FLAGS_umtable) {
       // LOG("UM table\n");
       CUDA_RT_CALL(MyCudaMallocManaged((void **)&prob_array,
-                                     local_edge_size * sizeof(float)));
+                                       local_edge_size * sizeof(float)));
       CUDA_RT_CALL(MyCudaMallocManaged((void **)&alias_array,
-                                     local_edge_size * sizeof(uint)));
+                                       local_edge_size * sizeof(uint)));
       CUDA_RT_CALL(
           MyCudaMallocManaged((void **)&valid, local_vtx_num * sizeof(char)));
 
@@ -191,7 +195,7 @@ class Sampler {
                                  cudaMemAdviseSetAccessedBy, device_id));
     }
     if (FLAGS_hmtable) {
-      LOG("host mapped table\n");
+      LOG("AllocateAliasTablePartial host mapped table\n");
       CUDA_RT_CALL(cudaHostAlloc((void **)&prob_array,
                                  local_edge_size * sizeof(float),
                                  cudaHostAllocWriteCombined));
@@ -214,8 +218,32 @@ class Sampler {
     CUDA_RT_CALL(cudaMemset(prob_array, 0, local_vtx_num * sizeof(float)));
     CUDA_RT_CALL(cudaDeviceSynchronize());
   }
+  void AllocateSharedAliasTable(Sampler *samplers) {
+    LOG("AllocateSharedAliasTable\n");
+    int dev_id = omp_get_thread_num();
+    CUDA_RT_CALL(cudaSetDevice(dev_id));
+
+    if (FLAGS_hmtable) {
+      LOG("host mapped table\n");
+      CUDA_RT_CALL(cudaHostAlloc((void **)&prob_array,
+                                 ggraph.edge_num * sizeof(float),
+                                 cudaHostAllocWriteCombined));
+      CUDA_RT_CALL(cudaHostAlloc((void **)&alias_array,
+                                 ggraph.edge_num * sizeof(uint),
+                                 cudaHostAllocWriteCombined));
+      CUDA_RT_CALL(cudaHostAlloc((void **)&valid, ggraph.vtx_num * sizeof(char),
+                                 cudaHostAllocWriteCombined));
+    }
+    CUDA_RT_CALL(cudaMemset(prob_array, 0, ggraph.vtx_num * sizeof(float)));
+
+    for (int i = 0; i < omp_get_num_threads(); i++) {
+      samplers[i].ggraph.valid = valid;
+      samplers[i].ggraph.prob_array = prob_array;
+      samplers[i].ggraph.alias_array = alias_array;
+    }
+  }
   void AllocateAliasTable() {
-    LOG("umtable %d %d\n", device_id, omp_get_thread_num());
+    // LOG("umtable %d %d\n", device_id, omp_get_thread_num());
     int dev_id = omp_get_thread_num();
     CUDA_RT_CALL(cudaSetDevice(dev_id));
 
@@ -224,13 +252,14 @@ class Sampler {
           MyCudaMalloc((void **)&prob_array, ggraph.edge_num * sizeof(float)));
       CUDA_RT_CALL(
           MyCudaMalloc((void **)&alias_array, ggraph.edge_num * sizeof(uint)));
-      CUDA_RT_CALL(MyCudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
+      CUDA_RT_CALL(
+          MyCudaMalloc((void **)&valid, ggraph.vtx_num * sizeof(char)));
     }
     if (FLAGS_umtable) {
       CUDA_RT_CALL(MyCudaMallocManaged((void **)&prob_array,
-                                     ggraph.edge_num * sizeof(float)));
+                                       ggraph.edge_num * sizeof(float)));
       CUDA_RT_CALL(MyCudaMallocManaged((void **)&alias_array,
-                                     ggraph.edge_num * sizeof(uint)));
+                                       ggraph.edge_num * sizeof(uint)));
       CUDA_RT_CALL(
           MyCudaMallocManaged((void **)&valid, ggraph.vtx_num * sizeof(char)));
 
@@ -353,15 +382,16 @@ class Sampler_new {
     ggraph = graph;
     // Init();
   }
-  Sampler_new(Sampler old){
-    ggraph=old.ggraph;
-    num_seed=old.num_seed;
-    prob_array=old.prob_array;
-    alias_array=old.alias_array;
-    valid=old.valid;
-    device_id=old.device_id;
-    sampled_edges=old.sampled_edges;
-    result.init(num_seed, old.result.hop_num,old.result.hops_h, old.result.seeds, device_id, old.ggraph.vtx_num);
+  Sampler_new(Sampler old) {
+    ggraph = old.ggraph;
+    num_seed = old.num_seed;
+    prob_array = old.prob_array;
+    alias_array = old.alias_array;
+    valid = old.valid;
+    device_id = old.device_id;
+    sampled_edges = old.sampled_edges;
+    result.init(num_seed, old.result.hop_num, old.result.hops_h,
+                old.result.seeds, device_id, old.ggraph.vtx_num);
     // ggraph=old.ggraph;
     // ggraph=old.ggraph;
     // ggraph=old.ggraph;
@@ -387,7 +417,6 @@ class Sampler_new {
     valid = nullptr;
   }
 };
-
 
 class Walker {
  public:
@@ -472,7 +501,7 @@ class Walker {
         seeds[n] = n + dev_id * num_seed;
       }
     }
-    result.init(num_seed, _hop_num, seeds, device_id );
+    result.init(num_seed, _hop_num, seeds, device_id);
     CUDA_RT_CALL(cudaFree(seeds));
   }
   // void Start();

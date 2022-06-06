@@ -124,6 +124,7 @@ static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 
+#include "date.h"
 // void Start_high_degree(Sampler sampler)
 float OnlineGBSample(Sampler &sampler) {
   // orkut max degree 932101
@@ -172,11 +173,16 @@ float OnlineGBSample(Sampler &sampler) {
 #ifdef check
   sample_kernel<<<1, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #else
+  // using namespace date;
+  // using namespace std::chrono;
+  // std::cout << "start: " << system_clock::now() << '\n';
   sample_kernel<<<block_num, BLOCK_SIZE, 0, 0>>>(sampler_ptr, vector_packs);
 #endif
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  // std::cout << "end: " << system_clock::now() << '\n';
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
       omp_get_thread_num(), total_time * 1000,
       static_cast<float>(sampler.result.GetSampledNumber() / total_time /

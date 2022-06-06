@@ -1,8 +1,8 @@
 /*
  * @Description: online walk.
  * @Date: 2020-12-06 17:29:39
- * @LastEditors: PengyuWang
- * @LastEditTime: 2021-01-11 16:56:20
+ * @LastEditors: Pengyu Wang
+ * @LastEditTime: 2022-04-11 14:10:21
  * @FilePath: /skywalker/src/online_walk.cu
  */
 #include "app.cuh"
@@ -80,7 +80,8 @@ static __device__ void SampleBlockCentic(Jobs_result<JobType::RW, uint> &result,
 }
 
 static __global__ void OnlineWalkKernel(Walker *sampler,
-                                 Vector_pack<uint> *vector_pack, float *tp) {
+                                        Vector_pack<uint> *vector_pack,
+                                        float *tp) {
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack<uint> *vector_packs = &vector_pack[BID];
@@ -163,15 +164,15 @@ static __global__ void OnlineWalkKernel(Walker *sampler,
     __syncthreads();
   }
 }
-__device__ uint get_smid() {
+static __device__ uint get_smid() {
   uint ret;
   asm("mov.u32 %0, %smid;" : "=r"(ret));
   return ret;
 }
 static __global__ void OnlineWalkKernelStatic(Walker *sampler,
-                                       Vector_pack<uint> *vector_pack,
-                                       uint current_itr, float *tp,
-                                       uint n = 1) {
+                                              Vector_pack<uint> *vector_pack,
+                                              uint current_itr, float *tp,
+                                              uint n = 1) {
   Jobs_result<JobType::RW, uint> &result = sampler->result;
   gpu_graph *ggraph = &sampler->ggraph;
   Vector_pack<uint> *vector_packs = &vector_pack[blockIdx.x];
@@ -225,7 +226,6 @@ static __global__ void OnlineWalkKernelStatic(Walker *sampler,
   }
 }
 
-
 static __global__ void print_result(Walker *sampler) {
   sampler->result.PrintResult();
 }
@@ -250,7 +250,7 @@ float OnlineWalkShMem(Walker &sampler) {
 #endif  // skip8k
 
   LOG("overring staic flag, static\n");
-  FLAGS_static=0;
+  FLAGS_static = 0;
 
   int device;
   cudaDeviceProp prop;
@@ -314,6 +314,7 @@ float OnlineWalkShMem(Walker &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
       omp_get_thread_num(), total_time * 1000,
       static_cast<float>(sampler.result.GetSampledNumber() / total_time /

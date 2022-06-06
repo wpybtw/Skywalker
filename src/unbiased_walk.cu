@@ -262,6 +262,7 @@ float UnbiasedWalk(Walker &walker) {
 
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   // float milliseconds = 0;
   // cudaEventElapsedTime(&milliseconds, start, stop);
   // printf("cuda event time %f \n",milliseconds);

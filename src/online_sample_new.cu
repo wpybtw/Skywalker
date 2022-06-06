@@ -70,7 +70,6 @@ alias_table_constructor_shmem<uint, thread_block_tile<32>, BufferType::SHMEM>::
     roll_atomic<Jobs_result<JobType::NS, uint>>(
         curandState *state, Jobs_result<JobType::NS, uint> result,
         uint instance_id, uint offset) {
-
   uint target_size = result.hops[buffer.current_itr + 1];
 
   if (target_size < buffer.ggraph->getDegree(buffer.src_id)) {
@@ -537,6 +536,7 @@ float OnlineGBSampleNew(Sampler_new &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   sampler.sampled_edges = sampler.result.GetSampledNumber(!FLAGS_peritr);
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
       omp_get_thread_num(), total_time * 1000,

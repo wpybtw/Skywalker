@@ -7,7 +7,7 @@ using subwarp_table =
     alias_table_constructor_shmem<uint, thread_block_tile<SUBWARP_SIZE>,
                                   BufferType::SHMEM,
                                   AliasTableStorePolicy::NONE>;
-                                  
+
 static __device__ void SampleSubwarpCentic(sample_result &result,
                                            gpu_graph *ggraph, curandState state,
                                            int current_itr, int idx,
@@ -240,6 +240,7 @@ float OnlineGBSampleTWC(Sampler &sampler) {
   CUDA_RT_CALL(cudaDeviceSynchronize());
   // CUDA_RT_CALL(cudaPeekAtLastError());
   total_time = wtime() - start_time;
+#pragma omp barrier
   LOG("Device %d sampling time:\t%.2f ms ratio:\t %.1f MSEPS\n",
       omp_get_thread_num(), total_time * 1000,
       static_cast<float>(sampler.result.GetSampledNumber() / total_time /

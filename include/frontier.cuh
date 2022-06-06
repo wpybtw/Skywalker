@@ -3,7 +3,7 @@
  * @LastEditors: Pengyu Wang
  * @Description:
  * @FilePath: /skywalker/include/frontier.cuh
- * @LastEditTime: 2022-03-12 15:00:42
+ * @LastEditTime: 2022-04-11 14:25:22
  */
 
 #pragma once
