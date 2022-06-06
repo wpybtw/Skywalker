@@ -181,7 +181,7 @@ struct LocalitySampleFrontier {
     }
   }
   __forceinline__ __device__ sampleJob<T> requireOneJob() {
-    printf("not implemented\n");
+    // printf("not implemented\n");
     int current_focus = *focus;
     if (!checkFocus(current_focus)) {
       nextFocus(current_focus);

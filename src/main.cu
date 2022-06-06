@@ -375,7 +375,8 @@ int main(int argc, char *argv[]) {
     }
     {
       size_t sampled = 0;
-      if ((!FLAGS_bias || !FLAGS_ol) && (!FLAGS_rw) || FLAGS_newsampler)
+      // (!FLAGS_bias || !FLAGS_ol) &&
+      if ( (!FLAGS_rw) && FLAGS_newsampler)
         for (size_t i = 0; i < num_device; i++) {
           sampled += samplers_new[i].sampled_edges;  // / total_time /1000000
         }

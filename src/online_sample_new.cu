@@ -285,11 +285,11 @@ __global__ void sample_kernel_loc(Sampler_new *sampler,
         __threadfence_block();
         if (LID == 0)
           job = result.frontier.requireOneJobFromBucket(current_bucket);
-        {
-          if (LID == 0 && (job.src_id == 430119 || job.src_id == 462435))
-            printf(" got %u degree %d\n", job.src_id,
-                   ggraph->getDegree(job.src_id));
-        }
+        // {
+        //   if (LID == 0 && (job.src_id == 430119 || job.src_id == 462435))
+        //     printf(" got %u degree %d\n", job.src_id,
+        //            ggraph->getDegree(job.src_id));
+        // }
         __syncwarp(FULL_WARP_MASK);
         job.instance_idx = __shfl_sync(FULL_WARP_MASK, job.instance_idx, 0);
         job.offset = __shfl_sync(FULL_WARP_MASK, job.offset, 0);
