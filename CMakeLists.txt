@@ -63,18 +63,18 @@ endif()
 set_target_properties(skywalker PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(skywalker PROPERTIES COMPILE_DEFINITIONS  LOCALITY)
 
-add_executable(skywalker_multi
+add_executable(skywalker_noloc
     ${DIR_SRCS}
     src/api/bias_static.cu
 )
-target_link_libraries(skywalker_multi 
+target_link_libraries(skywalker_noloc 
     ${EXTRA_LIBS} 
     ${CUDA_LIBRARIES}
 )
 if(OpenMP_CXX_FOUND)
-    target_link_libraries(skywalker_multi OpenMP::OpenMP_CXX)
+    target_link_libraries(skywalker_noloc OpenMP::OpenMP_CXX)
 endif()
-set_target_properties(skywalker_multi PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+set_target_properties(skywalker_noloc PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 
 

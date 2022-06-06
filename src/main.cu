@@ -122,10 +122,10 @@ int main(int argc, char *argv[]) {
   LOG("LOCALITY\n");
 #endif
 #ifdef LOCALITY
-  if (FLAGS_ngpu != 1) {
-    LOG("warning: LOCALITY now only support single GPU\n");
-    return 1;
-  }
+  // if (FLAGS_ngpu != 1) {
+  //   LOG("warning: LOCALITY now only support single GPU\n");
+  //   return 1;
+  // }
 #endif
   // if (FLAGS_newsampler && FLAGS_ngpu != 1) {
   //   LOG("warning: LOCALITY now only support single GPU\n");
