@@ -24,13 +24,15 @@ link_directories(${PROJECT_BINARY_DIR}/deps/gflags/lib)
 ############## BUILD ##############   
 set(EXTRA_LIBS gflags)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -rdc=true -gencode arch=compute_75,code=sm_75 -std=c++11  -res-usage -lnuma -fopenmp  -Xptxas -v ")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -rdc=true  -res-usage -lnuma -fopenmp  -Xptxas -v ")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   message("Debug mode")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G -O0 -Xcompiler   -ggdb  -lnvrt -Woverloaded-virtual")
 else()
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo -O3 -Xcompiler  -DNDEBUG ")
 endif()
+
+# -gencode arch=compute_75,code=sm_75 -std=c++11
 
 #SET(CUDA_SEPARABLE_COMPILATION ON)
 #set(CUDA_VERBOSE_BUILD ON)
@@ -53,6 +55,8 @@ add_executable(skywalker
     ${DIR_SRCS}
     src/api/bias_static.cu
 )
+
+
 target_link_libraries(skywalker 
     ${EXTRA_LIBS} 
     ${CUDA_LIBRARIES}
@@ -77,6 +81,23 @@ endif()
 set_target_properties(skywalker_noloc PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 
+add_executable(skywalker_node2vec
+    ${DIR_SRCS}
+    src/api/bias_node2vec.cu
+)
+target_link_libraries(skywalker_node2vec 
+    ${EXTRA_LIBS} 
+    ${CUDA_LIBRARIES}
+)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(skywalker_node2vec OpenMP::OpenMP_CXX)
+endif()
+set_target_properties(skywalker_node2vec PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+set_target_properties(skywalker_node2vec PROPERTIES COMPILE_DEFINITIONS  LOCALITY)
+
+set_property(TARGET skywalker PROPERTY CUDA_ARCHITECTURES 75)
+set_property(TARGET skywalker skywalker_noloc CUDA_ARCHITECTURES 75)
+set_property(TARGET skywalker_node2vec PROPERTY CUDA_ARCHITECTURES 75)
 
 # add_executable(skywalker_degree
 #     ${DIR_SRCS}
@@ -92,16 +113,3 @@ set_target_properties(skywalker_noloc PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 # set_target_properties(skywalker_degree PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 
-add_executable(skywalker_node2vec
-    ${DIR_SRCS}
-    src/api/bias_node2vec.cu
-)
-target_link_libraries(skywalker_node2vec 
-    ${EXTRA_LIBS} 
-    ${CUDA_LIBRARIES}
-)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(skywalker_node2vec OpenMP::OpenMP_CXX)
-endif()
-set_target_properties(skywalker_node2vec PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(skywalker_node2vec PROPERTIES COMPILE_DEFINITIONS  LOCALITY)
