@@ -124,7 +124,7 @@ static __global__ void print_result(Sampler *sampler) {
   sampler->result.PrintResult();
 }
 
-#include "date.h"
+//#include "date.h"
 // void Start_high_degree(Sampler sampler)
 float OnlineGBSample(Sampler &sampler) {
   // orkut max degree 932101

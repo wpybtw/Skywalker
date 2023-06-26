@@ -96,7 +96,7 @@ set_target_properties(skywalker_node2vec PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS 
 set_target_properties(skywalker_node2vec PROPERTIES COMPILE_DEFINITIONS  LOCALITY)
 
 set_property(TARGET skywalker PROPERTY CUDA_ARCHITECTURES 75)
-set_property(TARGET skywalker skywalker_noloc CUDA_ARCHITECTURES 75)
+set_property(TARGET skywalker skywalker_noloc PROPERTY CUDA_ARCHITECTURES 75)
 set_property(TARGET skywalker_node2vec PROPERTY CUDA_ARCHITECTURES 75)
 
 # add_executable(skywalker_degree

@@ -160,6 +160,7 @@ __global__ void sample_kernel(Walker *walker) {
             candidate = alias[col];
           *result.GetDataPtr(current_itr + 1, idx_i) =
               graph->getOutNode(src_id, candidate);
+          printf("Thread: %d edge: %d -> %d\n",TID, src_id, graph->getOutNode(src_id, candidate));
           // }
         } else if (src_degree == 0) {
           result.alive[idx_i] = 0;
