@@ -108,6 +108,9 @@ DEFINE_bool(gmem, false, "do not use shmem as buffer");
 DEFINE_bool(newsampler, true, "use new sampler");
 DEFINE_bool(csv, false, "CSV output");
 
+DEFINE_bool(escape, false, "Use escape vector runs");
+DEFINE_bool(absorb, false, "Only meaningful if used in tandem with escape set to true. If true, use inverse absorb runs.");
+
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
