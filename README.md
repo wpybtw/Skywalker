@@ -65,3 +65,19 @@ Notice that we also execute several other Graph sampling and random walk framewo
 
 # Details
 "--newsampler" indicates using Sampler_new for correct result layout. Is it only for unbiased and offline sampling?
+
+## Contributors
+
+Correspondence to: 
+  - [Pengyu Wang](wpybtw@sjtu.edu.cn) (wpybtw@sjtu.edu.cn)
+  - [Cheng Xu](jerryxu@sjtu.edu.cn) (jerryxu@sjtu.edu.cn)
+  - [Chao Li](lichao@cs.sjtu.edu.cn) (lichao@cs.sjtu.edu.cn)
+  - [Jieping Ye](yejieping.ye@alibaba-inc.com)(yejieping.ye@alibaba-inc.com)
+  - [Jing Wang](jing618@sjtu.edu.cn) (jing618@sjtu.edu.cn)
+  - [Taolei Wang](sjtuwtl@sjtu.edu.cn) (sjtuwtl@sjtu.edu.cn)
+  - [Lu Zhang](luzhang@sjtu.edu.cn) (luzhang@sjtu.edu.cn)
+  - [Yue Wu](matthew.wy@alibaba-inc.com)(matthew.wy@alibaba-inc.com)
+  - [Jingwen Leng](leng-jw@cs.sjtu.edu.cn) (leng-jw@cs.sjtu.edu.cn)
+  - [Quan Chen](chenquan@cs.sjtu.edu.cn) (chenquan@cs.sjtu.edu.cn)
+  - [Minyi Guo](guo-my@cs.sjtu.edu.cn) (guo-my@cs.sjtu.edu.cn)
+ 
