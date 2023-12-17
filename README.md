@@ -78,6 +78,6 @@ Correspondence to:
   - [Lu Zhang](luzhang@sjtu.edu.cn) (luzhang@sjtu.edu.cn)
   - [Yue Wu](matthew.wy@alibaba-inc.com)(matthew.wy@alibaba-inc.com)
   - [Jingwen Leng](leng-jw@cs.sjtu.edu.cn) (leng-jw@cs.sjtu.edu.cn)
-  - [Quan Chen](chenquan@cs.sjtu.edu.cn) (chenquan@cs.sjtu.edu.cn)
+  - [Quan Chen](chen-quan@cs.sjtu.edu.cn) (chen-quan@cs.sjtu.edu.cn)
   - [Minyi Guo](guo-my@cs.sjtu.edu.cn) (guo-my@cs.sjtu.edu.cn)
  
