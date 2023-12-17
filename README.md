@@ -67,6 +67,7 @@ Notice that we also execute several other Graph sampling and random walk framewo
 "--newsampler" indicates using Sampler_new for correct result layout. Is it only for unbiased and offline sampling?
 
 ## Contributors
+Our team has been working on related technologies since 2017. Thank you to everyone for contributing to this project. 
 
 Correspondence to: 
   - [Pengyu Wang](wpybtw@sjtu.edu.cn) (wpybtw@sjtu.edu.cn)
